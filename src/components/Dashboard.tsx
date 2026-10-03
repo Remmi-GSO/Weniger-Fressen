@@ -1,9 +1,11 @@
+import { useMemo } from 'react';
 import { type UserProfile, type DiaryEntry, type WaterLog, type FastingSession, type MealType, type ActivityLog, db } from '../db/db';
 import { CircularProgress } from './CircularProgress';
 import { MealCard } from './MealCard';
 import { WaterTracker } from './WaterTracker';
 import { formatDisplayDate, getTodayDateString } from '../utils/nutrition';
-import { ChevronLeft, ChevronRight, Calendar, Sparkles, Timer, Barcode, Plus, Trash2 } from 'lucide-react';
+import { assessFoodQuality } from '../utils/foodQuality';
+import { ChevronLeft, ChevronRight, Calendar, Sparkles, Timer, Barcode, Plus, Trash2, Leaf } from 'lucide-react';
 
 interface DashboardProps {
   selectedDate: string;
@@ -65,7 +67,35 @@ export const Dashboard = ({
   const baseTargetKcal = userProfile.targetCalories || 1800;
   const effectiveBudget = baseTargetKcal + totalBurnedKcal;
   const remainingKcal = effectiveBudget - totalKcal;
-  const kcalPercent = Math.min(100, Math.round((totalKcal / effectiveBudget) * 100));
+
+  // Maintenance energy calculation (Gewicht halten)
+  const isMaintainGoal = userProfile.goalType === 'maintain_weight' || userProfile.goalDeficit === 0;
+  const maintenanceBase = userProfile.maintenanceCalories || (baseTargetKcal + (userProfile.goalDeficit || (isMaintainGoal ? 0 : 500)));
+  const effectiveMaintenance = maintenanceBase + totalBurnedKcal;
+
+  // 3-Zone evaluation:
+  // 1. Deficit zone (Zielbereich / Abnehmen): totalKcal <= effectiveBudget
+  // 2. Maintenance zone (Gewicht halten): totalKcal > effectiveBudget && totalKcal <= effectiveMaintenance
+  // 3. Surplus zone (Überschuss): totalKcal > effectiveMaintenance
+  const inDeficitZone = totalKcal <= effectiveBudget;
+  const inMaintenanceZone = !isMaintainGoal && !inDeficitZone && totalKcal <= effectiveMaintenance;
+  const inSurplusZone = isMaintainGoal ? totalKcal > effectiveMaintenance : totalKcal > effectiveMaintenance;
+
+  const kcalPercent = inMaintenanceZone
+    ? Math.min(100, Math.round((totalKcal / effectiveMaintenance) * 100))
+    : Math.min(100, Math.round((totalKcal / effectiveBudget) * 100));
+
+  const ringColorClass = inDeficitZone
+    ? 'stroke-emerald-500'
+    : inMaintenanceZone
+    ? 'stroke-amber-500'
+    : 'stroke-rose-500';
+
+  const ringBgClass = inDeficitZone
+    ? 'stroke-emerald-100'
+    : inMaintenanceZone
+    ? 'stroke-amber-100'
+    : 'stroke-rose-100';
 
   const targetProtein = userProfile.targetProtein || 120;
   const targetCarbs = userProfile.targetCarbs || 180;
@@ -82,6 +112,11 @@ export const Dashboard = ({
     if (cur.reason) acc[cur.reason] = (acc[cur.reason] || 0) + 1;
     return acc;
   }, {});
+
+  // Assess food quality based on user focus settings
+  const qualityAssessment = useMemo(() => {
+    return assessFoodQuality(diaryEntries, userProfile.foodFocus);
+  }, [diaryEntries, userProfile.foodFocus]);
 
   return (
     <div className="space-y-5 pb-24">
@@ -129,18 +164,38 @@ export const Dashboard = ({
               percentage={kcalPercent}
               size={175}
               strokeWidth={14}
-              colorClass={remainingKcal < 0 ? 'stroke-rose-500' : 'stroke-emerald-500'}
-              bgColorClass={remainingKcal < 0 ? 'stroke-rose-100' : 'stroke-emerald-100'}
+              colorClass={ringColorClass}
+              bgColorClass={ringBgClass}
             >
-              <div className="space-y-0.5">
-                <span className="text-[10px] font-bold text-stone-400 uppercase tracking-wider block">
-                  {remainingKcal >= 0 ? 'Verbleibend' : 'Überschritten'}
+              <div className="space-y-0.5 text-center px-1">
+                <span className={`text-[10px] font-bold uppercase tracking-wider block ${
+                  inMaintenanceZone ? 'text-amber-700' : 'text-stone-400'
+                }`}>
+                  {inDeficitZone
+                    ? 'Verbleibend'
+                    : inMaintenanceZone
+                    ? '⚖️ Halten'
+                    : 'Überschritten'}
                 </span>
-                <span className={`text-3xl font-black tracking-tight ${remainingKcal < 0 ? 'text-rose-600' : 'text-stone-800'}`}>
-                  {Math.abs(remainingKcal)}
+                <span className={`text-3xl font-black tracking-tight ${
+                  inDeficitZone
+                    ? 'text-stone-800'
+                    : inMaintenanceZone
+                    ? 'text-amber-800'
+                    : 'text-rose-600'
+                }`}>
+                  {inDeficitZone
+                    ? Math.abs(remainingKcal)
+                    : inMaintenanceZone
+                    ? effectiveMaintenance - totalKcal
+                    : Math.abs(totalKcal - effectiveMaintenance)}
                 </span>
                 <span className="text-[10px] text-stone-400 font-medium block">
-                  Budget: {effectiveBudget} kcal
+                  {inDeficitZone
+                    ? `Ziel: ${effectiveBudget} kcal`
+                    : inMaintenanceZone
+                    ? `Puffer bis Erhalt`
+                    : `über Erhalt (${effectiveMaintenance})`}
                 </span>
               </div>
             </CircularProgress>
@@ -148,7 +203,7 @@ export const Dashboard = ({
 
           {/* Calorie Stats & Macros Breakdown */}
           <div className="w-full space-y-4">
-            <div className="grid grid-cols-3 gap-1.5 text-center">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 text-center">
               <div className="p-2 rounded-2xl bg-stone-50 border border-stone-100">
                 <span className="text-[9px] font-semibold text-stone-400 block uppercase">Gegessen</span>
                 <span className="text-sm font-extrabold text-stone-800">{totalKcal} <span className="text-[10px] font-normal">kcal</span></span>
@@ -158,8 +213,18 @@ export const Dashboard = ({
                 <span className="text-sm font-extrabold text-amber-900">+{totalBurnedKcal} <span className="text-[10px] font-normal">kcal</span></span>
               </div>
               <div className="p-2 rounded-2xl bg-stone-50 border border-stone-100">
-                <span className="text-[9px] font-semibold text-stone-400 block uppercase">Basis-Ziel</span>
-                <span className="text-sm font-extrabold text-stone-800">{baseTargetKcal} <span className="text-[10px] font-normal">kcal</span></span>
+                <span className="text-[9px] font-semibold text-stone-400 block uppercase">
+                  {isMaintainGoal ? 'Ziel (Halten)' : 'Defizit-Ziel'}
+                </span>
+                <span className="text-sm font-extrabold text-stone-800">{effectiveBudget} <span className="text-[10px] font-normal">kcal</span></span>
+              </div>
+              <div className={`p-2 rounded-2xl border ${
+                inMaintenanceZone ? 'bg-amber-100/80 border-amber-300 text-amber-950 font-bold' : 'bg-emerald-50/60 border-emerald-100 text-emerald-950'
+              }`}>
+                <span className="text-[9px] font-bold block uppercase">
+                  {inMaintenanceZone ? '⚖️ Erhaltung' : 'Gewicht halten'}
+                </span>
+                <span className="text-sm font-extrabold">{effectiveMaintenance} <span className="text-[10px] font-normal">kcal</span></span>
               </div>
             </div>
 
@@ -212,6 +277,43 @@ export const Dashboard = ({
           </div>
 
         </div>
+
+        {/* Wertschätzendes Feedback-Banner */}
+        {inMaintenanceZone && (
+          <div className="mt-4 p-3.5 bg-gradient-to-r from-amber-50 via-orange-50/60 to-amber-50 border border-amber-200/90 rounded-2xl flex items-center gap-3 text-amber-950 animate-in fade-in">
+            <div className="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center text-xl shrink-0 shadow-xs">
+              ⚖️
+            </div>
+            <div className="text-xs leading-relaxed">
+              <span className="font-extrabold text-amber-950 block text-xs uppercase tracking-wide">
+                Gewicht halten – Alles im grünen Bereich!
+              </span>
+              <span className="text-stone-700">
+                Du nimmst heute nicht ab, aber du nimmst eben auch nicht zu! Du liegst voll im Erhaltungsbereich (max. <strong>{effectiveMaintenance} kcal</strong>). Alles ist super!
+              </span>
+            </div>
+          </div>
+        )}
+
+        {inDeficitZone && totalKcal > 0 && (
+          <div className="mt-4 p-3 bg-emerald-50/80 border border-emerald-200/80 rounded-2xl flex items-center gap-2.5 text-xs text-emerald-950 animate-in fade-in">
+            <span className="text-lg">🎯</span>
+            <span className="leading-snug">
+              {isMaintainGoal
+                ? `Super! Du liegst genau in deinem Erhaltungsbereich (${effectiveBudget} kcal). Dein Gewicht bleibt stabil.`
+                : `Klasse! Du bist im Kaloriendefizit (${remainingKcal} kcal Puffer). Heute nimmst du ab!`}
+            </span>
+          </div>
+        )}
+
+        {inSurplusZone && (
+          <div className="mt-4 p-3 bg-rose-50/80 border border-rose-200/80 rounded-2xl flex items-center gap-2.5 text-xs text-rose-950 animate-in fade-in">
+            <span className="text-lg">🌱</span>
+            <span className="leading-snug">
+              Heute liegst du etwas über deinem Erhaltungsbedarf ({effectiveMaintenance} kcal). Kein Grund zur Sorge – morgen geht es entspannt weiter!
+            </span>
+          </div>
+        )}
       </div>
 
       {/* Active Fasting Teaser Banner (if active) */}
@@ -248,6 +350,93 @@ export const Dashboard = ({
               </span>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Ernährungs-Qualität & Tages-Tipps (Intelligentes Coaching) */}
+      {diaryEntries.length > 0 && (qualityAssessment.activeWarnings.length > 0 || qualityAssessment.praises.length > 0 || qualityAssessment.overallTip) && (
+        <div className="bg-white rounded-3xl p-4 sm:p-5 shadow-card border border-teal-100/90 space-y-3 animate-in fade-in">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-teal-100 text-teal-700 flex items-center justify-center shadow-2xs">
+                <Leaf className="w-4 h-4" />
+              </div>
+              <div>
+                <h4 className="text-xs font-bold text-stone-800 uppercase tracking-wider flex items-center gap-1.5">
+                  <span>Ernährungs-Qualität</span>
+                  {qualityAssessment.activeWarnings.length > 0 && (
+                    <span className="text-[10px] bg-amber-100 text-amber-900 font-extrabold px-1.5 py-0.2 rounded-full">
+                      {qualityAssessment.activeWarnings.length} {qualityAssessment.activeWarnings.length > 1 ? 'Tipps' : 'Tipp'}
+                    </span>
+                  )}
+                </h4>
+                <p className="text-[11px] text-teal-800 font-medium">
+                  Rückmeldung & Empfehlung für dein {qualityAssessment.nextMealName}:
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => onNavigateToTab('settings')}
+              className="text-[11px] font-bold text-stone-500 hover:text-teal-700 bg-stone-50 hover:bg-teal-50 px-2.5 py-1 rounded-xl transition-all border border-stone-200/80 flex items-center gap-1"
+              title="Fokus-Kriterien in den Einstellungen anpassen"
+            >
+              <span>⚙️</span>
+              <span className="hidden sm:inline">Filter</span>
+            </button>
+          </div>
+
+          {/* Actionable Top Recommendation Banner */}
+          {qualityAssessment.overallTip && (
+            <div className={`p-3 rounded-2xl text-xs leading-relaxed border ${
+              qualityAssessment.activeWarnings.length > 0
+                ? 'bg-amber-50/70 border-amber-200/80 text-amber-950'
+                : 'bg-emerald-50/70 border-emerald-200/80 text-emerald-950'
+            }`}>
+              <div className="font-bold flex items-center gap-1.5 mb-1">
+                <span>{qualityAssessment.activeWarnings.length > 0 ? '💡 Empfehlung fürs ' + qualityAssessment.nextMealName + ':' : '✨ Prima gemacht!'}</span>
+              </div>
+              <p className="text-[11.5px] font-medium leading-snug">
+                {qualityAssessment.overallTip}
+              </p>
+            </div>
+          )}
+
+          {/* Detailed Warning Items */}
+          {qualityAssessment.activeWarnings.length > 0 && (
+            <div className="space-y-1.5 pt-0.5">
+              {qualityAssessment.activeWarnings.map((w) => (
+                <div
+                  key={w.key}
+                  className="flex items-start gap-2.5 p-2 rounded-xl bg-stone-50/80 border border-stone-100 text-xs"
+                >
+                  <span className="text-base shrink-0 mt-0.5">{w.icon}</span>
+                  <div className="min-w-0 flex-1 text-[11px]">
+                    <span className="font-bold text-stone-800 mr-1.5">{w.title}:</span>
+                    {w.matchedFoods.length > 0 && (
+                      <span className="text-stone-500 font-medium mr-1.5">
+                        ({w.matchedFoods.join(', ')})
+                      </span>
+                    )}
+                    <span className="text-stone-600 block sm:inline">{w.recommendation}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Praises (Positives Lob) */}
+          {qualityAssessment.praises.length > 0 && (
+            <div className="flex flex-wrap gap-1.5 pt-0.5">
+              {qualityAssessment.praises.map((p, idx) => (
+                <span
+                  key={idx}
+                  className="text-[10px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full flex items-center gap-1"
+                >
+                  {p}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
       )}
 

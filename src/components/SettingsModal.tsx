@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react';
-import { db, DEFAULT_USER_PROFILE, type UserProfile } from '../db/db';
-import { X, Key, Download, Upload, Trash2, Sliders, Check, RefreshCw, CheckCircle, Maximize, Minimize, BarChart3 } from 'lucide-react';
+import { useState, useEffect, useMemo } from 'react';
+import { db, DEFAULT_USER_PROFILE, type UserProfile, DEFAULT_FOOD_FOCUS, type FoodFocusSettings } from '../db/db';
+import { X, Key, Download, Upload, Trash2, Sliders, Check, RefreshCw, CheckCircle, Maximize, Minimize, BarChart3, Scale, Sparkles, Leaf } from 'lucide-react';
 import { APP_VERSION, APP_BUILD_DATE, APP_DB_VERSION, APP_CACHE_VERSION } from '../config/version';
+import { calculateNutritionTargets, type DailyStepLevel, type WorkoutIntensity } from '../utils/nutrition';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -20,6 +21,26 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     userProfile?.name && userProfile.name !== 'Du' ? userProfile.name : ''
   );
   const [apiKey, setApiKey] = useState(userProfile?.geminiApiKey || '');
+  
+  // Body metrics and goals
+  const [gender, setGender] = useState<'female' | 'male'>(userProfile?.gender || 'female');
+  const [age, setAge] = useState<number>(userProfile?.age || 30);
+  const [height, setHeight] = useState<number>(userProfile?.height || 170);
+  const [weight, setWeight] = useState<number>(userProfile?.weight || 75);
+  const [targetWeight, setTargetWeight] = useState<number>(userProfile?.targetWeight || 68);
+  const [goalType, setGoalType] = useState<'lose_weight' | 'maintain_weight'>(
+    userProfile?.goalType || (userProfile?.goalDeficit === 0 ? 'maintain_weight' : 'lose_weight')
+  );
+  const [goalDeficit, setGoalDeficit] = useState<number>(userProfile?.goalDeficit || 500);
+  const [stepLevel, setStepLevel] = useState<DailyStepLevel>(userProfile?.stepLevel || 'moderate_walk');
+  const [workoutSessions, setWorkoutSessions] = useState<number>(userProfile?.workoutSessionsPerWeek ?? 1);
+  const [workoutIntensity, setWorkoutIntensity] = useState<WorkoutIntensity>(userProfile?.workoutIntensity || 'gentle');
+
+  // Food Focus / Quality filters
+  const [foodFocus, setFoodFocus] = useState<FoodFocusSettings>(
+    userProfile?.foodFocus || DEFAULT_FOOD_FOCUS
+  );
+
   const [targetCalories, setTargetCalories] = useState(userProfile?.targetCalories || 1800);
   const [targetProtein, setTargetProtein] = useState(userProfile?.targetProtein || 120);
   const [targetCarbs, setTargetCarbs] = useState(userProfile?.targetCarbs || 180);
@@ -27,6 +48,22 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [savedSuccess, setSavedSuccess] = useState(false);
   const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
   const [updateMessage, setUpdateMessage] = useState<string | null>(null);
+
+  const effectiveDeficit = goalType === 'maintain_weight' ? 0 : (goalDeficit || 500);
+
+  // Live calculation of targets using Mifflin-St. Jeor with fine-grained movement
+  const calculation = useMemo(() => {
+    return calculateNutritionTargets({
+      gender,
+      age: Number(age) || 30,
+      height: Number(height) || 170,
+      weight: Number(weight) || 75,
+      stepLevel,
+      workoutSessionsPerWeek: workoutSessions,
+      workoutIntensity,
+      deficit: effectiveDeficit,
+    });
+  }, [gender, age, height, weight, stepLevel, workoutSessions, workoutIntensity, effectiveDeficit]);
 
   const isStandalone = typeof window !== 'undefined' && (
     window.matchMedia('(display-mode: standalone)').matches ||
@@ -68,25 +105,43 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
   // Sync state when userProfile is loaded or modal opens
   useEffect(() => {
-    if (isOpen) {
-      if (userProfile?.name && userProfile.name !== 'Du') {
+    if (isOpen && userProfile) {
+      if (userProfile.name && userProfile.name !== 'Du') {
         setUserName(userProfile.name);
-      } else if (!userProfile?.name || userProfile.name === 'Du') {
+      } else if (!userProfile.name || userProfile.name === 'Du') {
         setUserName('');
       }
-      if (userProfile?.geminiApiKey !== undefined) {
+      if (userProfile.geminiApiKey !== undefined) {
         setApiKey(userProfile.geminiApiKey || '');
       }
-      if (userProfile?.targetCalories) {
+      if (userProfile.gender) setGender(userProfile.gender);
+      if (userProfile.age) setAge(userProfile.age);
+      if (userProfile.height) setHeight(userProfile.height);
+      if (userProfile.weight) setWeight(userProfile.weight);
+      if (userProfile.targetWeight) setTargetWeight(userProfile.targetWeight);
+      if (userProfile.goalType) {
+        setGoalType(userProfile.goalType);
+      } else if (userProfile.goalDeficit === 0) {
+        setGoalType('maintain_weight');
+      }
+      if (userProfile.goalDeficit !== undefined) setGoalDeficit(userProfile.goalDeficit);
+      if (userProfile.stepLevel) setStepLevel(userProfile.stepLevel);
+      if (userProfile.workoutSessionsPerWeek !== undefined) setWorkoutSessions(userProfile.workoutSessionsPerWeek);
+      if (userProfile.workoutIntensity) setWorkoutIntensity(userProfile.workoutIntensity);
+      if (userProfile.foodFocus) {
+        setFoodFocus({ ...DEFAULT_FOOD_FOCUS, ...userProfile.foodFocus });
+      }
+
+      if (userProfile.targetCalories) {
         setTargetCalories(userProfile.targetCalories);
       }
-      if (userProfile?.targetProtein) {
+      if (userProfile.targetProtein) {
         setTargetProtein(userProfile.targetProtein);
       }
-      if (userProfile?.targetCarbs) {
+      if (userProfile.targetCarbs) {
         setTargetCarbs(userProfile.targetCarbs);
       }
-      if (userProfile?.targetFat) {
+      if (userProfile.targetFat) {
         setTargetFat(userProfile.targetFat);
       }
     }
@@ -126,17 +181,42 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       const base = existing || DEFAULT_USER_PROFILE;
       const cleanName = userName.trim();
 
+      const numWeight = Number(weight) || base.weight;
+      const numTargetWeight = goalType === 'maintain_weight' ? numWeight : (Number(targetWeight) || base.targetWeight);
+
       await db.userProfile.put({
         ...base,
         id: 'current',
         name: cleanName,
+        gender,
+        age: Number(age) || base.age,
+        height: Number(height) || base.height,
+        weight: numWeight,
+        targetWeight: numTargetWeight,
+        goalType,
+        goalDeficit: effectiveDeficit,
+        maintenanceCalories: calculation.tdee,
+        stepLevel,
+        workoutSessionsPerWeek: workoutSessions,
+        workoutIntensity,
+        activityLevel: calculation.effectivePAL,
         geminiApiKey: apiKey.trim(),
-        targetCalories: Number(targetCalories) || base.targetCalories,
-        targetProtein: Number(targetProtein) || base.targetProtein,
-        targetCarbs: Number(targetCarbs) || base.targetCarbs,
-        targetFat: Number(targetFat) || base.targetFat,
+        targetCalories: Number(targetCalories) || calculation.targetCalories,
+        targetProtein: Number(targetProtein) || calculation.targetProtein,
+        targetCarbs: Number(targetCarbs) || calculation.targetCarbs,
+        targetFat: Number(targetFat) || calculation.targetFat,
+        foodFocus,
         isOnboarded: true,
       });
+
+      // If weight changed or not yet logged today, write to weightLogs
+      const today = new Date().toISOString().split('T')[0];
+      const existingWeightLog = await db.weightLogs.where({ date: today }).first();
+      if (!existingWeightLog) {
+        await db.weightLogs.add({ date: today, weight: numWeight, timestamp: Date.now() });
+      } else if (existingWeightLog.id !== undefined && existingWeightLog.weight !== numWeight) {
+        await db.weightLogs.update(existingWeightLog.id, { weight: numWeight, timestamp: Date.now() });
+      }
 
       setSavedSuccess(true);
       setTimeout(() => {
@@ -272,6 +352,189 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             </p>
           </div>
 
+          {/* KÖRPERDATEN & ZIELE (GEWICHT, WUNSCHGEWICHT, GRÖSSE, ALTER, ZIEL) */}
+          <div className="p-4 bg-emerald-50/50 rounded-2xl border border-emerald-100/90 space-y-4">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold uppercase tracking-wider text-emerald-950 flex items-center gap-1.5">
+                <Scale className="w-4 h-4 text-emerald-600" />
+                Körperdaten & Ziel
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  onReopenOnboarding();
+                }}
+                className="text-[11px] font-bold text-emerald-700 hover:text-emerald-800 underline flex items-center gap-1"
+              >
+                <Sparkles className="w-3 h-3 text-emerald-600" />
+                Vollbild-Assistent
+              </button>
+            </div>
+
+            {/* Ziel: Abnehmen vs. Gewicht halten */}
+            <div className="space-y-1.5">
+              <label className="text-[11px] font-bold text-stone-600 block">Dein Hauptziel</label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setGoalType('lose_weight');
+                    setTargetCalories(calculation.targetCalories);
+                    setTargetProtein(calculation.targetProtein);
+                    setTargetCarbs(calculation.targetCarbs);
+                    setTargetFat(calculation.targetFat);
+                  }}
+                  className={`py-2 px-3 rounded-xl border text-xs font-bold transition-all text-center ${
+                    goalType === 'lose_weight'
+                      ? 'border-emerald-500 bg-white text-emerald-900 shadow-xs'
+                      : 'border-stone-200/80 bg-white/60 text-stone-600 hover:bg-white'
+                  }`}
+                >
+                  🎯 Gewicht abnehmen
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setGoalType('maintain_weight');
+                    setTargetWeight(weight);
+                    setTargetCalories(calculation.tdee);
+                    setTargetProtein(calculation.targetProtein);
+                    setTargetCarbs(calculation.targetCarbs);
+                    setTargetFat(calculation.targetFat);
+                  }}
+                  className={`py-2 px-3 rounded-xl border text-xs font-bold transition-all text-center ${
+                    goalType === 'maintain_weight'
+                      ? 'border-amber-500 bg-white text-amber-900 shadow-xs'
+                      : 'border-stone-200/80 bg-white/60 text-stone-600 hover:bg-white'
+                  }`}
+                >
+                  ⚖️ Gewicht halten
+                </button>
+              </div>
+            </div>
+
+            {/* Gewicht & Wunschgewicht */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <span className="text-xs text-stone-600 font-semibold block mb-1">
+                  Aktuelles Gewicht (kg)
+                </span>
+                <input
+                  type="number"
+                  step="0.1"
+                  min="30"
+                  max="250"
+                  required
+                  value={weight}
+                  onChange={(e) => setWeight(Number(e.target.value))}
+                  className="w-full py-2 px-3 rounded-xl border border-stone-200 bg-white text-stone-800 font-bold text-center text-sm focus:border-emerald-500"
+                />
+              </div>
+
+              <div>
+                <span className="text-xs text-stone-600 font-semibold block mb-1">
+                  {goalType === 'maintain_weight' ? 'Ziel (Stabilisieren)' : 'Wunschgewicht (kg)'}
+                </span>
+                <input
+                  type="number"
+                  step="0.5"
+                  min="35"
+                  max="200"
+                  required
+                  disabled={goalType === 'maintain_weight'}
+                  value={goalType === 'maintain_weight' ? weight : targetWeight}
+                  onChange={(e) => setTargetWeight(Number(e.target.value))}
+                  className={`w-full py-2 px-3 rounded-xl border text-stone-800 font-bold text-center text-sm focus:border-emerald-500 ${
+                    goalType === 'maintain_weight' ? 'bg-stone-100 text-stone-400 border-stone-200 cursor-not-allowed' : 'bg-white border-stone-200'
+                  }`}
+                />
+              </div>
+            </div>
+
+            {/* Größe & Alter & Geschlecht */}
+            <div className="grid grid-cols-3 gap-2">
+              <div>
+                <span className="text-[11px] text-stone-500 font-semibold block mb-1">Größe (cm)</span>
+                <input
+                  type="number"
+                  min="120"
+                  max="230"
+                  value={height}
+                  onChange={(e) => setHeight(Number(e.target.value))}
+                  className="w-full py-1.5 px-2 rounded-xl border border-stone-200 bg-white text-stone-800 font-bold text-center text-xs"
+                />
+              </div>
+
+              <div>
+                <span className="text-[11px] text-stone-500 font-semibold block mb-1">Alter</span>
+                <input
+                  type="number"
+                  min="14"
+                  max="100"
+                  value={age}
+                  onChange={(e) => setAge(Number(e.target.value))}
+                  className="w-full py-1.5 px-2 rounded-xl border border-stone-200 bg-white text-stone-800 font-bold text-center text-xs"
+                />
+              </div>
+
+              <div>
+                <span className="text-[11px] text-stone-500 font-semibold block mb-1">Geschlecht</span>
+                <select
+                  value={gender}
+                  onChange={(e) => setGender(e.target.value as 'female' | 'male')}
+                  className="w-full py-1.5 px-1 rounded-xl border border-stone-200 bg-white text-stone-800 font-bold text-center text-xs"
+                >
+                  <option value="female">Weiblich</option>
+                  <option value="male">Männlich</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Alltagsbewegung */}
+            <div>
+              <span className="text-[11px] text-stone-500 font-semibold block mb-1">Alltagsbewegung / Beruf</span>
+              <select
+                value={stepLevel}
+                onChange={(e) => setStepLevel(e.target.value as DailyStepLevel)}
+                className="w-full py-1.5 px-2 rounded-xl border border-stone-200 bg-white text-stone-800 font-medium text-xs"
+              >
+                <option value="sedentary">Überwiegend sitzend (Büro / Homeoffice, &lt; 4.000 Schritte)</option>
+                <option value="moderate_walk">Sitzend + Gänge / Hund (~5.000–9.000 Schritte)</option>
+                <option value="active_standing">Viel auf den Beinen (Verkauf/Pflege/Handwerk)</option>
+                <option value="heavy_work">Schwere körperliche Arbeit (Bau/Landwirtschaft)</option>
+              </select>
+            </div>
+
+            {/* Live-Berechnungs-Vorschau */}
+            <div className="p-3 bg-white/90 rounded-xl border border-emerald-200/70 text-xs space-y-1.5">
+              <div className="flex justify-between items-center text-stone-700">
+                <span className="text-stone-500">Gesamtverbrauch (Gewicht halten):</span>
+                <span className="font-extrabold text-stone-900">{calculation.tdee} kcal</span>
+              </div>
+              <div className="flex justify-between items-center text-stone-700">
+                <span className="text-stone-500">
+                  {goalType === 'maintain_weight' ? 'Erhaltungs-Ziel:' : 'Empfohlenes Defizit-Ziel:'}
+                </span>
+                <span className={`font-extrabold ${goalType === 'maintain_weight' ? 'text-amber-800' : 'text-emerald-700'}`}>
+                  {calculation.targetCalories} kcal
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setTargetCalories(calculation.targetCalories);
+                  setTargetProtein(calculation.targetProtein);
+                  setTargetCarbs(calculation.targetCarbs);
+                  setTargetFat(calculation.targetFat);
+                }}
+                className="w-full mt-1 py-1.5 rounded-lg bg-emerald-100 hover:bg-emerald-200 text-emerald-900 font-bold text-[11px] transition-colors"
+              >
+                Berechnete Nährwerte ({calculation.targetCalories} kcal) unten übernehmen
+              </button>
+            </div>
+          </div>
+
           {/* Calorie & Macro Target adjustments */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
@@ -336,6 +599,164 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   className="w-full py-2 px-3 rounded-2xl border border-stone-200 text-stone-800 font-bold text-center focus:border-cyan-500"
                 />
               </div>
+            </div>
+          </div>
+
+          {/* Ernährungs-Qualität & Fokus-Filter */}
+          <div className="p-4 bg-teal-50/50 rounded-2xl border border-teal-100/90 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-teal-100 text-teal-700 flex items-center justify-center">
+                  <Leaf className="w-4 h-4" />
+                </div>
+                <div>
+                  <h4 className="text-xs font-bold text-teal-950 uppercase tracking-wider">
+                    Ernährungs-Qualität & Fokus-Filter
+                  </h4>
+                  <span className="text-[10px] text-teal-700">Persönliche Achtsamkeits-Rückmeldungen</span>
+                </div>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setFoodFocus(DEFAULT_FOOD_FOCUS)}
+                  className="text-[10px] font-bold text-teal-700 hover:text-teal-900 bg-teal-100/70 hover:bg-teal-100 px-2 py-0.5 rounded-full transition-colors"
+                >
+                  Standard
+                </button>
+              </div>
+            </div>
+
+            <p className="text-xs text-stone-600 leading-relaxed">
+              Hake an, auf welche Nahrungsmittel du besonderes Augenmerk richten möchtest. Die App gibt dir auf dem Dashboard ehrliche, alltagstaugliche Rückmeldungen und Vorschläge für nachfolgende Mahlzeiten (z.&nbsp;B. fürs Abendessen):
+            </p>
+
+            <div className="space-y-2 pt-1">
+              {/* 1. Industriezucker */}
+              <label className="flex items-start gap-3 p-2.5 bg-white rounded-xl border border-teal-100 hover:border-teal-300 cursor-pointer transition-all shadow-2xs">
+                <input
+                  type="checkbox"
+                  checked={foodFocus.sugar}
+                  onChange={(e) => setFoodFocus((prev) => ({ ...prev, sugar: e.target.checked }))}
+                  className="mt-0.5 w-4 h-4 rounded text-teal-600 focus:ring-teal-500 border-stone-300 shrink-0"
+                />
+                <div className="text-xs leading-snug">
+                  <div className="font-bold text-stone-800 flex items-center gap-1.5">
+                    <span>🍬</span> Industriezucker & Süßwaren
+                  </div>
+                  <div className="text-[11px] text-stone-500">
+                    Schokolade, Kuchen, Kekse, süße Riegel, Cola, Limo & zuckerhaltige Desserts.
+                  </div>
+                </div>
+              </label>
+
+              {/* 2. Ungesunde Fette */}
+              <label className="flex items-start gap-3 p-2.5 bg-white rounded-xl border border-teal-100 hover:border-teal-300 cursor-pointer transition-all shadow-2xs">
+                <input
+                  type="checkbox"
+                  checked={foodFocus.unhealthyFat}
+                  onChange={(e) => setFoodFocus((prev) => ({ ...prev, unhealthyFat: e.target.checked }))}
+                  className="mt-0.5 w-4 h-4 rounded text-teal-600 focus:ring-teal-500 border-stone-300 shrink-0"
+                />
+                <div className="text-xs leading-snug">
+                  <div className="font-bold text-stone-800 flex items-center gap-1.5">
+                    <span>🧈</span> Ungesunde Fette & Frittiertes
+                  </div>
+                  <div className="text-[11px] text-stone-500">
+                    Pommes, Chips, frittierte Snacks, Mayo, Remoulade, fette Saucen & Fast Food.
+                  </div>
+                </div>
+              </label>
+
+              {/* 3. Käse-Bremse */}
+              <label className="flex items-start gap-3 p-2.5 bg-white rounded-xl border border-teal-100 hover:border-teal-300 cursor-pointer transition-all shadow-2xs">
+                <input
+                  type="checkbox"
+                  checked={foodFocus.cheese}
+                  onChange={(e) => setFoodFocus((prev) => ({ ...prev, cheese: e.target.checked }))}
+                  className="mt-0.5 w-4 h-4 rounded text-teal-600 focus:ring-teal-500 border-stone-300 shrink-0"
+                />
+                <div className="text-xs leading-snug">
+                  <div className="font-bold text-stone-800 flex items-center gap-1.5">
+                    <span>🧀</span> Käse- & Schmelzkäse-Bremse
+                  </div>
+                  <div className="text-[11px] text-stone-500">
+                    Gouda, Parmesan, Feta, Mozzarella, Raclette & reichlich Überbackenes.
+                  </div>
+                </div>
+              </label>
+
+              {/* 4. Verarbeitete Wurst */}
+              <label className="flex items-start gap-3 p-2.5 bg-white rounded-xl border border-teal-100 hover:border-teal-300 cursor-pointer transition-all shadow-2xs">
+                <input
+                  type="checkbox"
+                  checked={foodFocus.processedMeat}
+                  onChange={(e) => setFoodFocus((prev) => ({ ...prev, processedMeat: e.target.checked }))}
+                  className="mt-0.5 w-4 h-4 rounded text-teal-600 focus:ring-teal-500 border-stone-300 shrink-0"
+                />
+                <div className="text-xs leading-snug">
+                  <div className="font-bold text-stone-800 flex items-center gap-1.5">
+                    <span>🌭</span> Stark verarbeitete Wurst & Pökelfleisch
+                  </div>
+                  <div className="text-[11px] text-stone-500">
+                    Salami, Wiener, Schinken, Leberkäse, Bratwurst & Speck.
+                  </div>
+                </div>
+              </label>
+
+              {/* 5. Cholesterin & Eier */}
+              <label className="flex items-start gap-3 p-2.5 bg-white rounded-xl border border-teal-100 hover:border-teal-300 cursor-pointer transition-all shadow-2xs">
+                <input
+                  type="checkbox"
+                  checked={foodFocus.cholesterol}
+                  onChange={(e) => setFoodFocus((prev) => ({ ...prev, cholesterol: e.target.checked }))}
+                  className="mt-0.5 w-4 h-4 rounded text-teal-600 focus:ring-teal-500 border-stone-300 shrink-0"
+                />
+                <div className="text-xs leading-snug">
+                  <div className="font-bold text-stone-800 flex items-center gap-1.5">
+                    <span>🥚</span> Cholesterin & tierische Fette
+                  </div>
+                  <div className="text-[11px] text-stone-500">
+                    Mehrere Eier am Tag, Garnelen/Meeresfrüchte & stark cholesterinreiche Speisen.
+                  </div>
+                </div>
+              </label>
+
+              {/* 6. Ballaststoff-Mangel */}
+              <label className="flex items-start gap-3 p-2.5 bg-white rounded-xl border border-teal-100 hover:border-teal-300 cursor-pointer transition-all shadow-2xs">
+                <input
+                  type="checkbox"
+                  checked={foodFocus.fiber}
+                  onChange={(e) => setFoodFocus((prev) => ({ ...prev, fiber: e.target.checked }))}
+                  className="mt-0.5 w-4 h-4 rounded text-teal-600 focus:ring-teal-500 border-stone-300 shrink-0"
+                />
+                <div className="text-xs leading-snug">
+                  <div className="font-bold text-stone-800 flex items-center gap-1.5">
+                    <span>🌾</span> Ballaststoff-Check (Gemüse & Vollkorn)
+                  </div>
+                  <div className="text-[11px] text-stone-500">
+                    Erinnert an frisches Gemüse, Rohkost, Beeren, Haferflocken & Vollkornprodukte.
+                  </div>
+                </div>
+              </label>
+
+              {/* 7. Hoher Salzgehalt */}
+              <label className="flex items-start gap-3 p-2.5 bg-white rounded-xl border border-teal-100 hover:border-teal-300 cursor-pointer transition-all shadow-2xs">
+                <input
+                  type="checkbox"
+                  checked={foodFocus.salt}
+                  onChange={(e) => setFoodFocus((prev) => ({ ...prev, salt: e.target.checked }))}
+                  className="mt-0.5 w-4 h-4 rounded text-teal-600 focus:ring-teal-500 border-stone-300 shrink-0"
+                />
+                <div className="text-xs leading-snug">
+                  <div className="font-bold text-stone-800 flex items-center gap-1.5">
+                    <span>🧂</span> Hoher Salzgehalt
+                  </div>
+                  <div className="text-[11px] text-stone-500">
+                    Salzgebäck, Brezeln, Fertigsaucen, Instant-Nudeln & stark gesalzene Produkte.
+                  </div>
+                </div>
+              </label>
             </div>
           </div>
 

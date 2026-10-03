@@ -13,10 +13,24 @@ export const WeightTracker: React.FC<WeightTrackerProps> = ({ logs, userProfile 
 
   const sortedLogs = [...logs].sort((a, b) => b.timestamp - a.timestamp);
   const currentWeight = sortedLogs[0]?.weight || userProfile?.weight || 75;
-  const targetWeight = userProfile?.targetWeight || 68;
+  const isMaintainGoal = userProfile?.goalType === 'maintain_weight' || userProfile?.goalDeficit === 0;
+  const targetWeight = userProfile?.targetWeight || (isMaintainGoal ? currentWeight : 68);
   const startWeight = sortedLogs[sortedLogs.length - 1]?.weight || currentWeight;
   const totalLost = Math.round((startWeight - currentWeight) * 10) / 10;
   const remaining = Math.round((currentWeight - targetWeight) * 10) / 10;
+
+  const [isEditingTarget, setIsEditingTarget] = useState(false);
+  const [editTargetWeight, setEditTargetWeight] = useState(String(targetWeight));
+
+  const handleSaveTargetWeight = async () => {
+    const val = parseFloat(editTargetWeight);
+    if (!val || val <= 30 || val >= 300) return;
+    const existingProf = await db.userProfile.get('current');
+    if (existingProf) {
+      await db.userProfile.update('current', { targetWeight: val });
+    }
+    setIsEditingTarget(false);
+  };
 
   const handleLogWeight = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -85,15 +99,58 @@ export const WeightTracker: React.FC<WeightTrackerProps> = ({ logs, userProfile 
           <span className="text-[10px] text-stone-400">Seit Aufzeichnungsbeginn</span>
         </div>
 
-        <div className="p-3.5 bg-stone-50 border border-stone-200/60 rounded-2xl">
-          <div className="flex items-center gap-1.5 text-xs text-stone-600 font-semibold mb-1">
-            <Target className="w-4 h-4 text-emerald-600" />
-            <span>Bis zum Ziel</span>
+        <div className="p-3.5 bg-stone-50 border border-stone-200/60 rounded-2xl flex flex-col justify-between">
+          <div>
+            <div className="flex items-center gap-1.5 text-xs text-stone-600 font-semibold mb-1">
+              <Target className="w-4 h-4 text-emerald-600" />
+              <span>{isMaintainGoal ? 'Ziel: Halten' : 'Bis zum Ziel'}</span>
+            </div>
+            <div className="text-lg font-black text-stone-800">
+              {isMaintainGoal ? 'Stabil 🎉' : (remaining > 0 ? `${remaining} kg` : 'Ziel erreicht! 🎉')}
+            </div>
           </div>
-          <div className="text-lg font-black text-stone-800">
-            {remaining > 0 ? `${remaining} kg` : 'Ziel erreicht! 🎉'}
-          </div>
-          <span className="text-[10px] text-stone-400">Wunschgewicht: {targetWeight} kg</span>
+
+          {isEditingTarget ? (
+            <div className="flex items-center gap-1.5 mt-1.5">
+              <input
+                type="number"
+                step="0.5"
+                min="35"
+                max="200"
+                value={editTargetWeight}
+                onChange={(e) => setEditTargetWeight(e.target.value)}
+                className="w-16 py-1 px-1.5 rounded-lg border border-stone-300 text-xs font-bold text-center bg-white"
+              />
+              <button
+                type="button"
+                onClick={handleSaveTargetWeight}
+                className="px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[10px] font-bold shadow-2xs"
+              >
+                OK
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsEditingTarget(false)}
+                className="px-1.5 py-1 text-stone-400 hover:text-stone-600 text-[10px]"
+              >
+                ✕
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center justify-between text-[10px] text-stone-500 mt-1">
+              <span>Wunsch: <strong className="text-stone-700">{targetWeight} kg</strong></span>
+              <button
+                type="button"
+                onClick={() => {
+                  setEditTargetWeight(String(targetWeight));
+                  setIsEditingTarget(true);
+                }}
+                className="text-emerald-700 font-bold hover:underline"
+              >
+                Ändern ✏️
+              </button>
+            </div>
+          )}
         </div>
       </div>
 

@@ -1,5 +1,25 @@
 import Dexie, { type Table } from 'dexie';
 
+export interface FoodFocusSettings {
+  sugar: boolean; // Industriezucker & Süßwaren
+  unhealthyFat: boolean; // Ungesunde Fette & Frittiertes
+  cheese: boolean; // Käse- & Schmelzkäse-Bremse
+  processedMeat: boolean; // Stark verarbeitete Wurst & Pökelfleisch
+  cholesterol: boolean; // Cholesterin & Eier
+  fiber: boolean; // Ballaststoff-Mangel
+  salt: boolean; // Hoher Salzgehalt
+}
+
+export const DEFAULT_FOOD_FOCUS: FoodFocusSettings = {
+  sugar: true,
+  unhealthyFat: true,
+  cheese: true,
+  processedMeat: true,
+  cholesterol: false,
+  fiber: true,
+  salt: false,
+};
+
 export interface UserProfile {
   id: string; // 'current'
   name: string;
@@ -12,12 +32,15 @@ export interface UserProfile {
   stepLevel?: 'sedentary' | 'moderate_walk' | 'active_standing' | 'heavy_work';
   workoutSessionsPerWeek?: number; // 0, 1, 2, 3, 4, 5+
   workoutIntensity?: 'gentle' | 'intense';
-  goalDeficit: number; // kcal deficit, e.g. 500
+  goalType?: 'lose_weight' | 'maintain_weight';
+  goalDeficit: number; // kcal deficit, e.g. 500 or 0
+  maintenanceCalories?: number; // TDEE in kcal (Gesamtumsatz zum Gewicht halten)
   targetCalories: number;
   targetProtein: number; // in grams
   targetCarbs: number; // in grams
   targetFat: number; // in grams
   waterGoal: number; // in ml (e.g. 2500)
+  foodFocus?: FoodFocusSettings;
   geminiApiKey?: string;
   isOnboarded: boolean;
   createdAt: string;
@@ -170,12 +193,15 @@ export const DEFAULT_USER_PROFILE: UserProfile = {
   stepLevel: 'moderate_walk',
   workoutSessionsPerWeek: 1,
   workoutIntensity: 'gentle',
+  goalType: 'lose_weight',
   goalDeficit: 500, // Gesundes moderates Defizit
+  maintenanceCalories: 2250,
   targetCalories: 1750,
   targetProtein: 110,
   targetCarbs: 180,
   targetFat: 55,
   waterGoal: 2500,
+  foodFocus: DEFAULT_FOOD_FOCUS,
   isOnboarded: false,
   createdAt: new Date().toISOString(),
 };

@@ -17,6 +17,9 @@ export const OnboardingModal = ({ onComplete, initialProfile }: OnboardingModalP
   const [height, setHeight] = useState<number>(initialProfile?.height || 170);
   const [weight, setWeight] = useState<number>(initialProfile?.weight || 75);
   const [targetWeight, setTargetWeight] = useState<number>(initialProfile?.targetWeight || 68);
+  const [goalType, setGoalType] = useState<'lose_weight' | 'maintain_weight'>(
+    initialProfile?.goalType || (initialProfile?.goalDeficit === 0 ? 'maintain_weight' : 'lose_weight')
+  );
   
   // Fine-tuned daily movement states
   const [stepLevel, setStepLevel] = useState<DailyStepLevel>(initialProfile?.stepLevel || 'moderate_walk');
@@ -24,6 +27,8 @@ export const OnboardingModal = ({ onComplete, initialProfile }: OnboardingModalP
   const [workoutIntensity, setWorkoutIntensity] = useState<WorkoutIntensity>(initialProfile?.workoutIntensity || 'gentle');
 
   const [goalDeficit, setGoalDeficit] = useState<number>(initialProfile?.goalDeficit || 500);
+
+  const effectiveDeficit = goalType === 'maintain_weight' ? 0 : (goalDeficit || 500);
 
   // Live calculation of targets using Mifflin-St. Jeor with fine-grained movement
   const calculation = useMemo(() => {
@@ -35,9 +40,9 @@ export const OnboardingModal = ({ onComplete, initialProfile }: OnboardingModalP
       stepLevel,
       workoutSessionsPerWeek: workoutSessions,
       workoutIntensity,
-      deficit: goalDeficit,
+      deficit: effectiveDeficit,
     });
-  }, [gender, age, height, weight, stepLevel, workoutSessions, workoutIntensity, goalDeficit]);
+  }, [gender, age, height, weight, stepLevel, workoutSessions, workoutIntensity, effectiveDeficit]);
 
   const handleSave = async (e: FormEvent) => {
     e.preventDefault();
@@ -48,12 +53,14 @@ export const OnboardingModal = ({ onComplete, initialProfile }: OnboardingModalP
       age: Number(age),
       height: Number(height),
       weight: Number(weight),
-      targetWeight: Number(targetWeight),
+      targetWeight: goalType === 'maintain_weight' ? Number(weight) : Number(targetWeight),
       activityLevel: calculation.effectivePAL,
       stepLevel,
       workoutSessionsPerWeek: workoutSessions,
       workoutIntensity,
-      goalDeficit,
+      goalType,
+      goalDeficit: effectiveDeficit,
+      maintenanceCalories: calculation.tdee,
       targetCalories: calculation.targetCalories,
       targetProtein: calculation.targetProtein,
       targetCarbs: calculation.targetCarbs,
@@ -362,35 +369,83 @@ export const OnboardingModal = ({ onComplete, initialProfile }: OnboardingModalP
           </div>
 
           {/* Ziel / Kaloriendefizit */}
-          <div className="space-y-2">
-            <label className="text-xs font-semibold uppercase tracking-wider text-stone-500">Dein Abnehm-Tempo</label>
-            <div className="grid grid-cols-3 gap-2">
-              {[
-                { deficit: 250, label: 'Sanft', rate: 'ca. 1 kg/Monat' },
-                { deficit: 500, label: 'Moderat', rate: 'ca. 2 kg/Monat', badge: 'Optimal' },
-                { deficit: 750, label: 'Zügig', rate: 'ca. 3 kg/Monat' },
-              ].map((d) => (
-                <button
-                  key={d.deficit}
-                  type="button"
-                  onClick={() => setGoalDeficit(d.deficit)}
-                  className={`p-3 rounded-2xl border text-center transition-all relative ${
-                    goalDeficit === d.deficit
-                      ? 'border-emerald-500 bg-emerald-50 text-emerald-900 shadow-sm'
-                      : 'border-stone-200 bg-white text-stone-600 hover:bg-stone-50'
-                  }`}
-                >
-                  {d.badge && (
-                    <span className="absolute -top-2 left-1/2 -translate-x-1/2 bg-emerald-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full">
-                      {d.badge}
-                    </span>
-                  )}
-                  <div className="text-sm font-bold">{d.label}</div>
-                  <div className="text-[11px] text-stone-500 mt-0.5">-{d.deficit} kcal</div>
-                  <div className="text-[10px] text-emerald-600 font-medium mt-1">{d.rate}</div>
-                </button>
-              ))}
+          <div className="space-y-3">
+            <label className="text-xs font-semibold uppercase tracking-wider text-stone-500">Dein Hauptziel</label>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setGoalType('lose_weight')}
+                className={`p-3 rounded-2xl border text-center transition-all ${
+                  goalType === 'lose_weight'
+                    ? 'border-emerald-500 bg-emerald-50 text-emerald-900 shadow-sm font-bold'
+                    : 'border-stone-200 bg-white text-stone-600 hover:bg-stone-50'
+                }`}
+              >
+                <div className="text-xl mb-1">🎯</div>
+                <div className="text-xs font-bold">Gewicht abnehmen</div>
+                <div className="text-[10px] text-stone-400 mt-0.5">Mit gesundem Kaloriendefizit</div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setGoalType('maintain_weight');
+                  setTargetWeight(weight);
+                }}
+                className={`p-3 rounded-2xl border text-center transition-all ${
+                  goalType === 'maintain_weight'
+                    ? 'border-amber-500 bg-amber-50 text-amber-900 shadow-sm font-bold'
+                    : 'border-stone-200 bg-white text-stone-600 hover:bg-stone-50'
+                }`}
+              >
+                <div className="text-xl mb-1">⚖️</div>
+                <div className="text-xs font-bold">Gewicht halten</div>
+                <div className="text-[10px] text-stone-400 mt-0.5">Erhaltungsbedarf (weder ab- noch zunehmen)</div>
+              </button>
             </div>
+
+            {goalType === 'lose_weight' ? (
+              <div className="space-y-2 pt-1">
+                <label className="text-[11px] font-semibold text-stone-500 block">Dein Abnehm-Tempo</label>
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { deficit: 250, label: 'Sanft', rate: 'ca. 1 kg/Monat' },
+                    { deficit: 500, label: 'Moderat', rate: 'ca. 2 kg/Monat', badge: 'Optimal' },
+                    { deficit: 750, label: 'Zügig', rate: 'ca. 3 kg/Monat' },
+                  ].map((d) => (
+                    <button
+                      key={d.deficit}
+                      type="button"
+                      onClick={() => setGoalDeficit(d.deficit)}
+                      className={`p-3 rounded-2xl border text-center transition-all relative ${
+                        goalDeficit === d.deficit
+                          ? 'border-emerald-500 bg-emerald-50 text-emerald-900 shadow-sm'
+                          : 'border-stone-200 bg-white text-stone-600 hover:bg-stone-50'
+                      }`}
+                    >
+                      {d.badge && (
+                        <span className="absolute -top-2 left-1/2 -translate-x-1/2 bg-emerald-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full">
+                          {d.badge}
+                        </span>
+                      )}
+                      <div className="text-sm font-bold">{d.label}</div>
+                      <div className="text-[11px] text-stone-500 mt-0.5">-{d.deficit} kcal</div>
+                      <div className="text-[10px] text-emerald-600 font-medium mt-1">{d.rate}</div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="p-3 bg-amber-50/70 border border-amber-200/80 rounded-2xl text-xs text-amber-950 flex items-center gap-2.5">
+                <span className="text-xl">✨</span>
+                <div>
+                  <span className="font-bold block">100 % Erhaltungsenergie</span>
+                  <span className="text-[11px] text-amber-800">
+                    Dein Zielbudget entspricht genau deinem Gesamtverbrauch ({calculation.tdee} kcal). Du nimmst heute nicht ab, aber eben auch nicht zu!
+                  </span>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Ergebnis-Vorschau Card */}
