@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { db, DEFAULT_USER_PROFILE, type UserProfile } from '../db/db';
-import { X, Key, Download, Upload, Trash2, Sliders, Check, RefreshCw, CheckCircle } from 'lucide-react';
+import { X, Key, Download, Upload, Trash2, Sliders, Check, RefreshCw, CheckCircle, Maximize, Minimize } from 'lucide-react';
+import { APP_VERSION, APP_BUILD_DATE, APP_DB_VERSION, APP_CACHE_VERSION } from '../config/version';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -32,6 +33,38 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     (window.navigator as unknown as { standalone?: boolean }).standalone === true ||
     document.referrer.includes('android-app://')
   );
+
+  const [isFullscreen, setIsFullscreen] = useState(
+    Boolean(typeof document !== 'undefined' && document.fullscreenElement)
+  );
+
+  useEffect(() => {
+    const handleFsChange = () => {
+      setIsFullscreen(Boolean(document.fullscreenElement));
+    };
+    document.addEventListener('fullscreenchange', handleFsChange);
+    return () => document.removeEventListener('fullscreenchange', handleFsChange);
+  }, []);
+
+  const handleToggleFullscreen = async () => {
+    try {
+      if (!document.fullscreenElement) {
+        if (document.documentElement.requestFullscreen) {
+          await document.documentElement.requestFullscreen();
+        } else if ((document.documentElement as unknown as { webkitRequestFullscreen?: () => Promise<void> }).webkitRequestFullscreen) {
+          await (document.documentElement as unknown as { webkitRequestFullscreen: () => Promise<void> }).webkitRequestFullscreen();
+        }
+      } else {
+        if (document.exitFullscreen) {
+          await document.exitFullscreen();
+        } else if ((document as unknown as { webkitExitFullscreen?: () => Promise<void> }).webkitExitFullscreen) {
+          await (document as unknown as { webkitExitFullscreen: () => Promise<void> }).webkitExitFullscreen();
+        }
+      }
+    } catch (err) {
+      console.log('Fullscreen toggle failed', err);
+    }
+  };
 
   // Sync state when userProfile is loaded or modal opens
   useEffect(() => {
@@ -198,8 +231,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               <Sliders className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="font-bold text-stone-800 text-base">Einstellungen & Ziele</h3>
-              <p className="text-xs text-stone-400">Passe deine Ziele und Keys an</p>
+              <div className="flex items-center gap-2">
+                <h3 className="font-bold text-stone-800 text-base">Einstellungen & Eigenschaften</h3>
+                <span className="text-[10px] font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-full">
+                  v{APP_VERSION}
+                </span>
+              </div>
+              <p className="text-xs text-stone-400">Passe deine Ziele, Keys und App-Eigenschaften an</p>
             </div>
           </div>
           <button
@@ -347,16 +385,16 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             </div>
           </div>
 
-          {/* App Version & PWA Updates / Cache */}
+          {/* App-Eigenschaften & Version */}
           <div className="p-4 bg-stone-50 rounded-2xl border border-stone-200/80 space-y-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <span className="p-1.5 bg-emerald-100 text-emerald-800 rounded-xl text-xs font-black">
-                  PWA
+                  v{APP_VERSION}
                 </span>
                 <div>
-                  <h4 className="text-xs font-bold text-stone-800">App-Version & Updates</h4>
-                  <p className="text-[11px] text-stone-400">Weniger Fressen v1.0.0 (Offline-Ready)</p>
+                  <h4 className="text-xs font-bold text-stone-800">App-Eigenschaften & Version</h4>
+                  <p className="text-[11px] text-stone-400">Build-Stand: {APP_BUILD_DATE}</p>
                 </div>
               </div>
               <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
@@ -364,21 +402,51 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   ? 'text-emerald-700 bg-emerald-50 border border-emerald-200'
                   : 'text-amber-800 bg-amber-50 border border-amber-200'
               }`}>
-                {isStandalone ? 'Vollbild-App aktiv' : 'Im Browser geöffnet'}
+                {isStandalone ? 'Vollbild PWA aktiv' : 'Im Browser geöffnet'}
               </span>
             </div>
+
+            {/* Detailed Properties Grid */}
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              <div className="p-2.5 bg-white rounded-xl border border-stone-200/70">
+                <span className="text-[10px] font-semibold text-stone-400 uppercase block">App-Version</span>
+                <span className="font-extrabold text-stone-800 text-xs">v{APP_VERSION}</span>
+              </div>
+              <div className="p-2.5 bg-white rounded-xl border border-stone-200/70">
+                <span className="text-[10px] font-semibold text-stone-400 uppercase block">Build-Datum</span>
+                <span className="font-extrabold text-stone-800 text-xs">{APP_BUILD_DATE}</span>
+              </div>
+              <div className="p-2.5 bg-white rounded-xl border border-stone-200/70">
+                <span className="text-[10px] font-semibold text-stone-400 uppercase block">Lokale Datenbank</span>
+                <span className="font-extrabold text-stone-800 text-xs">Dexie ({APP_DB_VERSION})</span>
+              </div>
+              <div className="p-2.5 bg-white rounded-xl border border-stone-200/70">
+                <span className="text-[10px] font-semibold text-stone-400 uppercase block">Offline-Cache</span>
+                <span className="font-extrabold text-stone-800 text-xs">SW ({APP_CACHE_VERSION})</span>
+              </div>
+            </div>
+
+            {/* Instant 1-Click Fullscreen Button */}
+            <button
+              type="button"
+              onClick={handleToggleFullscreen}
+              className="w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 active:scale-[0.99] text-white text-xs font-bold transition-all flex items-center justify-center gap-2 shadow-xs"
+            >
+              {isFullscreen ? <Minimize className="w-4 h-4" /> : <Maximize className="w-4 h-4" />}
+              <span>{isFullscreen ? '⛶ Vollbildmodus beenden' : '⛶ Vollbildmodus jetzt aktivieren'}</span>
+            </button>
 
             {!isStandalone && (
               <div className="p-3 bg-amber-50/80 border border-amber-200/90 rounded-2xl text-xs space-y-1.5 text-amber-950">
                 <div className="font-bold flex items-center gap-1.5 text-amber-900">
-                  <span>📱</span> So wechselst du ins echte Vollbild:
+                  <span>📱</span> Dauerhaft als App ohne Browserleiste:
                 </div>
                 <p className="text-[11px] text-amber-800 leading-tight">
-                  Aktuell ist das Browser-Lesezeichen geöffnet (mit Adressleiste oben). Die echte App ist bereits installiert:
+                  Tippe entweder oben auf <strong>„⛶ Vollbildmodus jetzt aktivieren“</strong> oder installiere die App dauerhaft:
                 </p>
                 <ul className="text-[11px] list-disc list-inside space-y-1 text-amber-900 pl-0.5">
-                  <li><strong>In Chrome:</strong> Tippe oben rechts auf die <strong>3 Punkte (⋮)</strong> &rarr; <strong>„In App öffnen“</strong>.</li>
-                  <li><strong>Oder:</strong> Wische auf dem Homescreen nach oben zu deinen Apps und tippe auf das Symbol <strong>„Weniger Fressen“ 🥗</strong>.</li>
+                  <li><strong>In Chrome:</strong> Tippe auf die <strong>3 Punkte (⋮)</strong> &rarr; <strong>„App installieren“</strong>.</li>
+                  <li><strong>Tipp:</strong> Sollte dort <em>„Diese App wurde bereits installiert“</em> stehen, tippe auf den <strong>Pfeil nach rechts (➔)</strong> daneben!</li>
                 </ul>
               </div>
             )}

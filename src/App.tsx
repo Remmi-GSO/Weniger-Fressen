@@ -18,7 +18,8 @@ import { RecipeCreatorModal } from './components/RecipeCreatorModal';
 import { RecipeReceiveModal } from './components/RecipeReceiveModal';
 import { ActivityModal } from './components/ActivityModal';
 import { SnackModal } from './components/SnackModal';
-import { Settings } from 'lucide-react';
+import { Settings, Maximize, Minimize } from 'lucide-react';
+import { APP_VERSION } from './config/version';
 
 export function App() {
   const [selectedDate, setSelectedDate] = useState<string>(getTodayDateString());
@@ -104,6 +105,38 @@ export function App() {
     setIsPortionCalcOpen(true);
   };
 
+  const [isFullscreen, setIsFullscreen] = useState(
+    Boolean(typeof document !== 'undefined' && document.fullscreenElement)
+  );
+
+  useEffect(() => {
+    const handleFsChange = () => {
+      setIsFullscreen(Boolean(document.fullscreenElement));
+    };
+    document.addEventListener('fullscreenchange', handleFsChange);
+    return () => document.removeEventListener('fullscreenchange', handleFsChange);
+  }, []);
+
+  const handleToggleFullscreen = async () => {
+    try {
+      if (!document.fullscreenElement) {
+        if (document.documentElement.requestFullscreen) {
+          await document.documentElement.requestFullscreen();
+        } else if ((document.documentElement as unknown as { webkitRequestFullscreen?: () => Promise<void> }).webkitRequestFullscreen) {
+          await (document.documentElement as unknown as { webkitRequestFullscreen: () => Promise<void> }).webkitRequestFullscreen();
+        }
+      } else {
+        if (document.exitFullscreen) {
+          await document.exitFullscreen();
+        } else if ((document as unknown as { webkitExitFullscreen?: () => Promise<void> }).webkitExitFullscreen) {
+          await (document as unknown as { webkitExitFullscreen: () => Promise<void> }).webkitExitFullscreen();
+        }
+      }
+    } catch (err) {
+      console.log('Fullscreen error:', err);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[#F8FAF8] text-stone-800 flex flex-col font-sans selection:bg-emerald-100">
       
@@ -115,9 +148,14 @@ export function App() {
               🥗
             </div>
             <div>
-              <h1 className="text-base font-extrabold tracking-tight text-stone-900 leading-none">
-                Weniger Fressen
-              </h1>
+              <div className="flex items-center gap-1.5">
+                <h1 className="text-base font-extrabold tracking-tight text-stone-900 leading-none">
+                  Weniger Fressen
+                </h1>
+                <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200/80 px-1.5 py-0.2 rounded-md">
+                  v{APP_VERSION}
+                </span>
+              </div>
               <p className="text-[11px] text-stone-400 font-medium mt-0.5">
                 {profile.name && profile.name.trim() !== 'Du' ? (
                   <>Hallo, <span className="font-semibold text-stone-600">{profile.name.trim()}</span> 👋</>
@@ -128,13 +166,27 @@ export function App() {
             </div>
           </div>
 
-          <button
-            onClick={() => setShowSettings(true)}
-            className="w-9 h-9 rounded-2xl bg-stone-50 hover:bg-stone-100 flex items-center justify-center text-stone-500 transition-colors border border-stone-100"
-            title="Einstellungen"
-          >
-            <Settings className="w-4 h-4" />
-          </button>
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={handleToggleFullscreen}
+              className={`w-9 h-9 rounded-2xl flex items-center justify-center transition-all border ${
+                isFullscreen
+                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                  : 'bg-stone-50 hover:bg-stone-100 text-stone-500 border-stone-100'
+              }`}
+              title={isFullscreen ? 'Vollbildmodus beenden' : 'Vollbildmodus aktivieren'}
+            >
+              {isFullscreen ? <Minimize className="w-4 h-4" /> : <Maximize className="w-4 h-4" />}
+            </button>
+
+            <button
+              onClick={() => setShowSettings(true)}
+              className="w-9 h-9 rounded-2xl bg-stone-50 hover:bg-stone-100 flex items-center justify-center text-stone-500 transition-colors border border-stone-100"
+              title="Einstellungen & Eigenschaften"
+            >
+              <Settings className="w-4 h-4" />
+            </button>
+          </div>
         </div>
       </header>
 
