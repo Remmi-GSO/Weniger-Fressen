@@ -1,9 +1,11 @@
-const CACHE_NAME = 'weniger-fressen-v3';
+const CACHE_NAME = 'weniger-fressen-v4';
 const CORE_ASSETS = [
   './',
   './index.html',
   './manifest.webmanifest',
-  './favicon.svg'
+  './favicon.svg',
+  './icon-192.png',
+  './icon-512.png'
 ];
 
 self.addEventListener('install', (event) => {
