@@ -27,6 +27,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
   const [updateMessage, setUpdateMessage] = useState<string | null>(null);
 
+  const isStandalone = typeof window !== 'undefined' && (
+    window.matchMedia('(display-mode: standalone)').matches ||
+    (window.navigator as unknown as { standalone?: boolean }).standalone === true ||
+    document.referrer.includes('android-app://')
+  );
+
   // Sync state when userProfile is loaded or modal opens
   useEffect(() => {
     if (isOpen) {
@@ -353,10 +359,29 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   <p className="text-[11px] text-stone-400">Weniger Fressen v1.0.0 (Offline-Ready)</p>
                 </div>
               </div>
-              <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
-                Lokal aktiv
+              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                isStandalone
+                  ? 'text-emerald-700 bg-emerald-50 border border-emerald-200'
+                  : 'text-amber-800 bg-amber-50 border border-amber-200'
+              }`}>
+                {isStandalone ? 'Vollbild-App aktiv' : 'Im Browser geöffnet'}
               </span>
             </div>
+
+            {!isStandalone && (
+              <div className="p-3 bg-amber-50/80 border border-amber-200/90 rounded-2xl text-xs space-y-1.5 text-amber-950">
+                <div className="font-bold flex items-center gap-1.5 text-amber-900">
+                  <span>📱</span> So wechselst du ins echte Vollbild:
+                </div>
+                <p className="text-[11px] text-amber-800 leading-tight">
+                  Aktuell ist das Browser-Lesezeichen geöffnet (mit Adressleiste oben). Die echte App ist bereits installiert:
+                </p>
+                <ul className="text-[11px] list-disc list-inside space-y-1 text-amber-900 pl-0.5">
+                  <li><strong>In Chrome:</strong> Tippe oben rechts auf die <strong>3 Punkte (⋮)</strong> &rarr; <strong>„In App öffnen“</strong>.</li>
+                  <li><strong>Oder:</strong> Wische auf dem Homescreen nach oben zu deinen Apps und tippe auf das Symbol <strong>„Weniger Fressen“ 🥗</strong>.</li>
+                </ul>
+              </div>
+            )}
 
             {updateMessage && (
               <div className="p-2.5 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-800 flex items-center gap-1.5 animate-in fade-in">
