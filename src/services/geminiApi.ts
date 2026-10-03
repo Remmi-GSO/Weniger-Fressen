@@ -22,10 +22,14 @@ export interface AiMealComponent {
   protein: number;
   carbs: number;
   fat: number;
+  fiber?: number;
+  sugar?: number;
   calories100g: number;
   protein100g: number;
   carbs100g: number;
   fat100g: number;
+  fiber100g?: number;
+  sugar100g?: number;
 }
 
 export interface AiMealAnalysisResult {
@@ -36,7 +40,31 @@ export interface AiMealAnalysisResult {
   totalProtein: number;
   totalCarbs: number;
   totalFat: number;
+  totalFiber?: number;
+  totalSugar?: number;
   usedModel?: string;
+}
+
+export interface ParsedRecipeIngredient {
+  name: string;
+  amountGrams: number;
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+  fiber?: number;
+  sugar?: number;
+}
+
+export interface ParsedRecipeResult {
+  name: string;
+  category: 'bread' | 'meal' | 'snack';
+  servingName?: string;
+  servingWeightGrams?: number;
+  portionCount?: number;
+  cookedWeightGrams?: number;
+  ingredients: ParsedRecipeIngredient[];
+  summaryNote?: string;
 }
 
 /**
@@ -229,34 +257,51 @@ export async function analyzeMealWithGemini({
     ? `\nBekannte Rezepte des Nutzers in der App:\n${userRecipes.map(r => `- ${r.name}: ${r.calories100g} kcal/100g, Protein: ${r.protein100g}g, KH: ${r.carbs100g}g, Fett: ${r.fat100g}g${r.servingWeightGrams ? ` (Portion ca. ${r.servingWeightGrams}g)` : ''}`).join('\n')}\nWenn der Nutzer eines dieser Rezepte erwähnt (z. B. "selbstgebackenes Brot" oder einen ähnlichen Namen), verwende bevorzugt dessen genaue Nährwerte.\n`
     : '';
 
-  const prompt = `Du bist ein präziser deutscher Ernährungsexperte.
-Analysiere die folgende Mahlzeit (anhand des Fotos und/oder der Beschreibung des Nutzers).
+  const prompt = `Du bist ein hochentwickelter, feinfühliger deutscher Ernährungs- und Lebensmittelexperte.
+Analysiere die folgende Mahlzeit (anhand des Fotos und/oder der Beschreibung bzw. des Diktats des Nutzers).
 ${recipesContext}
 Nutzer-Beschreibung / Diktat: "${description.trim() || 'Keine Notiz vorhanden - bitte analysiere das Foto sorgfältig'}"
 
-AUFGABE:
-1. Zerlege die Mahlzeit in alle erkennbaren Einzelkomponenten (z. B. "Dinkelbrot", "Butter", "Gouda", "Gekochtes Ei", "Kaffee mit Milch").
-2. Schätze für jede Komponente das realistische Portionsgewicht in Gramm.
-3. Berechne für jede Komponente die Kalorien (kcal) sowie Makronährstoffe (Protein, Kohlenhydrate, Fett) sowohl für diese Portionsgröße als auch umgerechnet auf 100g.
-4. Gib jeder Komponente eine verständliche Einheiten-Bezeichnung (z. B. "2 Scheiben (ca. 90g)", "1 Ei (ca. 55g)", "1 Tasse (ca. 150ml)").
+WICHTIGE ANWEISUNGEN ZUR SPRACH- & INTENTIONS-INTERPRETATION:
+Der Nutzer (und seine Familie) neigen dazu, Eingaben anspruchsvoll, umgangssprachlich, zusammengesetzt oder verschachtelt zu formulieren.
+Du MUSST die eigentliche Intention erschließen und intelligente Umrechnungen vornehmen:
+1. Typische Küchenmaße & Redewendungen:
+   - "ein Schuss" (Milch, Sahne, Öl) -> ca. 15-20 ml / g
+   - "ein Klecks" (Schmand, Quark, Mayo, Butter) -> ca. 20-25 g
+   - "eine Messerspitze" / "eine Prise" -> ca. 1-2 g
+   - "ein Esslöffel (EL)" -> Öl ca. 10g (90 kcal), Joghurt/Quark ca. 15g
+   - "ein Teelöffel (TL)" -> ca. 5g
+   - "eine Handvoll" (Nüsse, Beeren, Spinat) -> ca. 25-30g
+   - "ein halber Becher" (Schmand, Joghurt, Quark) -> ca. 100-125g
+   - "eine halbe Dose" (Thunfisch, Kichererbsen, Tomaten) -> halbes typisches deutsches Abtropfgewicht (z. B. 75g Thunfisch, 120g Kichererbsen)
+   - Obstgrößen: "große Banane" (ca. 130g netto), "kleine Banane" (ca. 90g netto), "mittlere Banane" (ca. 110g netto), "großer Apfel" (ca. 200g)
+2. Implizite Zubereitungszutaten:
+   - Wenn jemand von "Spiegelei", "Rührei", "gebratenem Fleisch/Gemüse" spricht, berücksichtige verwendetes Anbratfett (z. B. 1 TL bis 1 EL Öl/Butter), sofern nicht explizit "fettfrei" angegeben.
+   - Wenn jemand "Brot mit Butter und Käse" sagt, erfasse Brot, Butter (~10g) und Käse (~30g) als separate Komponenten.
+3. Berechne für jede Komponente die Nährwerte (Kalorien, Protein, Kohlenhydrate, Fett, Ballaststoffe, Zucker) sowohl für die geschätzte Portionsmenge als auch pro 100g.
+4. Gib jeder Komponente eine klare Einheitenbezeichnung (z. B. "2 Spiegeleier (ca. 110g)", "1 Scheibe (ca. 50g)", "1 EL (ca. 10g)").
 
 Antworte ausschließlich im angegebenen JSON-Format:
 {
-  "mealTitle": "Treffender Mahlzeitentitel (z.B. Frühstück mit Dinkelbrot, Gouda und Ei)",
-  "summaryNote": "Kurze, freundliche Erklärung deiner Schätzung (1-2 Sätze)",
+  "mealTitle": "Treffender Mahlzeitentitel (z.B. Frühstück mit Dinkelbrot, Gouda und 2 Spiegeleiern)",
+  "summaryNote": "Kurze, feinfühlige Zusammenfassung deiner Schätzung und Umrechnung (1-2 Sätze)",
   "items": [
     {
-      "name": "Dinkelbrot",
+      "name": "Dinkel-Vollkornbrot",
       "amountGrams": 90,
-      "unitLabel": "2 Scheiben",
+      "unitLabel": "2 Scheiben (ca. 90g)",
       "calories": 215,
       "protein": 7.5,
       "carbs": 39.0,
       "fat": 1.9,
+      "fiber": 6.2,
+      "sugar": 1.5,
       "calories100g": 239,
       "protein100g": 8.3,
       "carbs100g": 43.3,
-      "fat100g": 2.1
+      "fat100g": 2.1,
+      "fiber100g": 6.9,
+      "sugar100g": 1.7
     }
   ]
 }`;
@@ -290,11 +335,19 @@ Antworte ausschließlich im angegebenen JSON-Format:
       const protein = Math.max(0, Math.round((Number(item.protein) || 0) * 10) / 10);
       const carbs = Math.max(0, Math.round((Number(item.carbs) || 0) * 10) / 10);
       const fat = Math.max(0, Math.round((Number(item.fat) || 0) * 10) / 10);
+      const fiber = item.fiber !== undefined ? Math.max(0, Math.round(Number(item.fiber) * 10) / 10) : undefined;
+      const sugar = item.sugar !== undefined ? Math.max(0, Math.round(Number(item.sugar) * 10) / 10) : undefined;
 
       const calories100g = Math.round(Number(item.calories100g) || (calories / amountGrams) * 100);
       const protein100g = Math.round((Number(item.protein100g) || (protein / amountGrams) * 100) * 10) / 10;
       const carbs100g = Math.round((Number(item.carbs100g) || (carbs / amountGrams) * 100) * 10) / 10;
       const fat100g = Math.round((Number(item.fat100g) || (fat / amountGrams) * 100) * 10) / 10;
+      const fiber100g = item.fiber100g !== undefined
+        ? Math.round(Number(item.fiber100g) * 10) / 10
+        : fiber !== undefined ? Math.round((fiber / amountGrams) * 100 * 10) / 10 : undefined;
+      const sugar100g = item.sugar100g !== undefined
+        ? Math.round(Number(item.sugar100g) * 10) / 10
+        : sugar !== undefined ? Math.round((sugar / amountGrams) * 100 * 10) / 10 : undefined;
 
       return {
         id: `ai_comp_${Date.now()}_${index}`,
@@ -305,10 +358,14 @@ Antworte ausschließlich im angegebenen JSON-Format:
         protein,
         carbs,
         fat,
+        fiber,
+        sugar,
         calories100g,
         protein100g,
         carbs100g,
         fat100g,
+        fiber100g,
+        sugar100g,
       };
     });
 
@@ -316,6 +373,8 @@ Antworte ausschließlich im angegebenen JSON-Format:
     const totalProtein = Math.round(items.reduce((sum, it) => sum + it.protein, 0) * 10) / 10;
     const totalCarbs = Math.round(items.reduce((sum, it) => sum + it.carbs, 0) * 10) / 10;
     const totalFat = Math.round(items.reduce((sum, it) => sum + it.fat, 0) * 10) / 10;
+    const totalFiber = Math.round(items.reduce((sum, it) => sum + (it.fiber || 0), 0) * 10) / 10;
+    const totalSugar = Math.round(items.reduce((sum, it) => sum + (it.sugar || 0), 0) * 10) / 10;
 
     return {
       mealTitle: parsed.mealTitle || 'Analysierte Mahlzeit',
@@ -325,10 +384,123 @@ Antworte ausschließlich im angegebenen JSON-Format:
       totalProtein,
       totalCarbs,
       totalFat,
+      totalFiber,
+      totalSugar,
       usedModel: model,
     };
   } catch (err: any) {
     console.error('Gemini meal analysis failed:', err);
+    throw err;
+  }
+}
+
+/**
+ * Parses a whole dictated or typed recipe text (German household phrasing, complex ingredients,
+ * baking or cooking loss, portions) into structured recipe ingredients and macros.
+ */
+export async function parseRecipeWithGemini({
+  text,
+  apiKey,
+}: {
+  text: string;
+  apiKey: string;
+}): Promise<ParsedRecipeResult> {
+  const cleanText = text.trim();
+  if (!cleanText) {
+    throw new Error('Bitte gib einen Rezepttext oder eine Zutatenliste ein.');
+  }
+
+  const prompt = `Du bist ein präziser deutscher Meisterbäcker und Ernährungswissenschaftler.
+Analysiere den folgenden Rezepttext / das Diktat des Nutzers.
+Erkenne das Gericht bzw. Brot, alle Zutaten mit Mengen in Gramm und berechne exakte Nährwerte.
+
+Rezept-Text / Diktat des Nutzers:
+"""${cleanText}"""
+
+WICHTIGE ANWEISUNGEN:
+1. Erkenne den Namen des Gerichts/Brots (z. B. "Blumenkohl-Auflauf mit Gouda", "Dinkel-Sauerteigbrot", "Protein-Haferkekse").
+2. Bestimme die Kategorie: "bread" (wenn es ein Brot, Brötchen oder Teiglaib ist), "meal" (gekochtes/gebackenes Hauptgericht), oder "snack".
+3. Zerlege das Rezept in ALLE Zutaten:
+   - Wandle Küchenmaße exakt in Gramm um:
+     * "1 Kopf Blumenkohl" -> ca. 800g (oder wie im Text genannt)
+     * "3 Eier" -> ca. 165g (ca. 55g pro Ei M)
+     * "2 EL Rapsöl / Olivenöl" -> 20g
+     * "1 TL Salz" -> 5g (0 kcal)
+     * "350 ml Wasser" -> 350g (0 kcal)
+     * "1 Würfel Hefe" -> 42g (ca. 45 kcal)
+     * "1 Päckchen Trockenhefe" -> 7g (ca. 25 kcal)
+     * "1 Becher Schmand / Sahne" -> 200g
+     * "ein Schuss Milch" -> 20g
+   - Berechne für jede Zutat realistische Kalorien (kcal), Protein (g), Kohlenhydrate (g), Fett (g), Ballaststoffe (fiber in g) und Zucker (sugar in g).
+4. Schätze das fertige Gar-/Backgewicht (cookedWeightGrams):
+   - Bei Brot: Rohgewicht abzüglich ca. 12% Backverlust (Wasserverdampfung).
+   - Bei gekochten Gerichten: Rohgewicht abzüglich ca. 5% Dämpfverlust.
+5. Schätze Portionsanzahl (portionCount) und Portionsgewicht (servingWeightGrams):
+   - Bei Brot: servingName "1 Scheibe", servingWeightGrams ca. 50g.
+   - Bei Aufläufen / Gerichten: typisch 1 Portion (z. B. 300-450g je nach Portionsanzahl).
+
+Antworte ausschließlich im angegebenen JSON-Format:
+{
+  "name": "Name des Rezepts",
+  "category": "bread",
+  "servingName": "1 Scheibe",
+  "servingWeightGrams": 50,
+  "portionCount": 16,
+  "cookedWeightGrams": 850,
+  "summaryNote": "Kurze Bestätigung der erkannten Zutaten (1 Satz)",
+  "ingredients": [
+    {
+      "name": "Dinkelmehl Type 630",
+      "amountGrams": 500,
+      "calories": 1725,
+      "protein": 65.0,
+      "carbs": 345.0,
+      "fat": 6.5,
+      "fiber": 17.5,
+      "sugar": 3.5
+    }
+  ]
+}`;
+
+  try {
+    const { rawText } = await callGeminiApi({
+      apiKey,
+      parts: [{ text: prompt }],
+      temperature: 0.2,
+    });
+
+    const parsed = JSON.parse(rawText);
+    const rawIngs: any[] = Array.isArray(parsed.ingredients) ? parsed.ingredients : [];
+
+    const ingredients: ParsedRecipeIngredient[] = rawIngs.map((ing) => {
+      const amountGrams = Math.max(1, Number(ing.amountGrams) || 50);
+      return {
+        name: String(ing.name || 'Zutat'),
+        amountGrams,
+        calories: Math.max(0, Math.round(Number(ing.calories) || 0)),
+        protein: Math.max(0, Math.round((Number(ing.protein) || 0) * 10) / 10),
+        carbs: Math.max(0, Math.round((Number(ing.carbs) || 0) * 10) / 10),
+        fat: Math.max(0, Math.round((Number(ing.fat) || 0) * 10) / 10),
+        fiber: ing.fiber !== undefined ? Math.max(0, Math.round(Number(ing.fiber) * 10) / 10) : undefined,
+        sugar: ing.sugar !== undefined ? Math.max(0, Math.round(Number(ing.sugar) * 10) / 10) : undefined,
+      };
+    });
+
+    const category: 'bread' | 'meal' | 'snack' =
+      parsed.category === 'bread' || parsed.category === 'snack' ? parsed.category : 'meal';
+
+    return {
+      name: String(parsed.name || 'Neues Rezept'),
+      category,
+      servingName: parsed.servingName || (category === 'bread' ? '1 Scheibe' : '1 Portion'),
+      servingWeightGrams: Number(parsed.servingWeightGrams) || (category === 'bread' ? 50 : 250),
+      portionCount: Number(parsed.portionCount) || 1,
+      cookedWeightGrams: Number(parsed.cookedWeightGrams) || undefined,
+      ingredients,
+      summaryNote: parsed.summaryNote,
+    };
+  } catch (err: any) {
+    console.error('Gemini recipe parse failed:', err);
     throw err;
   }
 }

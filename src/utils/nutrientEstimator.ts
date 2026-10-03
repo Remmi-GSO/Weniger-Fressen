@@ -25,7 +25,7 @@ export function estimateFiber(name: string = '', grams: number = 100, calories: 
   if (n.includes('apfel') || n.includes('birne') || n.includes('orange') || n.includes('banane')) {
     return Math.round((grams * 0.024) * 10) / 10;
   }
-  if (n.includes('brokkoli') || n.includes('karotte') || n.includes('möhre') || n.includes('salat') || n.includes('spinat') || n.includes('gemüse') || n.includes('kohl')) {
+  if (n.includes('blumenkohl') || n.includes('brokkoli') || n.includes('karotte') || n.includes('möhre') || n.includes('salat') || n.includes('rucola') || n.includes('spinat') || n.includes('gemüse') || n.includes('kohl') || n.includes('zucchini')) {
     return Math.round((grams * 0.03) * 10) / 10;
   }
   if (n.includes('nuss') || n.includes('nüsse') || n.includes('mandel') || n.includes('cashew') || n.includes('walnuss')) {
@@ -54,11 +54,38 @@ export function estimateFiber(name: string = '', grams: number = 100, calories: 
 export function estimateSugar(name: string = '', grams: number = 100, carbs: number = 0): number {
   const n = name.toLowerCase();
 
+  // Fresh low-sugar vegetables & salads (must check BEFORE snacks and beverages)
+  if (
+    n.includes('rucola') ||
+    n.includes('salat') ||
+    n.includes('blumenkohl') ||
+    n.includes('brokkoli') ||
+    n.includes('spinat') ||
+    n.includes('gurke') ||
+    n.includes('zucchini') ||
+    n.includes('pilz') ||
+    n.includes('champignon')
+  ) {
+    return Math.round(Math.min(grams * 0.018, carbs > 0 ? carbs * 0.8 : grams * 0.018) * 10) / 10;
+  }
+
   // Pure / high sugar items
   if (n.includes('zucker') || n.includes('honig') || n.includes('sirup')) {
     return Math.round(grams * 0.85 * 10) / 10;
   }
-  if (n.includes('marmelade') || n.includes('nutella') || n.includes('schoko') || n.includes('keks') || n.includes('kuchen') || n.includes('bonbon') || n.includes('gummibär') || n.includes('cola') || n.includes('limo') || n.includes('eis')) {
+  const isCola = (/\b(cola|coca[- ]?cola|pepsi|coke|kola)\b/i.test(n) || n.includes('coca-cola') || (n.includes('cola') && !n.includes('rucola')));
+  if (
+    n.includes('marmelade') ||
+    n.includes('nutella') ||
+    n.includes('schoko') ||
+    n.includes('keks') ||
+    n.includes('kuchen') ||
+    n.includes('bonbon') ||
+    n.includes('gummibär') ||
+    isCola ||
+    n.includes('limo') ||
+    n.includes('eis')
+  ) {
     return Math.round(Math.min(grams * 0.5, carbs > 0 ? carbs * 0.85 : grams * 0.5) * 10) / 10;
   }
   if (n.includes('banane') || n.includes('traube') || n.includes('saft') || n.includes('smoothie')) {

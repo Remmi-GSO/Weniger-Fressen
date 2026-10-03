@@ -968,7 +968,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 </div>
               </label>
 
-              {/* 5. Cholesterin & Eier */}
+              {/* 5. Transfette & gehärtete Öle (echte LDL-Treiber) */}
               <label className="flex items-start gap-3 p-2.5 bg-white rounded-xl border border-teal-100 hover:border-teal-300 cursor-pointer transition-all shadow-2xs">
                 <input
                   type="checkbox"
@@ -978,10 +978,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 />
                 <div className="text-xs leading-snug">
                   <div className="font-bold text-stone-800 flex items-center gap-1.5">
-                    <span>🥚</span> Cholesterin & tierische Fette
+                    <span>🫀</span> Transfette & Arterien-Schutz (echte LDL-Treiber)
                   </div>
                   <div className="text-[11px] text-stone-500">
-                    Mehrere Eier am Tag, Garnelen/Meeresfrüchte & stark cholesterinreiche Speisen.
+                    Industrielle Transfette, gehärtetes Palmfett & altes Frittierfett. (Hinweis: Eier & Garnelen erhöhen laut moderner Medizin das LDL-Risiko nicht!)
                   </div>
                 </div>
               </label>

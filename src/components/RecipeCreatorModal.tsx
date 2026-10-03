@@ -1,9 +1,9 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db, type RecipeIngredient, type CustomRecipe, type MealType } from '../db/db';
-import { ALL_LOCAL_FOODS, searchFoodProducts, type FoodProduct } from '../services/foodApi';
+import { ALL_LOCAL_FOODS, searchFoodProducts, normalizeGermanSearch, type FoodProduct } from '../services/foodApi';
 import { getPortionPresets } from '../utils/portionPresets';
-import { queryFoodWithGemini } from '../services/geminiApi';
+import { queryFoodWithGemini, parseRecipeWithGemini } from '../services/geminiApi';
 import { VoiceInputButton } from './VoiceInputButton';
 import { BarcodeScannerModal } from './BarcodeScannerModal';
 import { RecipeShareModal } from './RecipeShareModal';
@@ -112,6 +112,62 @@ export const RecipeCreatorModal = ({
     }
   };
 
+  // Whole Recipe AI Parser State
+  const [isAiRecipeModalOpen, setIsAiRecipeModalOpen] = useState(false);
+  const [aiRecipeText, setAiRecipeText] = useState('');
+  const [isAiRecipeParsing, setIsAiRecipeParsing] = useState(false);
+  const [aiRecipeError, setAiRecipeError] = useState<string | null>(null);
+
+  const handleParseAiRecipe = async () => {
+    if (!aiRecipeText.trim()) return;
+    if (!geminiApiKey) {
+      setAiRecipeError('Kein Gemini API-Key hinterlegt. Bitte trage deinen kostenlosen Key in den Profileinstellungen ein.');
+      return;
+    }
+
+    setIsAiRecipeParsing(true);
+    setAiRecipeError(null);
+
+    try {
+      const parsed = await parseRecipeWithGemini({
+        text: aiRecipeText.trim(),
+        apiKey: geminiApiKey,
+      });
+
+      if (parsed.name) setName(parsed.name);
+      if (parsed.category) setCategory(parsed.category);
+      if (parsed.servingWeightGrams) setSliceWeight(String(parsed.servingWeightGrams));
+      if (parsed.cookedWeightGrams) setCustomBakedWeight(String(parsed.cookedWeightGrams));
+
+      if (parsed.ingredients && parsed.ingredients.length > 0) {
+        setIngredients(
+          parsed.ingredients.map((ing) => ({
+            name: ing.name,
+            amountGrams: ing.amountGrams,
+            calories: ing.calories,
+            protein: ing.protein,
+            carbs: ing.carbs,
+            fat: ing.fat,
+            fiber: ing.fiber,
+            sugar: ing.sugar,
+          }))
+        );
+      }
+
+      setIsAiRecipeModalOpen(false);
+      setAiRecipeText('');
+      confetti({
+        particleCount: 35,
+        spread: 50,
+        origin: { y: 0.6 },
+      });
+    } catch (err: any) {
+      setAiRecipeError(err.message || 'Fehler beim Analysieren des Rezepts mit KI.');
+    } finally {
+      setIsAiRecipeParsing(false);
+    }
+  };
+
   // Debounced search combining local verified items (all supermarket brands & staples) and online OpenFoodFacts
   useEffect(() => {
     const q = ingredientQuery.trim().toLowerCase();
@@ -121,11 +177,20 @@ export const RecipeCreatorModal = ({
       return;
     }
 
+    const normQ = normalizeGermanSearch(q);
     const queryTokens = q.split(/\s+/).filter(Boolean);
+    const normTokens = normQ.split(/\s+/).filter(Boolean);
+
     const localMatches = ALL_LOCAL_FOODS.filter((item) => {
       const nameLower = item.name.toLowerCase();
       const brandLower = (item.brand || '').toLowerCase();
-      return queryTokens.every((token) => nameLower.includes(token) || brandLower.includes(token));
+      const normName = normalizeGermanSearch(item.name);
+      const normBrand = normalizeGermanSearch(item.brand || '');
+
+      return (
+        queryTokens.every((token) => nameLower.includes(token) || brandLower.includes(token)) ||
+        normTokens.every((token) => normName.includes(token) || normBrand.includes(token))
+      );
     }).slice(0, 15);
 
     setSearchResults(localMatches);
@@ -488,6 +553,35 @@ export const RecipeCreatorModal = ({
                 🍲 Gekochtes Gericht / Mahlzeit
               </button>
             </div>
+
+            {/* AI Whole-Recipe Speech & Text Import Banner */}
+            <div className="bg-gradient-to-r from-emerald-50 via-teal-50 to-emerald-100/60 p-3 rounded-2xl border border-emerald-200/80 flex items-center justify-between gap-3 shadow-2xs">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-8 h-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center text-sm shrink-0 shadow-2xs">
+                  ✨
+                </div>
+                <div className="min-w-0">
+                  <span className="text-xs font-bold text-emerald-950 block truncate">
+                    Ganzes Rezept per Sprache oder Text?
+                  </span>
+                  <span className="text-[11px] text-emerald-700 block truncate">
+                    Zutaten, Mengenumrechnung & Nährwerte mit KI erfassen
+                  </span>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setIsAiRecipeModalOpen(true);
+                  setAiRecipeError(null);
+                }}
+                className="py-1.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-xs font-bold transition-all flex items-center gap-1.5 shrink-0 shadow-sm"
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>Rezept einsprechen</span>
+              </button>
+            </div>
           </div>
 
           {/* Zutaten-Liste */}
@@ -729,7 +823,11 @@ export const RecipeCreatorModal = ({
                       onKeyDown={(e) => {
                         if (e.key === 'Enter') {
                           e.preventDefault();
-                          handleAddIngredient();
+                          if (searchResults.length > 0) {
+                            handleSelectFood(searchResults[0]);
+                          } else {
+                            handleAddIngredient();
+                          }
                         }
                       }}
                       className="w-full pl-3 pr-20 py-2 rounded-xl border border-stone-200 text-xs font-medium focus:border-emerald-500 bg-white"
@@ -847,7 +945,7 @@ export const RecipeCreatorModal = ({
                         <div
                           key={f.id}
                           onClick={() => handleSelectFood(f)}
-                          className="p-2.5 text-xs hover:bg-emerald-50 cursor-pointer flex justify-between items-center transition-colors"
+                          className="p-2.5 text-xs hover:bg-emerald-50 cursor-pointer flex justify-between items-center transition-colors group"
                         >
                           <div className="min-w-0 pr-2">
                             <div className="flex items-center gap-1.5">
@@ -860,9 +958,14 @@ export const RecipeCreatorModal = ({
                             </div>
                             {f.brand && <span className="text-[10px] text-stone-400 block truncate">{f.brand}</span>}
                           </div>
-                          <span className="text-emerald-700 font-extrabold text-xs shrink-0">
-                            {f.calories100g} kcal <span className="text-[10px] font-normal text-stone-400">/100g</span>
-                          </span>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <span className="text-emerald-700 font-extrabold text-xs">
+                              {f.calories100g} kcal <span className="text-[10px] font-normal text-stone-400">/100g</span>
+                            </span>
+                            <span className="py-1 px-2 rounded-lg bg-emerald-100/80 text-emerald-800 font-bold text-[10px] group-hover:bg-emerald-600 group-hover:text-white transition-colors">
+                              Menge wählen &rarr;
+                            </span>
+                          </div>
                         </div>
                       ))}
 
@@ -1164,6 +1267,146 @@ export const RecipeCreatorModal = ({
           onClose={() => setSharingRecipe(null)}
           recipe={sharingRecipe}
         />
+
+        {/* Whole Recipe Speech/Text AI Parser Modal */}
+        {isAiRecipeModalOpen && (
+          <div className="fixed inset-0 z-60 flex items-center justify-center p-3 bg-stone-900/60 backdrop-blur-sm animate-in fade-in">
+            <div className="w-full max-w-lg bg-white rounded-3xl shadow-soft-lg border border-stone-100 overflow-hidden flex flex-col max-h-[90vh]">
+              {/* Header */}
+              <div className="p-4 px-5 border-b border-stone-100 flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-2xl bg-emerald-600 text-white flex items-center justify-center shadow-xs">
+                    <Sparkles className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-stone-800 text-sm">
+                      Ganzes Rezept per Sprache / Text erfassen
+                    </h3>
+                    <p className="text-[11px] text-stone-400">
+                      KI zerlegt Zutaten, rechnet Maße um & berechnet Nährwerte
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsAiRecipeModalOpen(false)}
+                  className="w-8 h-8 rounded-full bg-stone-100 hover:bg-stone-200 flex items-center justify-center text-stone-500"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Body */}
+              <div className="p-5 space-y-4 overflow-y-auto">
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold text-stone-700">
+                      Rezept diktieren oder Text hineinkopieren:
+                    </label>
+                    <VoiceInputButton
+                      onTranscript={(text) => setAiRecipeText(text)}
+                      currentValue={aiRecipeText}
+                      size="sm"
+                      title="Rezept per Sprache diktieren"
+                    />
+                  </div>
+                  <textarea
+                    rows={6}
+                    value={aiRecipeText}
+                    onChange={(e) => setAiRecipeText(e.target.value)}
+                    placeholder="Diktieren oder tippen: z. B. 'Blumenkohl-Auflauf mit Gouda: 800g Blumenkohl, 3 Eier, 200g Schmand, 100g geriebener Gouda, 2 EL Rapsöl und etwas Muskat. Ergibt 3 große Portionen.'"
+                    className="w-full p-3 rounded-2xl border border-stone-200 text-xs text-stone-800 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 resize-none leading-relaxed bg-stone-50/50"
+                    autoFocus
+                  />
+                </div>
+
+                {/* Quick Examples */}
+                <div className="space-y-1">
+                  <span className="text-[10px] font-bold text-stone-400 uppercase tracking-wider block">
+                    Beispiel-Vorlagen ausprobieren:
+                  </span>
+                  <div className="flex flex-wrap gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setAiRecipeText(
+                          'Blumenkohl-Auflauf: 800g Blumenkohl, 3 Eier, 200g Schmand, 100g geriebener Gouda, 2 EL Rapsöl, 1 TL Salz und Muskat. 3 Portionen.'
+                        )
+                      }
+                      className="py-1 px-2.5 rounded-xl bg-stone-100 hover:bg-emerald-50 text-[11px] font-semibold text-stone-700 hover:text-emerald-800 transition-colors"
+                    >
+                      🍲 Blumenkohl-Auflauf
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setAiRecipeText(
+                          'Dinkelbrot mit Kernen: 500g Dinkelmehl 630, 350ml lauwarmes Wasser, 1 Würfel Hefe, 10g Salz, 20g Rapsöl und 50g Sonnenblumenkerne. Ergibt 850g fertiges Brot.'
+                        )
+                      }
+                      className="py-1 px-2.5 rounded-xl bg-stone-100 hover:bg-amber-50 text-[11px] font-semibold text-stone-700 hover:text-amber-900 transition-colors"
+                    >
+                      🍞 Dinkelbrot mit Kernen
+                    </button>
+                  </div>
+                </div>
+
+                {/* Error */}
+                {aiRecipeError && (
+                  <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800 flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+                      <span>{aiRecipeError}</span>
+                    </div>
+                    {!geminiApiKey && onOpenSettings && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsAiRecipeModalOpen(false);
+                          onClose();
+                          onOpenSettings();
+                        }}
+                        className="font-bold underline text-amber-950 shrink-0"
+                      >
+                        Key hinterlegen
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Footer */}
+              <div className="p-4 px-5 border-t border-stone-100 bg-stone-50 flex items-center justify-between gap-3">
+                <button
+                  type="button"
+                  onClick={() => setIsAiRecipeModalOpen(false)}
+                  className="py-2.5 px-4 rounded-xl border border-stone-200 bg-white hover:bg-stone-100 text-stone-600 text-xs font-bold transition-colors"
+                >
+                  Abbrechen
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleParseAiRecipe}
+                  disabled={isAiRecipeParsing || !aiRecipeText.trim()}
+                  className="py-2.5 px-5 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-xs font-bold transition-all flex items-center gap-2 shadow-soft disabled:opacity-50"
+                >
+                  {isAiRecipeParsing ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>KI analysiert Rezept...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-4 h-4" />
+                      <span>Rezept jetzt mit KI übernehmen</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -99,6 +99,21 @@ export function normalizeProduct(raw: any, barcode?: string): FoodProduct | null
 }
 
 /**
+ * Normalizes German strings (umlauts ä->ae, ö->oe, ü->ue, ß->ss) for resilient matching
+ */
+export function normalizeGermanSearch(str: string): string {
+  return str
+    .toLowerCase()
+    .replace(/ä/g, 'ae')
+    .replace(/ö/g, 'oe')
+    .replace(/ü/g, 'ue')
+    .replace(/ß/g, 'ss')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim();
+}
+
+/**
  * Searches local verified food database & supermarket catalog (instant, offline)
  * and merges with Open Food Facts
  */
@@ -107,18 +122,28 @@ export async function searchFoodProducts(query: string, page = 1): Promise<FoodP
   if (!cleanQuery || cleanQuery.length < 2) return [];
 
   const queryTokens = cleanQuery.split(/\s+/).filter(Boolean);
+  const normQuery = normalizeGermanSearch(cleanQuery);
+  const normTokens = normQuery.split(/\s+/).filter(Boolean);
 
   // 1. Instant local search from ALL_LOCAL_FOODS (Supermarket + Basics)
   const localMatches = ALL_LOCAL_FOODS.filter((item) => {
     const nameLower = item.name.toLowerCase();
     const brandLower = (item.brand || '').toLowerCase();
-    return queryTokens.every((token) => nameLower.includes(token) || brandLower.includes(token));
+    const normName = normalizeGermanSearch(item.name);
+    const normBrand = normalizeGermanSearch(item.brand || '');
+
+    return (
+      queryTokens.every((token) => nameLower.includes(token) || brandLower.includes(token)) ||
+      normTokens.every((token) => normName.includes(token) || normBrand.includes(token))
+    );
   });
 
   // Relevance ranking: exact startsWith and brand priority first
   localMatches.sort((a, b) => {
-    const aNameStarts = a.name.toLowerCase().startsWith(cleanQuery) ? -2 : 0;
-    const bNameStarts = b.name.toLowerCase().startsWith(cleanQuery) ? -2 : 0;
+    const aNorm = normalizeGermanSearch(a.name);
+    const bNorm = normalizeGermanSearch(b.name);
+    const aNameStarts = a.name.toLowerCase().startsWith(cleanQuery) || aNorm.startsWith(normQuery) ? -2 : 0;
+    const bNameStarts = b.name.toLowerCase().startsWith(cleanQuery) || bNorm.startsWith(normQuery) ? -2 : 0;
     const aBrandStarts = (a.brand || '').toLowerCase().startsWith(cleanQuery) ? -1 : 0;
     const bBrandStarts = (b.brand || '').toLowerCase().startsWith(cleanQuery) ? -1 : 0;
     return (aNameStarts + aBrandStarts) - (bNameStarts + bBrandStarts);

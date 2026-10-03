@@ -16,7 +16,7 @@ interface FoodSearchModalProps {
   onOpenQuickAdd: () => void;
   onOpenRecipeCreator?: () => void;
   onOpenSettings?: () => void;
-  onOpenAiMeal?: () => void;
+  onOpenAiMeal?: (initialText?: string) => void;
   geminiApiKey?: string;
   selectedMealType?: MealType;
 }
@@ -78,6 +78,22 @@ export const FoodSearchModal = ({
     const q = query.toLowerCase();
     return customRecipes.filter((r) => r.name.toLowerCase().includes(q));
   }, [query, customRecipes]);
+
+  // Detects if the user typed or dictated a full multi-item meal ("2 Spiegeleier mit Brot", "Müsli mit Milch und Beeren")
+  const isCompoundMealQuery = useMemo(() => {
+    const q = query.toLowerCase().trim();
+    if (q.length < 7) return false;
+    const compoundPatterns = [
+      /\bmit\b/,
+      /\bund\b/,
+      /\bdazu\b/,
+      /\bplus\b/,
+      /\bauf\b/,
+      /,/,
+      /\b\d+\s*(?:g|gramm|el|tl|scheiben?|eier|st[uü]ck)\b/,
+    ];
+    return compoundPatterns.some((pattern) => pattern.test(q));
+  }, [query]);
 
   if (!isOpen) return null;
 
@@ -226,7 +242,7 @@ export const FoodSearchModal = ({
               <button
                 onClick={() => {
                   onClose();
-                  onOpenAiMeal();
+                  onOpenAiMeal(query.trim() || undefined);
                 }}
                 className="px-3 py-2.5 rounded-2xl bg-gradient-to-r from-emerald-50 to-teal-50 hover:from-emerald-100 hover:to-teal-100 border border-emerald-200/80 text-emerald-800 flex items-center gap-1.5 shadow-2xs text-xs font-bold transition-all shrink-0"
                 title="Foto oder Sprache mit KI erfassen"
@@ -352,6 +368,37 @@ export const FoodSearchModal = ({
                       Tippe oben ein Lebensmittel oder eine Marke ein (z. B. Harry, Golden Toast, Skyr).
                     </p>
                   </div>
+                </div>
+              )}
+
+              {/* Complex Meal Detection Banner: "Haferflocken mit Banane", "2 Eier mit Brot", etc. */}
+              {isCompoundMealQuery && onOpenAiMeal && (
+                <div className="bg-gradient-to-r from-violet-50 via-purple-50 to-indigo-50 p-3.5 rounded-2xl border border-violet-200 shadow-2xs flex items-center justify-between gap-3 animate-in fade-in">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div className="w-8 h-8 rounded-xl bg-violet-600 text-white flex items-center justify-center text-sm shrink-0 shadow-2xs">
+                      ✨
+                    </div>
+                    <div className="min-w-0">
+                      <span className="text-xs font-bold text-violet-950 block truncate">
+                        Komplettes Gericht erkennen?
+                      </span>
+                      <span className="text-[11px] text-violet-700 block truncate">
+                        „{query}“ mit KI in alle Zutaten & Portionen zerlegen
+                      </span>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onClose();
+                      onOpenAiMeal(query.trim());
+                    }}
+                    className="py-1.5 px-3 rounded-xl bg-violet-600 hover:bg-violet-700 active:scale-95 text-white text-xs font-bold transition-all flex items-center gap-1.5 shrink-0 shadow-sm"
+                  >
+                    <span>Aufschlüsseln</span>
+                    <Sparkles className="w-3.5 h-3.5" />
+                  </button>
                 </div>
               )}
 

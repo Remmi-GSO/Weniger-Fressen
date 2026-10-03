@@ -71,7 +71,7 @@ export const PortionCalculatorModal = ({
   const calculatedProtein = Math.round(product.protein100g * multiplier * 10) / 10;
   const calculatedCarbs = Math.round(product.carbs100g * multiplier * 10) / 10;
   const calculatedFat = Math.round(product.fat100g * multiplier * 10) / 10;
-  const calculatedFiber = product.fiber100g !== undefined
+  const calculatedFiber = (product.fiber100g !== undefined && product.fiber100g > 0)
     ? Math.round(product.fiber100g * multiplier * 10) / 10
     : estimateFiber(product.name, effectiveGrams, calculatedKcal);
   const calculatedSugar = product.sugar100g !== undefined
@@ -172,7 +172,7 @@ export const PortionCalculatorModal = ({
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-5 sm:p-6 overflow-y-auto space-y-4">
+        <form onSubmit={handleSubmit} noValidate className="p-5 sm:p-6 overflow-y-auto space-y-4">
           
           {/* Product Overview Card */}
           <div className="flex items-center gap-3.5 p-3.5 bg-stone-50/80 rounded-2xl border border-stone-100">
@@ -335,7 +335,7 @@ export const PortionCalculatorModal = ({
               <div className="relative">
                 <input
                   type="number"
-                  step="1"
+                  step="any"
                   min="1"
                   max="5000"
                   required

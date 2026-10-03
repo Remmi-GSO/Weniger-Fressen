@@ -23,7 +23,7 @@ const KEYWORDS: Record<keyof FoodFocusSettings, string[]> = {
     'limonade', 'limo', 'eistee', 'energy', 'gummibärchen', 'haribo', 'bonbon', 'nutella',
     'marmelade', 'sirup', 'honig', 'donut', 'croissant', 'gebäck', 'eiscreme', 'dessert',
     'pudding', 'süßig', 'riegel', 'waffel', 'schoko', 'marzipan', 'milchschnitte', 'kinderriegel',
-    'hanuta', 'duplo', 'brownie', 'cookies', 'nutella'
+    'hanuta', 'duplo', 'brownie', 'cookies'
   ],
   unhealthyFat: [
     'pommes', 'chips', 'frittiert', 'fritteuse', 'burger', 'currywurst', 'mayo', 'mayonnaise',
@@ -40,9 +40,12 @@ const KEYWORDS: Record<keyof FoodFocusSettings, string[]> = {
     'bratwurst', 'bockwurst', 'cabanossi', 'mettwurst', 'leberwurst', 'bacon', 'teewurst',
     'fleischwurst', 'serrano', 'prosciutto', 'chorizo', 'speck'
   ],
+  // Modern nutritional science (AHA, Harvard, DGE):
+  // Dietary cholesterol from eggs and prawns/shrimp does NOT increase blood LDL cholesterol!
+  // True drivers of high LDL and atherosclerosis are industrial trans fats, lard, palm oil, and deep-fried fats.
   cholesterol: [
-    'ei', 'eier', 'rührei', 'spiegelei', 'omelett', 'gekochtes ei', 'garnele', 'garnelen',
-    'krabbe', 'krabben', 'scampi', 'meeresfrüchte', 'leber', 'innereien'
+    'transfett', 'gehärtet', 'schmalz', 'palmfett', 'frittieröl', 'blätterteig',
+    'fritteuse', 'schweineschmalz', 'fettgebäck', 'frittiert'
   ],
   fiber: [
     'weißbrot', 'toast', 'toastbrot', 'croissant', 'helle brötchen', 'baguette', 'weizenbrötchen'
@@ -56,7 +59,7 @@ const KEYWORDS: Record<keyof FoodFocusSettings, string[]> = {
 const FIBER_RICH_KEYWORDS = [
   'vollkorn', 'dinkel', 'hafer', 'haferflocken', 'müsli', 'gemüse', 'salat', 'brokkoli',
   'karotte', 'spinat', 'bohnen', 'linsen', 'kichererbsen', 'chiasamen', 'leinsamen', 'beeren',
-  'apfel', 'paprika', 'tomate', 'gurke', 'blumenkohl', 'zucchini', 'sauerkraut'
+  'apfel', 'paprika', 'tomate', 'gurke', 'blumenkohl', 'zucchini', 'sauerkraut', 'rucola'
 ];
 
 export function assessFoodQuality(
@@ -104,12 +107,44 @@ export function assessFoodQuality(
 
     for (const entry of entries) {
       const lower = entry.name.toLowerCase();
+
+      // Fresh salads, greens and raw vegetables should NEVER trigger industrial sugar warnings!
+      if (key === 'sugar') {
+        const isFreshGreen =
+          lower.includes('rucola') ||
+          lower.includes('feldsalat') ||
+          lower.includes('kopfsalat') ||
+          lower.includes('eisberg') ||
+          lower.includes('chicoree') ||
+          lower.includes('blattsalat') ||
+          lower.includes('blumenkohl') ||
+          lower.includes('brokkoli') ||
+          lower.includes('gurke') ||
+          lower.includes('spinat') ||
+          lower.includes('zucchini');
+        if (isFreshGreen) continue;
+      }
+
       // If it's a snack labeled as Nascherei, also consider it for sugar/fat
       if (entry.isSnackNibble && (key === 'sugar' || key === 'unhealthyFat')) {
         matched.push(entry.name);
         continue;
       }
+
       for (const kw of list) {
+        // Special boundary check for 'cola': must never match 'rucola'
+        if (kw === 'cola') {
+          const isRealCola =
+            /\b(cola|coca[- ]?cola|pepsi|coke|kola)\b/i.test(lower) && !lower.includes('rucola');
+          if (isRealCola) {
+            if (!matched.includes(entry.name)) {
+              matched.push(entry.name);
+            }
+            break;
+          }
+          continue;
+        }
+
         if (lower.includes(kw)) {
           if (!matched.includes(entry.name)) {
             matched.push(entry.name);
@@ -193,19 +228,41 @@ export function assessFoodQuality(
     }
   }
 
-  // 5. Cholesterin & Eier
+  // 5. Transfette & echte LDL-Treiber (Industrielle Transfette, gehärtete Fette)
   if (focus.cholesterol) {
     const matched = findMatches('cholesterol');
-    if (matched.length >= 2) {
+    if (matched.length > 0) {
       warnings.push({
         key: 'cholesterol',
-        title: 'Cholesterin & tierische Fette',
-        icon: '🥚',
+        title: 'Transfette & gehärtete Öle',
+        icon: '🫀',
         count: matched.length,
         matchedFoods: matched,
-        recommendation: `Heute waren schon mehrere cholesterinreiche Zutaten dabei (${matched.slice(0, 2).join(', ')}). Halte tierische Fette für den Rest des Tages bewusst moderat.`,
+        recommendation: `Heute waren Produkte mit gehärteten Fetten oder Transfetten dabei (${matched.slice(0, 2).join(', ')}). Diese sind die wahren Treiber für ungünstiges LDL-Cholesterin. Tausche sie beim ${nextMealName} gegen naturbelassene Fette wie Olivenöl, Rapsöl oder Nüsse aus.`,
       });
     }
+  }
+
+  // Modern Nutritional Science: Eier & Meeresfrüchte sind hochwertige Superfoods und KEINE LDL-Steigerer!
+  const eggOrSeafood = entries.filter((e) => {
+    const l = e.name.toLowerCase();
+    return (
+      l.includes('ei ') ||
+      l.includes('eier') ||
+      l.includes('spiegelei') ||
+      l.includes('rührei') ||
+      l.includes('omelett') ||
+      l.includes('garnele') ||
+      l.includes('shrimp') ||
+      l.includes('prawn') ||
+      l.includes('lachs') ||
+      l.includes('meeresfrüchte')
+    );
+  });
+  if (eggOrSeafood.length > 0) {
+    praises.push(
+      `Nährstoff-Plus: ${eggOrSeafood[0].name} liefert wertvolles Cholin & Protein – nach aktuellem wissenschaftlichen Stand komplett unbedenklich fürs LDL-Cholesterin! 🥚🦐`
+    );
   }
 
   // 6. Ballaststoffe

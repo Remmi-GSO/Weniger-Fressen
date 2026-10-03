@@ -174,7 +174,7 @@ export const EditEntryModal = ({
         </div>
 
         {/* Modal Form */}
-        <form onSubmit={handleSave} className="p-5 overflow-y-auto space-y-5 flex-1">
+        <form onSubmit={handleSave} noValidate className="p-5 overflow-y-auto space-y-5 flex-1">
           
           {/* Item Name */}
           <div className="space-y-1.5">
@@ -214,6 +214,7 @@ export const EditEntryModal = ({
             <div className="flex items-center gap-2">
               <input
                 type="number"
+                step="any"
                 min="1"
                 max="5000"
                 value={amount}
@@ -311,6 +312,7 @@ export const EditEntryModal = ({
                 <span className="text-[10px] font-bold text-stone-600 block uppercase">Kalorien</span>
                 <input
                   type="number"
+                  step="any"
                   min="0"
                   value={calories}
                   onChange={(e) => setCalories(Number(e.target.value))}
@@ -322,7 +324,7 @@ export const EditEntryModal = ({
                 <span className="text-[10px] font-bold text-violet-700 block uppercase">Protein (g)</span>
                 <input
                   type="number"
-                  step="0.5"
+                  step="any"
                   min="0"
                   value={protein}
                   onChange={(e) => setProtein(Number(e.target.value))}
@@ -334,7 +336,7 @@ export const EditEntryModal = ({
                 <span className="text-[10px] font-bold text-amber-700 block uppercase">Carbs (g)</span>
                 <input
                   type="number"
-                  step="0.5"
+                  step="any"
                   min="0"
                   value={carbs}
                   onChange={(e) => setCarbs(Number(e.target.value))}
@@ -346,7 +348,7 @@ export const EditEntryModal = ({
                 <span className="text-[10px] font-bold text-cyan-700 block uppercase">Fett (g)</span>
                 <input
                   type="number"
-                  step="0.5"
+                  step="any"
                   min="0"
                   value={fat}
                   onChange={(e) => setFat(Number(e.target.value))}
@@ -363,7 +365,7 @@ export const EditEntryModal = ({
                 </span>
                 <input
                   type="number"
-                  step="0.5"
+                  step="any"
                   min="0"
                   value={fiber}
                   onChange={(e) => setFiber(Number(e.target.value))}
@@ -377,7 +379,7 @@ export const EditEntryModal = ({
                 </span>
                 <input
                   type="number"
-                  step="0.5"
+                  step="any"
                   min="0"
                   value={sugar}
                   onChange={(e) => setSugar(Number(e.target.value))}

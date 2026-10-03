@@ -21,6 +21,8 @@ import {
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
+import { estimateFiber, estimateSugar } from '../utils/nutrientEstimator';
+
 interface AiMealModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -28,6 +30,7 @@ interface AiMealModalProps {
   defaultMealType?: MealType;
   geminiApiKey?: string;
   onOpenSettings?: () => void;
+  initialDescription?: string;
 }
 
 const mealLabels: Record<MealType, string> = {
@@ -142,9 +145,16 @@ export const AiMealModal = ({
   defaultMealType = 'breakfast',
   geminiApiKey,
   onOpenSettings,
+  initialDescription,
 }: AiMealModalProps) => {
   const [mealType, setMealType] = useState<MealType>(defaultMealType);
-  const [description, setDescription] = useState('');
+  const [description, setDescription] = useState(initialDescription || '');
+
+  useEffect(() => {
+    if (isOpen && initialDescription) {
+      setDescription(initialDescription);
+    }
+  }, [isOpen, initialDescription]);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [imageBase64, setImageBase64] = useState<string | null>(null);
   const [imageMimeType, setImageMimeType] = useState<string>('image/jpeg');
@@ -433,6 +443,8 @@ export const AiMealModal = ({
         protein: it.protein,
         carbs: it.carbs,
         fat: it.fat,
+        fiber: it.fiber !== undefined ? it.fiber : estimateFiber(it.name, it.amountGrams, it.calories),
+        sugar: it.sugar !== undefined ? it.sugar : estimateSugar(it.name, it.amountGrams, it.carbs),
         amount: it.amountGrams,
         unit: 'g',
         reason,

@@ -97,8 +97,11 @@ export function App() {
     setIsRecipeCreatorOpen(true);
   };
 
-  const handleOpenAiMeal = (mealType: MealType = 'breakfast') => {
+  const [aiMealInitialText, setAiMealInitialText] = useState<string>('');
+
+  const handleOpenAiMeal = (mealType: MealType = 'breakfast', initialText: string = '') => {
     setActiveMealType(mealType);
+    setAiMealInitialText(initialText);
     setIsAiMealModalOpen(true);
   };
 
@@ -298,9 +301,9 @@ export function App() {
           setIsSearchOpen(false);
           setIsRecipeCreatorOpen(true);
         }}
-        onOpenAiMeal={() => {
+        onOpenAiMeal={(initialText?: string) => {
           setIsSearchOpen(false);
-          setIsAiMealModalOpen(true);
+          handleOpenAiMeal(activeMealType, initialText || '');
         }}
         onOpenSettings={() => setShowSettings(true)}
         geminiApiKey={profile.geminiApiKey}
@@ -401,11 +404,15 @@ export function App() {
       {/* Multimodal AI Meal Modal (Photo capture, speech-to-text, Gemini meal analysis & interactive breakdown) */}
       <AiMealModal
         isOpen={isAiMealModalOpen}
-        onClose={() => setIsAiMealModalOpen(false)}
+        onClose={() => {
+          setIsAiMealModalOpen(false);
+          setAiMealInitialText('');
+        }}
         selectedDate={selectedDate}
         defaultMealType={activeMealType}
         geminiApiKey={profile.geminiApiKey}
         onOpenSettings={() => setShowSettings(true)}
+        initialDescription={aiMealInitialText}
       />
 
       {/* Edit Existing Diary Entry Modal */}
