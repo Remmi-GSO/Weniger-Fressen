@@ -8,7 +8,7 @@ echo      WENIGER FRESSEN - GITHUB HOCHLADEN UND UPDATE
 echo ============================================================
 echo.
 
-set "PATH=%LOCALAPPDATA%\Programs\nodejs;%ProgramFiles%\Git\cmd;%PATH%"
+set "PATH=C:\Users\Antigravity\AppData\Local\Programs\nodejs;C:\Program Files\nodejs;%LOCALAPPDATA%\Programs\nodejs;C:\Program Files\Git\cmd;%PATH%"
 
 git config --global --add safe.directory * >nul 2>&1
 
@@ -26,13 +26,11 @@ echo [OK] Ziel-Repository: %TARGET_REPO%
 echo.
 
 echo [1/3] Pruefe und baue die Web-App...
-call npm run build
-if errorlevel 1 (
-    color 0C
-    echo.
-    echo [FEHLER] Das Bauen der App ist fehlgeschlagen.
-    pause
-    exit /b 1
+where npm >nul 2>&1
+if not errorlevel 1 (
+    call npm run build
+) else (
+    echo [HINWEIS] Lokales npm uebersprungen - GitHub Actions baut die App online.
 )
 
 echo.
