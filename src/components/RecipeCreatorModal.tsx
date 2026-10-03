@@ -18,25 +18,29 @@ export const RecipeCreatorModal = ({
   onRecipeSaved,
   initialCategory = 'bread',
 }: RecipeCreatorModalProps) => {
-  const [name, setName] = useState('Unser selbstgebackenes Brot');
+  const [name, setName] = useState(initialCategory === 'meal' ? 'Mein Gericht' : 'Unser selbstgebackenes Brot');
   const [category, setCategory] = useState<'bread' | 'meal' | 'snack'>(initialCategory);
   
   // Ingredients list
-  const [ingredients, setIngredients] = useState<RecipeIngredient[]>([
-    { name: 'Dinkelmehl Type 630', amountGrams: 500, calories: 1725, protein: 65, carbs: 345, fat: 6.5 },
-    { name: 'Wasser (Leitungswasser)', amountGrams: 350, calories: 0, protein: 0, carbs: 0, fat: 0 },
-    { name: 'Sauerteig / Anstellgut (Roggen/Dinkel)', amountGrams: 100, calories: 130, protein: 4.5, carbs: 25, fat: 0.6 },
-    { name: 'Speisesalz / Meersalz', amountGrams: 10, calories: 0, protein: 0, carbs: 0, fat: 0 },
-  ]);
+  const [ingredients, setIngredients] = useState<RecipeIngredient[]>(
+    initialCategory === 'meal'
+      ? []
+      : [
+          { name: 'Dinkelmehl Type 630', amountGrams: 500, calories: 1725, protein: 65, carbs: 345, fat: 6.5 },
+          { name: 'Wasser (Leitungswasser)', amountGrams: 350, calories: 0, protein: 0, carbs: 0, fat: 0 },
+          { name: 'Sauerteig / Anstellgut (Roggen/Dinkel)', amountGrams: 100, calories: 130, protein: 4.5, carbs: 25, fat: 0.6 },
+          { name: 'Speisesalz / Meersalz', amountGrams: 10, calories: 0, protein: 0, carbs: 0, fat: 0 },
+        ]
+  );
 
   // Ingredient picker search
   const [ingredientQuery, setIngredientQuery] = useState('');
   const [selectedFood, setSelectedFood] = useState<FoodProduct | null>(null);
   const [ingredientGrams, setIngredientGrams] = useState('50');
 
-  // Loaf weights & Slices
+  // Loaf / Dish weights & Portions
   const [customBakedWeight, setCustomBakedWeight] = useState<string>('');
-  const [sliceWeight, setSliceWeight] = useState<string>('50'); // 50g per slice
+  const [sliceWeight, setSliceWeight] = useState<string>(initialCategory === 'meal' ? '250' : '50');
 
   // Compute raw totals
   const totalRawWeight = useMemo(() => {
@@ -59,11 +63,11 @@ export const RecipeCreatorModal = ({
     return ingredients.reduce((sum, item) => sum + item.fat, 0);
   }, [ingredients]);
 
-  // Baked weight: if not manually specified, bread typically loses ~12% weight during baking
+  // Baked/Cooked weight: if not manually specified, bread loses ~12%, cooked meals lose ~5% to steam
   const effectiveBakedWeight = useMemo(() => {
     const manual = parseFloat(customBakedWeight);
     if (manual && manual > 0) return manual;
-    return Math.round(totalRawWeight * (category === 'bread' ? 0.88 : 1.0));
+    return Math.round(totalRawWeight * (category === 'bread' ? 0.88 : 0.95));
   }, [customBakedWeight, totalRawWeight, category]);
 
   // Nutritional values per 100g of final baked/cooked food
@@ -88,7 +92,7 @@ export const RecipeCreatorModal = ({
   }, [totalRawFat, effectiveBakedWeight]);
 
   // Nutritional values per single slice/portion
-  const numSliceWeight = parseFloat(sliceWeight) || 50;
+  const numSliceWeight = parseFloat(sliceWeight) || (category === 'bread' ? 50 : 250);
   const sliceMultiplier = numSliceWeight / 100;
   const caloriesPerSlice = Math.round(caloriesPer100g * sliceMultiplier);
   const proteinPerSlice = Math.round(proteinPer100g * sliceMultiplier * 10) / 10;
@@ -183,10 +187,18 @@ export const RecipeCreatorModal = ({
         {/* Header */}
         <div className="p-4 px-6 border-b border-stone-100 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className="p-2 bg-amber-50 text-amber-600 rounded-xl text-lg">🍞</span>
+            <span className={`p-2 rounded-xl text-lg ${category === 'bread' ? 'bg-amber-50 text-amber-600' : 'bg-emerald-50 text-emerald-600'}`}>
+              {category === 'bread' ? '🍞' : '🍲'}
+            </span>
             <div>
-              <h3 className="font-bold text-stone-800 text-base">Eigenes Brot / Rezept berechnen</h3>
-              <p className="text-xs text-stone-400">Aus Zutaten exakte Scheiben- & 100g-Werte ermitteln</p>
+              <h3 className="font-bold text-stone-800 text-base">
+                {category === 'bread' ? 'Eigenes Brot berechnen' : 'Eigenes Gericht / Rezept berechnen'}
+              </h3>
+              <p className="text-xs text-stone-400">
+                {category === 'bread'
+                  ? 'Aus Zutaten exakte Scheiben- & 100g-Werte ermitteln'
+                  : 'Aus Zutaten exakte Portions- & 100g-Werte berechnen'}
+              </p>
             </div>
           </div>
           <button
@@ -208,7 +220,7 @@ export const RecipeCreatorModal = ({
               <input
                 type="text"
                 required
-                placeholder="z. B. Unser Dinkel-Sauerteigbrot"
+                placeholder={category === 'bread' ? 'z. B. Unser Dinkel-Sauerteigbrot' : 'z. B. Kürbissuppe, Rindergulasch, Gemüsecurry'}
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 className="w-full px-4 py-2.5 rounded-2xl border border-stone-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 font-bold text-stone-800 text-sm"
@@ -218,7 +230,11 @@ export const RecipeCreatorModal = ({
             <div className="flex gap-2">
               <button
                 type="button"
-                onClick={() => setCategory('bread')}
+                onClick={() => {
+                  setCategory('bread');
+                  if (name === 'Mein Gericht') setName('Unser selbstgebackenes Brot');
+                  if (sliceWeight === '250') setSliceWeight('50');
+                }}
                 className={`flex-1 py-1.5 px-3 rounded-xl border text-xs font-bold transition-all ${
                   category === 'bread'
                     ? 'border-amber-500 bg-amber-50 text-amber-900 shadow-sm'
@@ -229,14 +245,18 @@ export const RecipeCreatorModal = ({
               </button>
               <button
                 type="button"
-                onClick={() => setCategory('meal')}
+                onClick={() => {
+                  setCategory('meal');
+                  if (name === 'Unser selbstgebackenes Brot') setName('Mein Gericht');
+                  if (sliceWeight === '50') setSliceWeight('250');
+                }}
                 className={`flex-1 py-1.5 px-3 rounded-xl border text-xs font-bold transition-all ${
                   category === 'meal'
                     ? 'border-emerald-500 bg-emerald-50 text-emerald-900 shadow-sm'
                     : 'border-stone-200 text-stone-600 hover:bg-stone-50'
                 }`}
               >
-                🍲 Gekochtes Gericht
+                🍲 Gekochtes Gericht / Mahlzeit
               </button>
             </div>
           </div>
@@ -244,34 +264,51 @@ export const RecipeCreatorModal = ({
           {/* Zutaten-Liste */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <label className="text-xs font-semibold uppercase tracking-wider text-stone-500">
-                Zutaten ({ingredients.length})
-              </label>
+              <div className="flex items-center gap-2">
+                <label className="text-xs font-semibold uppercase tracking-wider text-stone-500">
+                  Zutaten ({ingredients.length})
+                </label>
+                {ingredients.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setIngredients([])}
+                    className="text-[11px] text-rose-500 hover:text-rose-700 font-bold transition-colors"
+                  >
+                    (Leeren)
+                  </button>
+                )}
+              </div>
               <span className="text-xs font-bold text-stone-600">
                 Rohgewicht: {totalRawWeight} g
               </span>
             </div>
 
             {/* List of existing ingredients */}
-            <div className="divide-y divide-stone-100 bg-stone-50/60 rounded-2xl p-2 border border-stone-100">
-              {ingredients.map((item, idx) => (
-                <div key={idx} className="py-2 px-2 flex items-center justify-between text-xs">
-                  <div className="flex-1 pr-2">
-                    <span className="font-bold text-stone-800 block">{item.name}</span>
-                    <span className="text-[10px] text-stone-400">
-                      {item.amountGrams}g • {item.calories} kcal • P: {item.protein}g • K: {item.carbs}g • F: {item.fat}g
-                    </span>
+            {ingredients.length > 0 ? (
+              <div className="divide-y divide-stone-100 bg-stone-50/60 rounded-2xl p-2 border border-stone-100">
+                {ingredients.map((item, idx) => (
+                  <div key={idx} className="py-2 px-2 flex items-center justify-between text-xs">
+                    <div className="flex-1 pr-2">
+                      <span className="font-bold text-stone-800 block">{item.name}</span>
+                      <span className="text-[10px] text-stone-400">
+                        {item.amountGrams}g • {item.calories} kcal • P: {item.protein}g • K: {item.carbs}g • F: {item.fat}g
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveIngredient(idx)}
+                      className="p-1 text-stone-300 hover:text-rose-500 transition-colors"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => handleRemoveIngredient(idx)}
-                    className="p-1 text-stone-300 hover:text-rose-500 transition-colors"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            ) : (
+              <div className="py-4 text-center text-stone-400 text-xs bg-stone-50/50 rounded-2xl border border-dashed border-stone-200">
+                Noch keine Zutaten hinzugefügt. Suche unten nach Zutaten für dein Rezept.
+              </div>
+            )}
 
             {/* Add ingredient sub-form */}
             <div className="p-3 bg-white border border-stone-200 rounded-2xl space-y-2">
@@ -280,7 +317,7 @@ export const RecipeCreatorModal = ({
               <div className="relative">
                 <input
                   type="text"
-                  placeholder="Zutat suchen (z. B. Dinkelvollkornmehl, Hefe, Sonnenblumenkerne)..."
+                  placeholder={category === 'bread' ? "Zutat suchen (z. B. Dinkelvollkornmehl, Hefe, Sonnenblumenkerne)..." : "Zutat suchen (z. B. Hackfleisch, Tomaten passiert, Olivenöl)..."}
                   value={ingredientQuery}
                   onChange={(e) => setIngredientQuery(e.target.value)}
                   className="w-full px-3 py-2 rounded-xl border border-stone-200 text-xs focus:border-emerald-500"
@@ -331,17 +368,21 @@ export const RecipeCreatorModal = ({
             </div>
           </div>
 
-          {/* BACKGEWICHT & SCHEIBEN-KALKULATION */}
-          <div className="p-4 bg-amber-50/70 border border-amber-200/80 rounded-2xl space-y-3">
-            <div className="flex items-center gap-1.5 text-xs font-bold text-amber-900">
-              <Scale className="w-4 h-4 text-amber-600" />
-              <span>Backverlust & Scheibengewicht</span>
+          {/* BACKGEWICHT / KOCHVERLUST & PORTIONS-KALKULATION */}
+          <div className={`p-4 rounded-2xl space-y-3 border ${
+            category === 'bread'
+              ? 'bg-amber-50/70 border-amber-200/80 text-amber-900'
+              : 'bg-emerald-50/70 border-emerald-200/80 text-emerald-900'
+          }`}>
+            <div className="flex items-center gap-1.5 text-xs font-bold">
+              <Scale className={`w-4 h-4 ${category === 'bread' ? 'text-amber-600' : 'text-emerald-600'}`} />
+              <span>{category === 'bread' ? 'Backverlust & Scheibengewicht' : 'Kochverlust & Portionsgewicht'}</span>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <span className="text-xs text-amber-900 block mb-1">
-                  Gebackener Laib (Endgewicht)
+                <span className="text-xs block mb-1 font-semibold">
+                  {category === 'bread' ? 'Gebackener Laib (Endgewicht)' : 'Fertiges Gericht (Endgewicht)'}
                 </span>
                 <div className="relative">
                   <input
@@ -350,47 +391,53 @@ export const RecipeCreatorModal = ({
                     placeholder={`ca. ${effectiveBakedWeight}`}
                     value={customBakedWeight}
                     onChange={(e) => setCustomBakedWeight(e.target.value)}
-                    className="w-full py-2 px-3 rounded-xl border border-amber-200 bg-white font-bold text-stone-800 text-xs text-center"
+                    className="w-full py-2 px-3 rounded-xl border border-stone-200 bg-white font-bold text-stone-800 text-xs text-center"
                   />
                   <span className="text-[10px] text-stone-400 block text-center mt-0.5">
-                    {customBakedWeight ? 'Exakt gewogen' : 'ca. 12% Backverlust'}
+                    {customBakedWeight
+                      ? 'Exakt gewogen'
+                      : category === 'bread'
+                      ? 'ca. 12% Backverlust'
+                      : 'ca. 5% Kochverlust / Dampf'}
                   </span>
                 </div>
               </div>
 
               <div>
-                <span className="text-xs text-amber-900 block mb-1">
-                  Gewicht 1 typische Scheibe
+                <span className="text-xs block mb-1 font-semibold">
+                  {category === 'bread' ? 'Gewicht 1 Scheibe' : 'Gewicht 1 Portion / Teller'}
                 </span>
                 <div className="relative">
                   <input
                     type="number"
                     step="1"
                     min="10"
-                    max="200"
+                    max="1000"
                     required
                     value={sliceWeight}
                     onChange={(e) => setSliceWeight(e.target.value)}
-                    className="w-full py-2 px-3 rounded-xl border border-amber-200 bg-white font-bold text-stone-800 text-xs text-center"
+                    className="w-full py-2 px-3 rounded-xl border border-stone-200 bg-white font-bold text-stone-800 text-xs text-center"
                   />
                   <span className="text-[10px] text-stone-400 block text-center mt-0.5">
-                    Ergibt ca. {Math.round(effectiveBakedWeight / numSliceWeight)} Scheiben
+                    Ergibt ca. {Math.max(1, Math.round(effectiveBakedWeight / numSliceWeight))} {category === 'bread' ? 'Scheiben' : 'Portionen'}
                   </span>
                 </div>
               </div>
             </div>
 
-            {/* Quick Slice Weight buttons */}
+            {/* Quick Portion Weight buttons */}
             <div className="flex gap-1.5 pt-1">
-              {[40, 50, 55, 60, 70].map((w) => (
+              {(category === 'bread' ? [40, 50, 55, 60, 70] : [150, 200, 250, 300, 400]).map((w) => (
                 <button
                   key={w}
                   type="button"
                   onClick={() => setSliceWeight(String(w))}
                   className={`flex-1 py-1 rounded-lg border text-[11px] font-semibold transition-all ${
                     numSliceWeight === w
-                      ? 'border-amber-600 bg-amber-600 text-white'
-                      : 'border-amber-200 bg-white text-amber-800 hover:bg-amber-100'
+                      ? category === 'bread'
+                        ? 'border-amber-600 bg-amber-600 text-white'
+                        : 'border-emerald-600 bg-emerald-600 text-white'
+                      : 'border-stone-200 bg-white text-stone-700 hover:bg-stone-50'
                   }`}
                 >
                   {w}g
@@ -399,7 +446,7 @@ export const RecipeCreatorModal = ({
             </div>
           </div>
 
-          {/* DAS LIVE ERGEBNIS: PRO 100g UND PRO SCHEIBE */}
+          {/* DAS LIVE ERGEBNIS: PRO 100g UND PRO SCHEIBE / PORTION */}
           <div className="p-4 bg-gradient-to-br from-emerald-500/10 via-teal-500/5 to-transparent rounded-2xl border border-emerald-200/80 space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-emerald-800 uppercase tracking-wide flex items-center gap-1.5">
@@ -407,31 +454,31 @@ export const RecipeCreatorModal = ({
                 Berechnetes Nährwertprofil
               </span>
               <span className="text-xs font-extrabold text-emerald-700 bg-white px-2 py-0.5 rounded-full border border-emerald-200">
-                1 Scheibe ({numSliceWeight}g) = {caloriesPerSlice} kcal
+                {category === 'bread' ? '1 Scheibe' : '1 Portion'} ({numSliceWeight}g) = {caloriesPerSlice} kcal
               </span>
             </div>
 
-            {/* Per Slice Highlight */}
+            {/* Per Portion Highlight */}
             <div className="grid grid-cols-3 gap-2">
               <div className="bg-white/90 p-2 rounded-xl text-center shadow-card border border-stone-100">
                 <span className="text-[10px] text-violet-600 font-bold block uppercase">Protein</span>
                 <span className="text-sm font-black text-stone-800">{proteinPerSlice} g</span>
-                <span className="text-[9px] text-stone-400 block">pro Scheibe</span>
+                <span className="text-[9px] text-stone-400 block">{category === 'bread' ? 'pro Scheibe' : 'pro Portion'}</span>
               </div>
               <div className="bg-white/90 p-2 rounded-xl text-center shadow-card border border-stone-100">
                 <span className="text-[10px] text-amber-600 font-bold block uppercase">Carbs</span>
                 <span className="text-sm font-black text-stone-800">{carbsPerSlice} g</span>
-                <span className="text-[9px] text-stone-400 block">pro Scheibe</span>
+                <span className="text-[9px] text-stone-400 block">{category === 'bread' ? 'pro Scheibe' : 'pro Portion'}</span>
               </div>
               <div className="bg-white/90 p-2 rounded-xl text-center shadow-card border border-stone-100">
                 <span className="text-[10px] text-cyan-600 font-bold block uppercase">Fett</span>
                 <span className="text-sm font-black text-stone-800">{fatPerSlice} g</span>
-                <span className="text-[9px] text-stone-400 block">pro Scheibe</span>
+                <span className="text-[9px] text-stone-400 block">{category === 'bread' ? 'pro Scheibe' : 'pro Portion'}</span>
               </div>
             </div>
 
             <div className="text-center text-[11px] text-stone-500 pt-1">
-              Vergleich pro 100g gebackenes Brot: <span className="font-bold text-stone-700">{caloriesPer100g} kcal</span> • P: {proteinPer100g}g • K: {carbsPer100g}g • F: {fatPer100g}g
+              Vergleich pro 100g {category === 'bread' ? 'gebackenes Brot' : 'fertiges Gericht'}: <span className="font-bold text-stone-700">{caloriesPer100g} kcal</span> • P: {proteinPer100g}g • K: {carbsPer100g}g • F: {fatPer100g}g
             </div>
           </div>
 

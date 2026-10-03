@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { db, DEFAULT_USER_PROFILE, type MealType, type CustomRecipe } from './db/db';
+import { db, DEFAULT_USER_PROFILE, type MealType, type CustomRecipe, type DiaryEntry } from './db/db';
 import { getTodayDateString } from './utils/nutrition';
 import { type FoodProduct } from './services/foodApi';
 import { decodePayloadToRecipe } from './utils/recipeShare';
@@ -19,6 +19,7 @@ import { RecipeReceiveModal } from './components/RecipeReceiveModal';
 import { ActivityModal } from './components/ActivityModal';
 import { SnackModal } from './components/SnackModal';
 import { AiMealModal } from './components/AiMealModal';
+import { EditEntryModal } from './components/EditEntryModal';
 import { Settings, Maximize, Minimize } from 'lucide-react';
 import { APP_VERSION } from './config/version';
 
@@ -35,6 +36,7 @@ export function App() {
   const [isActivityModalOpen, setIsActivityModalOpen] = useState(false);
   const [isSnackModalOpen, setIsSnackModalOpen] = useState(false);
   const [isAiMealModalOpen, setIsAiMealModalOpen] = useState(false);
+  const [editingEntry, setEditingEntry] = useState<DiaryEntry | null>(null);
   const [receivedRecipe, setReceivedRecipe] = useState<Omit<CustomRecipe, 'id'> | null>(null);
   const [activeMealType, setActiveMealType] = useState<MealType>('lunch');
   const [selectedProduct, setSelectedProduct] = useState<FoodProduct | null>(null);
@@ -215,6 +217,7 @@ export function App() {
             onOpenActivityModal={() => setIsActivityModalOpen(true)}
             onOpenSnackModal={() => setIsSnackModalOpen(true)}
             onOpenAiMeal={handleOpenAiMeal}
+            onEditEntry={setEditingEntry}
             onNavigateToTab={setCurrentTab}
           />
         )}
@@ -401,6 +404,13 @@ export function App() {
         defaultMealType={activeMealType}
         geminiApiKey={profile.geminiApiKey}
         onOpenSettings={() => setShowSettings(true)}
+      />
+
+      {/* Edit Existing Diary Entry Modal */}
+      <EditEntryModal
+        isOpen={Boolean(editingEntry)}
+        onClose={() => setEditingEntry(null)}
+        entry={editingEntry}
       />
 
       {/* Settings Modal */}

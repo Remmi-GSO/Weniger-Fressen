@@ -259,8 +259,8 @@ export const FoodSearchModal = ({
                   : 'border-transparent text-stone-400 hover:text-stone-600'
               }`}
             >
-              <span>🍞</span>
-              <span>Rezepte ({customRecipes.length})</span>
+              <span>🍲</span>
+              <span>Rezepte & Brot ({customRecipes.length})</span>
             </button>
 
             <button
@@ -413,7 +413,7 @@ export const FoodSearchModal = ({
                 <div className="space-y-2 mb-3 pb-3 border-b border-amber-100">
                   <div className="flex items-center justify-between">
                     <span className="text-[11px] font-bold uppercase tracking-wider text-amber-900 flex items-center gap-1.5">
-                      <span>🍞</span>
+                      <span>🍲</span>
                       <span>Meine selbstgebackenen Brote & Rezepte</span>
                     </span>
                     <span className="text-[10px] text-amber-800 font-bold bg-amber-100 px-2 py-0.5 rounded-full">
@@ -423,7 +423,7 @@ export const FoodSearchModal = ({
 
                   {matchingRecipes.map((r) => {
                     const isBread = r.category === 'bread' || r.name.toLowerCase().includes('brot');
-                    const sliceWeight = r.servingWeightGrams || (isBread ? 50 : 100);
+                    const sliceWeight = r.servingWeightGrams || (isBread ? 50 : 250);
                     const sliceKcal = Math.round(r.calories100g * (sliceWeight / 100));
                     const servLabel = r.servingName || (isBread ? '1 Scheibe' : '1 Portion');
 
@@ -431,22 +431,30 @@ export const FoodSearchModal = ({
                       <div
                         key={`match-recipe-${r.id}`}
                         onClick={() => onSelectProduct(recipeToFoodProduct(r))}
-                        className="py-3 px-3 flex items-center justify-between gap-3 bg-gradient-to-r from-amber-50/80 to-orange-50/40 border border-amber-200/80 hover:border-amber-400 rounded-2xl cursor-pointer transition-all group shadow-xs"
+                        className={`py-3 px-3 flex items-center justify-between gap-3 bg-gradient-to-r rounded-2xl cursor-pointer transition-all group shadow-xs border ${
+                          isBread
+                            ? 'from-amber-50/80 to-orange-50/40 border-amber-200/80 hover:border-amber-400'
+                            : 'from-emerald-50/80 to-teal-50/40 border-emerald-200/80 hover:border-emerald-400'
+                        }`}
                       >
                         <div className="flex items-center gap-3 min-w-0">
-                          <div className="w-11 h-11 rounded-xl bg-amber-500 text-white flex items-center justify-center text-xl shrink-0 shadow-xs">
-                            🍞
+                          <div className={`w-11 h-11 rounded-xl text-white flex items-center justify-center text-xl shrink-0 shadow-xs ${
+                            isBread ? 'bg-amber-500' : 'bg-emerald-600'
+                          }`}>
+                            {isBread ? '🍞' : '🍲'}
                           </div>
                           <div className="min-w-0">
                             <div className="flex items-center gap-1.5">
                               <h4 className="font-bold text-stone-900 text-xs truncate group-hover:text-amber-900">
                                 {r.name}
                               </h4>
-                              <span className="text-[9px] bg-amber-200 text-amber-950 font-bold px-1.5 py-0.2 rounded-md shrink-0">
-                                Eigenes Brot
+                              <span className={`text-[9px] font-bold px-1.5 py-0.2 rounded-md shrink-0 ${
+                                isBread ? 'bg-amber-200 text-amber-950' : 'bg-emerald-200 text-emerald-950'
+                              }`}>
+                                {isBread ? 'Eigenes Brot' : 'Eigenes Gericht'}
                               </span>
                             </div>
-                            <span className="text-[11px] text-amber-800 font-bold block truncate">
+                            <span className="text-[11px] text-stone-700 font-bold block truncate">
                               {servLabel} ({sliceWeight}g) = {sliceKcal} kcal
                             </span>
                             <div className="text-[10px] text-stone-500 mt-0.5">
@@ -593,7 +601,7 @@ export const FoodSearchModal = ({
                 <div className="space-y-3">
                   {customRecipes.map((r) => {
                     const isBread = r.category === 'bread' || r.name.toLowerCase().includes('brot');
-                    const sliceWeight = r.servingWeightGrams || (isBread ? 50 : 100);
+                    const sliceWeight = r.servingWeightGrams || (isBread ? 50 : 250);
                     const sliceKcal = Math.round(r.calories100g * (sliceWeight / 100));
                     const servLabel = r.servingName || (isBread ? '1 Scheibe' : '1 Portion');
 
@@ -605,20 +613,26 @@ export const FoodSearchModal = ({
                       >
                         <div className="flex items-start justify-between gap-2">
                           <div className="flex items-center gap-3 min-w-0">
-                            <div className="w-12 h-12 rounded-2xl bg-amber-500/10 text-amber-700 border border-amber-200/50 flex items-center justify-center text-2xl shrink-0 group-hover:scale-105 transition-transform">
-                              🍞
+                            <div className={`w-12 h-12 rounded-2xl border flex items-center justify-center text-2xl shrink-0 group-hover:scale-105 transition-transform ${
+                              isBread
+                                ? 'bg-amber-500/10 text-amber-700 border-amber-200/50'
+                                : 'bg-emerald-500/10 text-emerald-700 border-emerald-200/50'
+                            }`}>
+                              {isBread ? '🍞' : '🍲'}
                             </div>
                             <div className="min-w-0">
                               <div className="flex items-center gap-1.5">
                                 <h4 className="font-extrabold text-stone-900 text-sm truncate group-hover:text-amber-900">
                                   {r.name}
                                 </h4>
-                                <span className="text-[9px] bg-amber-100 text-amber-900 font-bold px-1.5 py-0.2 rounded-md shrink-0">
+                                <span className={`text-[9px] font-bold px-1.5 py-0.2 rounded-md shrink-0 ${
+                                  isBread ? 'bg-amber-100 text-amber-900' : 'bg-emerald-100 text-emerald-900'
+                                }`}>
                                   {r.category === 'bread' ? 'Brot' : 'Gericht'}
                                 </span>
                               </div>
                               <span className="text-[11px] text-stone-400 block truncate">
-                                Laib gewogen: {r.cookedWeight || r.totalRawWeight}g (Roh: {r.totalRawWeight}g)
+                                {isBread ? 'Laib' : 'Gericht'} gewogen: {r.cookedWeight || r.totalRawWeight}g (Roh: {r.totalRawWeight}g)
                               </span>
                             </div>
                           </div>
@@ -659,7 +673,7 @@ export const FoodSearchModal = ({
                         {/* Nutrition Summary */}
                         <div className="pt-1 flex items-center justify-between border-t border-stone-100 text-xs">
                           <div>
-                            <span className="text-amber-800 font-bold block">
+                            <span className={`font-bold block ${isBread ? 'text-amber-800' : 'text-emerald-800'}`}>
                               {servLabel} ({sliceWeight}g):
                             </span>
                             <span className="text-stone-900 font-black text-sm">
@@ -668,7 +682,9 @@ export const FoodSearchModal = ({
                           </div>
 
                           <div className="text-right">
-                            <span className="text-stone-400 text-[10px] block">pro 100g Brot:</span>
+                            <span className="text-stone-400 text-[10px] block">
+                              pro 100g {isBread ? 'Brot' : 'Gericht'}:
+                            </span>
                             <span className="font-bold text-stone-700">
                               {r.calories100g} kcal <span className="font-normal text-[10px] text-stone-400">• P:{r.protein100g} K:{r.carbs100g} F:{r.fat100g}</span>
                             </span>

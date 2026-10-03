@@ -1,5 +1,5 @@
 import { db, type DiaryEntry, type MealType } from '../db/db';
-import { Plus, Trash2, Sparkles } from 'lucide-react';
+import { Plus, Trash2, Sparkles, Pencil } from 'lucide-react';
 
 interface MealCardProps {
   mealType: MealType;
@@ -10,6 +10,7 @@ interface MealCardProps {
   onAddClick: (mealType: MealType) => void;
   onSnackClick?: () => void;
   onAiClick?: (mealType: MealType) => void;
+  onEditEntry?: (entry: DiaryEntry) => void;
 }
 
 const reasonLabels: Record<string, { label: string; bg: string; text: string }> = {
@@ -28,6 +29,7 @@ export const MealCard: React.FC<MealCardProps> = ({
   onAddClick,
   onSnackClick,
   onAiClick,
+  onEditEntry,
 }) => {
   const totalKcal = entries.reduce((sum, item) => sum + (item.calories || 0), 0);
   const totalProtein = entries.reduce((sum, item) => sum + (item.protein || 0), 0);
@@ -76,11 +78,20 @@ export const MealCard: React.FC<MealCardProps> = ({
           {entries.map((item) => (
             <div
               key={item.id}
-              className="py-2.5 flex items-center justify-between text-xs group hover:bg-stone-50/60 px-1 -mx-1 rounded-xl transition-colors"
+              onClick={() => onEditEntry?.(item)}
+              className="py-2.5 flex items-center justify-between text-xs group hover:bg-stone-50/80 px-2 -mx-1 rounded-2xl transition-all cursor-pointer"
+              title="Antippen, um Menge oder Kalorien nachträglich zu bearbeiten"
             >
               <div className="flex-1 pr-2">
                 <div className="flex items-center gap-1.5 flex-wrap">
-                  <span className="font-medium text-stone-700">{item.name}</span>
+                  <span className="font-semibold text-stone-800 group-hover:text-emerald-800 transition-colors">
+                    {item.name}
+                  </span>
+                  {item.amount && item.amount > 0 && (
+                    <span className="text-[10px] text-stone-400 font-medium">
+                      ({item.amount}{item.unit || 'g'})
+                    </span>
+                  )}
                   {item.isSnackNibble && (
                     <span className="text-[9px] px-1.5 py-0.2 rounded-md font-bold bg-pink-100 text-pink-900 border border-pink-200/60">
                       🍫 Nascherei
@@ -101,11 +112,30 @@ export const MealCard: React.FC<MealCardProps> = ({
                 )}
               </div>
 
-              <div className="flex items-center gap-3">
-                <span className="font-bold text-stone-700">{item.calories} kcal</span>
+              <div className="flex items-center gap-2 shrink-0">
+                <span className="font-extrabold text-stone-800 group-hover:text-emerald-700 transition-colors">
+                  {item.calories} kcal
+                </span>
+                {onEditEntry && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onEditEntry(item);
+                    }}
+                    className="p-1 rounded-lg text-stone-400 hover:text-emerald-700 hover:bg-emerald-50 transition-colors"
+                    title="Eintrag bearbeiten"
+                  >
+                    <Pencil className="w-3.5 h-3.5" />
+                  </button>
+                )}
                 <button
-                  onClick={() => handleDelete(item.id)}
-                  className="opacity-0 group-hover:opacity-100 text-stone-300 hover:text-rose-500 p-1 transition-all"
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDelete(item.id);
+                  }}
+                  className="opacity-70 group-hover:opacity-100 text-stone-300 hover:text-rose-500 p-1 rounded-lg hover:bg-rose-50 transition-all"
                   title="Eintrag löschen"
                 >
                   <Trash2 className="w-3.5 h-3.5" />

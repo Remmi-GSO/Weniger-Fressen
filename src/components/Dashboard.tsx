@@ -20,6 +20,7 @@ interface DashboardProps {
   onOpenActivityModal?: () => void;
   onOpenSnackModal?: () => void;
   onOpenAiMeal?: (mealType?: MealType) => void;
+  onEditEntry?: (entry: DiaryEntry) => void;
   onNavigateToTab: (tab: 'diary' | 'fasting' | 'weight' | 'settings') => void;
 }
 
@@ -37,6 +38,7 @@ export const Dashboard = ({
   onOpenActivityModal,
   onOpenSnackModal,
   onOpenAiMeal,
+  onEditEntry,
   onNavigateToTab,
 }: DashboardProps) => {
   const isToday = selectedDate === getTodayDateString();
@@ -280,10 +282,10 @@ export const Dashboard = ({
               <button
                 onClick={onOpenRecipeCreator}
                 className="flex items-center gap-1 text-xs font-bold text-amber-800 bg-amber-50 hover:bg-amber-100 px-2.5 py-1 rounded-full transition-all border border-amber-200/60"
-                title="Eigenes Brot oder Rezept berechnen"
+                title="Eigenes Rezept oder selbstgebackenes Brot berechnen"
               >
-                <span>🍞</span>
-                <span>Brot backen</span>
+                <span>🍲</span>
+                <span>Rezepte & Brot</span>
               </button>
             )}
             <button
@@ -304,6 +306,7 @@ export const Dashboard = ({
           entries={breakfastEntries}
           onAddClick={onOpenSearch}
           onAiClick={onOpenAiMeal}
+          onEditEntry={onEditEntry}
         />
 
         <MealCard
@@ -314,6 +317,7 @@ export const Dashboard = ({
           entries={lunchEntries}
           onAddClick={onOpenSearch}
           onAiClick={onOpenAiMeal}
+          onEditEntry={onEditEntry}
         />
 
         <MealCard
@@ -324,6 +328,7 @@ export const Dashboard = ({
           entries={dinnerEntries}
           onAddClick={onOpenSearch}
           onAiClick={onOpenAiMeal}
+          onEditEntry={onEditEntry}
         />
 
         <MealCard
@@ -335,6 +340,7 @@ export const Dashboard = ({
           onAddClick={onOpenSearch}
           onSnackClick={onOpenSnackModal}
           onAiClick={onOpenAiMeal}
+          onEditEntry={onEditEntry}
         />
       </div>
 
