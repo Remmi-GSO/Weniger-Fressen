@@ -131,11 +131,20 @@ export async function analyzeMealWithGemini({
   imageBase64,
   imageMimeType = 'image/jpeg',
   apiKey,
+  userRecipes,
 }: {
   description?: string;
   imageBase64?: string;
   imageMimeType?: string;
   apiKey: string;
+  userRecipes?: Array<{
+    name: string;
+    calories100g: number;
+    protein100g: number;
+    carbs100g: number;
+    fat100g: number;
+    servingWeightGrams?: number;
+  }>;
 }): Promise<AiMealAnalysisResult> {
   const cleanKey = apiKey.trim();
   if (!cleanKey) {
@@ -144,9 +153,13 @@ export async function analyzeMealWithGemini({
 
   const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${cleanKey}`;
 
+  const recipesContext = userRecipes && userRecipes.length > 0
+    ? `\nBekannte Rezepte des Nutzers in der App:\n${userRecipes.map(r => `- ${r.name}: ${r.calories100g} kcal/100g, Protein: ${r.protein100g}g, KH: ${r.carbs100g}g, Fett: ${r.fat100g}g${r.servingWeightGrams ? ` (Portion ca. ${r.servingWeightGrams}g)` : ''}`).join('\n')}\nWenn der Nutzer eines dieser Rezepte erwähnt (z. B. "selbstgebackenes Brot" oder einen ähnlichen Namen), verwende bevorzugt dessen genaue Nährwerte.\n`
+    : '';
+
   const prompt = `Du bist ein präziser deutscher Ernährungsexperte.
 Analysiere die folgende Mahlzeit (anhand des Fotos und/oder der Beschreibung des Nutzers).
-
+${recipesContext}
 Nutzer-Beschreibung / Diktat: "${description.trim() || 'Keine Notiz vorhanden - bitte analysiere das Foto sorgfältig'}"
 
 AUFGABE:

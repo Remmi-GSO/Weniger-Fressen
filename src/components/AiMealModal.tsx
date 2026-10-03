@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import { useLiveQuery } from 'dexie-react-hooks';
 import { db, type MealType, type EatingReason, type DiaryEntry } from '../db/db';
 import { analyzeMealWithGemini, type AiMealComponent } from '../services/geminiApi';
 import { compressImage } from '../utils/imageCompress';
@@ -16,6 +17,7 @@ import {
   Key,
   AlertCircle,
   RotateCcw,
+  Wand2,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
@@ -42,6 +44,97 @@ const reasonOptions: Array<{ id: EatingReason; label: string; icon: string }> = 
   { id: 'social', label: 'Feier', icon: '🟣' },
 ];
 
+/**
+ * Processes Web Speech API results and cleans repetitions caused by Android Chrome.
+ * On Android, event.results emits cumulative snapshots where each item contains
+ * the entire spoken phrase up to that point. Blind concatenation results in
+ * exponential phrase repetition.
+ */
+function cleanSpeechRecognitionResults(results: any): string {
+  if (!results || results.length === 0) return '';
+  const phrases: string[] = [];
+
+  for (let i = 0; i < results.length; i++) {
+    const item = results[i];
+    const text = item[0]?.transcript?.trim();
+    if (!text) continue;
+
+    if (phrases.length === 0) {
+      phrases.push(text);
+      continue;
+    }
+
+    const last = phrases[phrases.length - 1];
+    const normLast = last.toLowerCase().replace(/[.,!?;:]/g, '').replace(/\s+/g, ' ').trim();
+    const normCurr = text.toLowerCase().replace(/[.,!?;:]/g, '').replace(/\s+/g, ' ').trim();
+
+    // 1. Exact match / identical repetition
+    if (normCurr === normLast) {
+      phrases[phrases.length - 1] = text;
+    }
+    // 2. Current text is a cumulative extension of the previous phrase (Android Chrome snapshot)
+    else if (normCurr.startsWith(normLast)) {
+      phrases[phrases.length - 1] = text;
+    }
+    // 3. Current text is shorter than previous (e.g. flickering interim result)
+    else if (normLast.startsWith(normCurr)) {
+      // Keep the longer previous text
+    }
+    // 4. Truly a new distinct phrase/sentence
+    else {
+      phrases.push(text);
+    }
+  }
+
+  let merged = phrases.join(' ').trim();
+
+  // Additional safety pass: collapse any immediate consecutive duplicate phrases
+  const phrasePattern = /\b(.{4,60}?)\s+\1\b/gi;
+  let prev = '';
+  let count = 0;
+  while (phrasePattern.test(merged) && count < 10) {
+    prev = merged;
+    merged = merged.replace(phrasePattern, '$1');
+    if (merged === prev) break;
+    count++;
+  }
+
+  return merged;
+}
+
+/**
+ * Automatically cleans texts that suffered from speech recognition stutter or duplicate snapshots.
+ */
+export function recoverCleanSentence(text: string): string {
+  if (!text) return '';
+  const trimmed = text.trim();
+  const words = trimmed.split(/\s+/);
+  if (words.length < 4) return trimmed;
+
+  // Search from the end for the longest trailing statement that was repeated or prefixed earlier
+  for (let len = words.length - 1; len >= 3; len--) {
+    const candidate = words.slice(words.length - len).join(' ');
+    const earlierIndex = trimmed.lastIndexOf(candidate, trimmed.length - candidate.length - 1);
+    if (earlierIndex !== -1) {
+      return candidate;
+    }
+  }
+
+  // Fallback: collapse identical consecutive multi-word phrases
+  let cleaned = trimmed;
+  const phrasePattern = /\b(.{4,80}?)\s+\1\b/gi;
+  let prev = '';
+  let count = 0;
+  while (phrasePattern.test(cleaned) && count < 20) {
+    prev = cleaned;
+    cleaned = cleaned.replace(phrasePattern, '$1');
+    if (cleaned === prev) break;
+    count++;
+  }
+
+  return cleaned.trim();
+}
+
 export const AiMealModal = ({
   isOpen,
   onClose,
@@ -60,6 +153,10 @@ export const AiMealModal = ({
   const [isRecording, setIsRecording] = useState(false);
   const [speechSupported, setSpeechSupported] = useState(false);
   const recognitionRef = useRef<any>(null);
+  const prefixTextRef = useRef('');
+
+  // Fetch custom recipes (e.g. homemade breads) for accurate recognition
+  const customRecipes = useLiveQuery(() => db.recipes.toArray()) || [];
 
   // Analysis state
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -91,20 +188,20 @@ export const AiMealModal = ({
         recognition.interimResults = true;
 
         recognition.onresult = (event: any) => {
-          let currentTranscript = '';
-          for (let i = 0; i < event.results.length; i++) {
-            currentTranscript += event.results[i][0].transcript + ' ';
-          }
-          setDescription(currentTranscript.trim());
+          const cleaned = cleanSpeechRecognitionResults(event.results);
+          const base = prefixTextRef.current;
+          setDescription(base ? `${base} ${cleaned}`.trim() : cleaned.trim());
         };
 
         recognition.onerror = (e: any) => {
           console.log('Speech recognition error', e);
           setIsRecording(false);
+          prefixTextRef.current = '';
         };
 
         recognition.onend = () => {
           setIsRecording(false);
+          prefixTextRef.current = '';
         };
 
         recognitionRef.current = recognition;
@@ -130,14 +227,24 @@ export const AiMealModal = ({
     }
 
     if (isRecording) {
-      recognitionRef.current.stop();
+      try {
+        recognitionRef.current.stop();
+      } catch (e) {
+        // ignore
+      }
       setIsRecording(false);
+      prefixTextRef.current = '';
     } else {
       try {
+        const currentClean = recoverCleanSentence(description);
+        setDescription(currentClean);
+        prefixTextRef.current = currentClean.trim();
         recognitionRef.current.start();
         setIsRecording(true);
       } catch (err) {
         console.error('Failed to start speech recognition', err);
+        setIsRecording(false);
+        prefixTextRef.current = '';
       }
     }
   };
@@ -223,11 +330,22 @@ export const AiMealModal = ({
     setAnalysisError(null);
 
     try {
+      const cleanDesc = recoverCleanSentence(description);
+      setDescription(cleanDesc);
+
       const result = await analyzeMealWithGemini({
-        description,
+        description: cleanDesc,
         imageBase64: imageBase64 || undefined,
         imageMimeType,
         apiKey: activeKey,
+        userRecipes: customRecipes.map((r) => ({
+          name: r.name,
+          calories100g: r.calories100g,
+          protein100g: r.protein100g,
+          carbs100g: r.carbs100g,
+          fat100g: r.fat100g,
+          servingWeightGrams: r.servingWeightGrams,
+        })),
       });
 
       setAnalyzedTitle(result.mealTitle);
@@ -496,49 +614,92 @@ export const AiMealModal = ({
                 )}
               </div>
 
-              {/* Voice & Text Description Card */}
-              <div className="p-4 bg-stone-50 rounded-2xl border border-stone-200/80 space-y-2.5">
-                <div className="flex items-center justify-between">
+              {/* Voice & Text Description Card (Large & Comfortable) */}
+              <div className={`p-4 rounded-3xl border transition-all space-y-3 ${
+                isRecording
+                  ? 'bg-rose-50/50 border-rose-300 ring-2 ring-rose-200'
+                  : 'bg-stone-50 border-stone-200/80'
+              }`}>
+                <div className="flex items-center justify-between flex-wrap gap-2">
                   <span className="text-xs font-bold text-stone-700 flex items-center gap-1.5 uppercase tracking-wider">
-                    <Mic className="w-4 h-4 text-teal-600" />
+                    <Mic className={`w-4 h-4 ${isRecording ? 'text-rose-600 animate-bounce' : 'text-teal-600'}`} />
                     <span>Sprachnotiz oder Text</span>
                   </span>
                   
-                  {speechSupported && (
-                    <button
-                      type="button"
-                      onClick={handleToggleVoice}
-                      className={`py-1 px-2.5 rounded-full text-xs font-bold flex items-center gap-1 transition-all ${
-                        isRecording
-                          ? 'bg-rose-500 text-white animate-pulse'
-                          : 'bg-teal-50 text-teal-700 hover:bg-teal-100 border border-teal-200'
-                      }`}
-                    >
-                      {isRecording ? (
-                        <>
-                          <MicOff className="w-3.5 h-3.5" />
-                          <span>Aufnahme stoppen...</span>
-                        </>
-                      ) : (
-                        <>
-                          <Mic className="w-3.5 h-3.5" />
-                          <span>🎙️ Jetzt sprechen</span>
-                        </>
-                      )}
-                    </button>
-                  )}
+                  <div className="flex items-center gap-2">
+                    {description && (
+                      <button
+                        type="button"
+                        onClick={() => setDescription('')}
+                        className="py-1 px-2.5 rounded-full text-xs text-stone-500 hover:text-rose-600 hover:bg-stone-200/60 transition-colors font-medium flex items-center gap-1"
+                        title="Text leeren"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                        <span>Leeren</span>
+                      </button>
+                    )}
+
+                    {speechSupported && (
+                      <button
+                        type="button"
+                        onClick={handleToggleVoice}
+                        className={`py-1.5 px-3.5 rounded-full text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs ${
+                          isRecording
+                            ? 'bg-rose-600 hover:bg-rose-700 text-white animate-pulse'
+                            : 'bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 text-white'
+                        }`}
+                      >
+                        {isRecording ? (
+                          <>
+                            <MicOff className="w-3.5 h-3.5" />
+                            <span>Aufnahme stoppen</span>
+                          </>
+                        ) : (
+                          <>
+                            <Mic className="w-3.5 h-3.5" />
+                            <span>🎙️ Jetzt sprechen</span>
+                          </>
+                        )}
+                      </button>
+                    )}
+                  </div>
                 </div>
 
-                <textarea
-                  rows={2}
-                  placeholder="Z. B. 'Zwei Scheiben Dinkelbrot mit Butter und Gouda, ein weichgekochtes Ei und ein Kaffee mit etwas Milch'..."
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  className="w-full p-3 rounded-xl border border-stone-200 text-xs text-stone-800 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
-                />
+                {/* Recording Live Status Badge */}
+                {isRecording && (
+                  <div className="p-2.5 bg-rose-100/90 border border-rose-300/80 rounded-2xl flex items-center gap-2.5 text-xs text-rose-950 font-semibold animate-pulse">
+                    <span className="w-2.5 h-2.5 rounded-full bg-rose-600 animate-ping shrink-0" />
+                    <span>Höre zu... Sprich jetzt frei heraus, was du gegessen hast.</span>
+                  </div>
+                )}
 
-                <p className="text-[10px] text-stone-400">
-                  💡 Du kannst ein Foto machen, sprechen oder beides kombinieren (z. B. Foto + Sprachzusatz „Dressing war ohne Öl“).
+                <div className="relative">
+                  <textarea
+                    rows={4}
+                    placeholder="Z. B. 'Eine Scheibe selbstgebackenes Brot mit 1/4 Avocado, dazu ein weichgekochtes Ei'..."
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    className="w-full min-h-[120px] p-3.5 rounded-2xl border border-stone-200 text-sm sm:text-base text-stone-800 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 leading-relaxed shadow-2xs resize-y"
+                  />
+                </div>
+
+                {/* Helpful One-Click Cleaner if repetitive text is detected */}
+                {description && recoverCleanSentence(description) !== description && (
+                  <div className="flex items-center justify-between p-2.5 px-3.5 bg-amber-50 border border-amber-200 rounded-2xl text-xs text-amber-900 flex-wrap gap-2">
+                    <span className="font-medium">Wiederholter Text erkannt?</span>
+                    <button
+                      type="button"
+                      onClick={() => setDescription(recoverCleanSentence(description))}
+                      className="font-bold underline text-emerald-800 hover:text-emerald-950 flex items-center gap-1"
+                    >
+                      <Wand2 className="w-3.5 h-3.5" />
+                      <span>✨ Wiederholungen bereinigen</span>
+                    </button>
+                  </div>
+                )}
+
+                <p className="text-[11px] text-stone-400">
+                  💡 Du kannst ein Foto machen, sprechen oder beides kombinieren (z. B. Foto + Sprachzusatz „ohne Butter“).
                 </p>
               </div>
 
