@@ -11,6 +11,7 @@ interface SettingsModalProps {
   userProfile?: UserProfile | null;
   onReopenOnboarding: () => void;
   onOpenRecipeCreator?: () => void;
+  onOpenNutritionReport?: () => void;
 }
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({
@@ -19,6 +20,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   userProfile,
   onReopenOnboarding,
   onOpenRecipeCreator,
+  onOpenNutritionReport,
 }) => {
   const [userName, setUserName] = useState(
     userProfile?.name && userProfile.name !== 'Du' ? userProfile.name : ''
@@ -1046,6 +1048,31 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               className="w-full py-2.5 px-3.5 rounded-xl border border-stone-200 font-mono text-xs focus:border-emerald-500 bg-white"
             />
           </div>
+
+          {/* Ernährungs-Bericht auf Abruf (3, 5, 10, 20 Tage) */}
+          {onOpenNutritionReport && (
+            <div className="p-4 bg-gradient-to-r from-emerald-500/10 via-teal-500/5 to-emerald-500/10 rounded-2xl border border-emerald-200/90 space-y-2.5">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <span className="p-2 bg-emerald-100 text-emerald-900 rounded-xl text-lg">📊</span>
+                  <div>
+                    <h4 className="text-xs font-bold text-stone-800">Ernährungs-Bericht auf Abruf</h4>
+                    <p className="text-[11px] text-stone-500">Auswertung über 3, 5, 10 oder 20 Tage (UPF, Fette, Ballaststoffe & WhatsApp)</p>
+                  </div>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  onOpenNutritionReport();
+                }}
+                className="w-full py-2.5 px-3 rounded-xl bg-emerald-700 hover:bg-emerald-800 active:scale-[0.99] text-white text-xs font-bold transition-all flex items-center justify-center gap-2 shadow-xs cursor-pointer"
+              >
+                <span>📊 Ernährungs-Bericht jetzt ansehen</span>
+              </button>
+            </div>
+          )}
 
           {/* Rezepte & Brot verwalten & per WhatsApp/QR teilen */}
           {onOpenRecipeCreator && (

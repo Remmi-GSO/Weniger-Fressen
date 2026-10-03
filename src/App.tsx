@@ -20,6 +20,7 @@ import { ActivityModal } from './components/ActivityModal';
 import { SnackModal } from './components/SnackModal';
 import { AiMealModal } from './components/AiMealModal';
 import { EditEntryModal } from './components/EditEntryModal';
+import { NutritionReportModal } from './components/NutritionReportModal';
 import { Settings, Maximize, Minimize } from 'lucide-react';
 import { APP_VERSION } from './config/version';
 
@@ -36,6 +37,7 @@ export function App() {
   const [isActivityModalOpen, setIsActivityModalOpen] = useState(false);
   const [isSnackModalOpen, setIsSnackModalOpen] = useState(false);
   const [isAiMealModalOpen, setIsAiMealModalOpen] = useState(false);
+  const [isNutritionReportOpen, setIsNutritionReportOpen] = useState(false);
   const [editingEntry, setEditingEntry] = useState<DiaryEntry | null>(null);
   const [receivedRecipe, setReceivedRecipe] = useState<Omit<CustomRecipe, 'id'> | null>(null);
   const [activeMealType, setActiveMealType] = useState<MealType>('lunch');
@@ -220,6 +222,7 @@ export function App() {
             onOpenActivityModal={() => setIsActivityModalOpen(true)}
             onOpenSnackModal={() => setIsSnackModalOpen(true)}
             onOpenAiMeal={handleOpenAiMeal}
+            onOpenNutritionReport={() => setIsNutritionReportOpen(true)}
             onEditEntry={setEditingEntry}
             onNavigateToTab={setCurrentTab}
           />
@@ -269,12 +272,21 @@ export function App() {
                 </div>
               </div>
 
-              <button
-                onClick={() => setShowSettings(true)}
-                className="w-full py-3 rounded-2xl bg-emerald-600 text-white font-bold text-xs shadow-soft hover:bg-emerald-700 transition-all"
-              >
-                Ziele & API-Keys bearbeiten
-              </button>
+              <div className="space-y-2 pt-1">
+                <button
+                  onClick={() => setIsNutritionReportOpen(true)}
+                  className="w-full py-3 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-bold text-xs shadow-soft hover:from-emerald-700 hover:to-teal-700 transition-all flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <span>📊 Ernährungs-Bericht auf Abruf (3, 5, 10, 20 Tage)</span>
+                </button>
+
+                <button
+                  onClick={() => setShowSettings(true)}
+                  className="w-full py-3 rounded-2xl bg-stone-100 hover:bg-stone-200 text-stone-800 font-bold text-xs transition-all cursor-pointer"
+                >
+                  Ziele & API-Keys bearbeiten
+                </button>
+              </div>
             </div>
           </div>
         )}
@@ -432,6 +444,19 @@ export function App() {
           setShowSettings(false);
           setIsRecipeCreatorOpen(true);
         }}
+        onOpenNutritionReport={() => {
+          setShowSettings(false);
+          setIsNutritionReportOpen(true);
+        }}
+      />
+
+      {/* Multi-Day Nutrition Report Modal (3, 5, 10, 20 Tage mit UPF, Fetten, Ballaststoffen & WhatsApp) */}
+      <NutritionReportModal
+        isOpen={isNutritionReportOpen}
+        onClose={() => setIsNutritionReportOpen(false)}
+        userProfile={profile}
+        selectedDate={selectedDate}
+        onOpenSettings={() => setShowSettings(true)}
       />
 
       {/* Onboarding Modal for First Time Users or Re-calculation */}

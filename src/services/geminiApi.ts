@@ -504,3 +504,47 @@ Antworte ausschließlich im angegebenen JSON-Format:
     throw err;
   }
 }
+
+/**
+ * Generates an empathetic, concise, and motivating personal nutrition review
+ * for the family / girls based on multi-day tracking metrics.
+ */
+export async function generateAiReportReview({
+  reportSummaryText,
+  apiKey,
+  userName,
+}: {
+  reportSummaryText: string;
+  apiKey: string;
+  userName?: string;
+}): Promise<string> {
+  const prompt = `Du bist ein feinfühliger, erfahrener und motivierender deutscher Ernährungscoach für die Familie (${userName && userName !== 'Du' ? userName : 'unsere Mädels'}).
+Analysiere die folgenden harten Fakten aus dem Ernährungstagebuch:
+
+${reportSummaryText}
+
+AUFGABE:
+Schreibe eine persönliche, herzliche, übersichtliche und ermutigende Zusammenfassung (ca. 100-150 Wörter).
+1. Hebe 1-2 Dinge hervor, die in dieser Zeit absolut herausragend gelaufen sind (z. B. Proteinzufuhr, frische Zutaten, wenig Zucker).
+2. Nenne den 1 wichtigsten Hebel für die nächsten Tage (z. B. Ballaststoffe oder Fette) mit einem ganz konkreten, leckeren Alltags-Vorschlag.
+3. Behalte einen positiven, wertschätzenden Ton – ohne Moralkeule oder Dogma!
+
+Antworte ausschließlich im angegebenen JSON-Format:
+{
+  "coachingText": "Dein motivierender Text hier..."
+}`;
+
+  try {
+    const { rawText } = await callGeminiApi({
+      apiKey,
+      parts: [{ text: prompt }],
+      temperature: 0.3,
+    });
+    const parsed = JSON.parse(rawText);
+    return parsed.coachingText || rawText;
+  } catch (err: any) {
+    console.error('Gemini report review failed:', err);
+    throw err;
+  }
+}
+

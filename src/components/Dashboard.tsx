@@ -23,6 +23,7 @@ interface DashboardProps {
   onOpenActivityModal?: () => void;
   onOpenSnackModal?: () => void;
   onOpenAiMeal?: (mealType?: MealType) => void;
+  onOpenNutritionReport?: () => void;
   onEditEntry?: (entry: DiaryEntry) => void;
   onNavigateToTab: (tab: 'diary' | 'fasting' | 'weight' | 'settings') => void;
 }
@@ -41,6 +42,7 @@ export const Dashboard = ({
   onOpenActivityModal,
   onOpenSnackModal,
   onOpenAiMeal,
+  onOpenNutritionReport,
   onEditEntry,
   onNavigateToTab,
 }: DashboardProps) => {
@@ -446,6 +448,33 @@ export const Dashboard = ({
               </span>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* On-Demand Nutrition Report Banner (3, 5, 10, 20 Tage) */}
+      {onOpenNutritionReport && (
+        <div className="bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 text-white rounded-3xl p-4 shadow-soft flex items-center justify-between gap-3 animate-in fade-in">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-10 h-10 rounded-2xl bg-white/20 backdrop-blur-xs flex items-center justify-center text-xl shrink-0 shadow-2xs">
+              📊
+            </div>
+            <div className="min-w-0">
+              <span className="text-xs font-black uppercase tracking-wider block text-white/95">
+                Ernährungs-Bericht auf Abruf
+              </span>
+              <p className="text-[11px] text-white/80 truncate">
+                3, 5, 10 oder 20 Tage (UPF, Fette, Eiweiß & Ballaststoffe)
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onOpenNutritionReport}
+            className="py-2 px-3.5 rounded-xl bg-white text-emerald-900 hover:bg-emerald-50 active:scale-95 text-xs font-bold transition-all shadow-sm shrink-0 flex items-center gap-1.5 cursor-pointer"
+          >
+            <span>Bericht ansehen</span>
+            <ChevronRight className="w-3.5 h-3.5" />
+          </button>
         </div>
       )}
 
