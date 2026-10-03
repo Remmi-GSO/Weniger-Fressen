@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { db, DEFAULT_USER_PROFILE, type UserProfile } from '../db/db';
-import { X, Key, Download, Upload, Trash2, Sliders, Check, RefreshCw, CheckCircle, Maximize, Minimize } from 'lucide-react';
+import { X, Key, Download, Upload, Trash2, Sliders, Check, RefreshCw, CheckCircle, Maximize, Minimize, BarChart3 } from 'lucide-react';
 import { APP_VERSION, APP_BUILD_DATE, APP_DB_VERSION, APP_CACHE_VERSION } from '../config/version';
 
 interface SettingsModalProps {
@@ -470,6 +470,45 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
             <p className="text-[10px] text-stone-400 leading-tight">
               💡 Lädt die neueste App-Version von GitHub Pages und leert den Browser-App-Cache. Deine Tagebucheinträge, Brotrezepte und Einstellungen bleiben zu 100 % erhalten.
+            </p>
+          </div>
+
+          {/* Besucher-Statistiken (Nur für Admin / Dich) */}
+          <div className="p-4 bg-gradient-to-br from-indigo-50/70 via-stone-50/50 to-transparent border border-indigo-100/90 rounded-2xl space-y-2.5">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold uppercase tracking-wider text-indigo-900 flex items-center gap-1.5">
+                <BarChart3 className="w-3.5 h-3.5 text-indigo-600" />
+                Besucher-Statistiken (Privat)
+              </span>
+              <span className="text-[9px] bg-indigo-100 text-indigo-800 font-bold px-2 py-0.5 rounded-full">
+                Nur für dich
+              </span>
+            </div>
+            <p className="text-[11px] text-stone-500 leading-relaxed">
+              Aufrufe werden 100% anonym und DSGVO-konform (ohne Cookies) gezählt. Normale Nutzer sehen davon nichts.
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+              <a
+                href="https://weniger-fressen.goatcounter.com"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="py-2.5 px-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:scale-[0.99] text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-2xs transition-all"
+              >
+                <span>📊</span>
+                <span>Live-Statistik öffnen</span>
+              </a>
+              <a
+                href="https://github.com/Remmi-GSO/Weniger-Fressen/graphs/traffic"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="py-2.5 px-3 rounded-xl bg-white border border-stone-200 hover:border-stone-400 text-stone-700 font-bold text-xs flex items-center justify-center gap-1.5 shadow-2xs transition-all"
+              >
+                <span>🐙</span>
+                <span>GitHub Traffic (14 Tage)</span>
+              </a>
+            </div>
+            <p className="text-[10px] text-stone-400 leading-tight">
+              Tipp: Falls du dein Dashboard noch nicht freigeschaltet hast, lege dir einmalig unter <a href="https://www.goatcounter.com/signup" target="_blank" rel="noopener noreferrer" className="underline text-indigo-600 font-semibold">goatcounter.com/signup</a> dein Passwort für den Code <code className="bg-white px-1 py-0.5 rounded border border-stone-200 text-indigo-950 font-bold">weniger-fressen</code> an.
             </p>
           </div>
 
