@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db, type MealType, type CustomRecipe } from '../db/db';
 import { searchFoodProducts, type FoodProduct } from '../services/foodApi';
+import { getPortionPresets } from '../utils/portionPresets';
 import { queryFoodWithGemini } from '../services/geminiApi';
 import { RecipeShareModal } from './RecipeShareModal';
 import { VoiceInputButton } from './VoiceInputButton';
@@ -489,55 +490,74 @@ export const FoodSearchModal = ({
               {/* Results List */}
               {!isLoading && results.length > 0 && (
                 <div className="divide-y divide-stone-100">
-                  {results.map((product) => (
-                    <div
-                      key={product.id}
-                      onClick={() => onSelectProduct(product)}
-                      className="py-3 px-2 flex items-center justify-between gap-3 hover:bg-emerald-50/50 rounded-2xl cursor-pointer transition-colors group"
-                    >
-                      <div className="flex items-center gap-3 min-w-0">
-                        {product.imageUrl ? (
-                          <img
-                            src={product.imageUrl}
-                            alt={product.name}
-                            className="w-11 h-11 object-contain rounded-xl bg-white p-0.5 border border-stone-200 shrink-0"
-                            loading="lazy"
-                          />
-                        ) : (
-                          <div className="w-11 h-11 rounded-xl bg-stone-100 flex items-center justify-center text-lg shrink-0 text-stone-500">
-                            {product.source === 'supermarket' ? '🏪' : '🥗'}
-                          </div>
-                        )}
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-1.5">
-                            <h4 className="font-bold text-stone-800 text-xs truncate group-hover:text-emerald-800">
-                              {product.name}
-                            </h4>
-                            {product.source === 'supermarket' && (
-                              <span className="text-[9px] bg-emerald-50 text-emerald-700 font-bold px-1.5 py-0.2 rounded-md shrink-0">
-                                Supermarkt
+                  {results.map((product) => {
+                    const presets = getPortionPresets(product);
+                    const defPreset = presets.find((p) => p.isDefault) || presets[0] || null;
+                    const defKcal = defPreset ? Math.round(product.calories100g * (defPreset.grams / 100)) : null;
+
+                    return (
+                      <div
+                        key={product.id}
+                        onClick={() => onSelectProduct(product)}
+                        className="py-3 px-2 flex items-center justify-between gap-3 hover:bg-emerald-50/50 rounded-2xl cursor-pointer transition-colors group"
+                      >
+                        <div className="flex items-center gap-3 min-w-0">
+                          {product.imageUrl ? (
+                            <img
+                              src={product.imageUrl}
+                              alt={product.name}
+                              className="w-11 h-11 object-contain rounded-xl bg-white p-0.5 border border-stone-200 shrink-0"
+                              loading="lazy"
+                            />
+                          ) : (
+                            <div className="w-11 h-11 rounded-xl bg-stone-100 flex items-center justify-center text-lg shrink-0 text-stone-500">
+                              {defPreset?.icon || (product.source === 'supermarket' ? '🏪' : '🥗')}
+                            </div>
+                          )}
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-1.5">
+                              <h4 className="font-bold text-stone-800 text-xs truncate group-hover:text-emerald-800">
+                                {product.name}
+                              </h4>
+                              {product.source === 'supermarket' && (
+                                <span className="text-[9px] bg-emerald-50 text-emerald-700 font-bold px-1.5 py-0.2 rounded-md shrink-0">
+                                  Supermarkt
+                                </span>
+                              )}
+                            </div>
+                            {product.brand && (
+                              <span className="text-[11px] text-stone-400 block truncate">
+                                {product.brand}
                               </span>
                             )}
-                          </div>
-                          {product.brand && (
-                            <span className="text-[11px] text-stone-400 block truncate">
-                              {product.brand}
-                            </span>
-                          )}
-                          <div className="text-[10px] text-stone-400 mt-0.5">
-                            P: {product.protein100g}g • K: {product.carbs100g}g • F: {product.fat100g}g
+                            <div className="text-[10px] text-stone-400 mt-0.5">
+                              P: {product.protein100g}g • K: {product.carbs100g}g • F: {product.fat100g}g
+                            </div>
                           </div>
                         </div>
-                      </div>
 
-                      <div className="text-right shrink-0">
-                        <div className="text-xs font-black text-stone-800 group-hover:text-emerald-700">
-                          {product.calories100g} <span className="text-[10px] font-normal text-stone-400">kcal</span>
+                        <div className="text-right shrink-0">
+                          {defPreset && defKcal !== null ? (
+                            <>
+                              <div className="text-xs font-black text-stone-800 group-hover:text-emerald-700">
+                                ~{defKcal} <span className="text-[10px] font-normal text-stone-500">kcal</span>
+                              </div>
+                              <span className="text-[10px] text-stone-400 block font-medium">
+                                {defPreset.label} ({defPreset.grams}g)
+                              </span>
+                            </>
+                          ) : (
+                            <>
+                              <div className="text-xs font-black text-stone-800 group-hover:text-emerald-700">
+                                {product.calories100g} <span className="text-[10px] font-normal text-stone-400">kcal</span>
+                              </div>
+                              <span className="text-[10px] text-stone-400">/ 100g</span>
+                            </>
+                          )}
                         </div>
-                        <span className="text-[10px] text-stone-400">/ 100g</span>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
 

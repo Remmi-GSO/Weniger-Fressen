@@ -1,6 +1,6 @@
 import React from 'react';
 import { useSpeechRecognition } from '../hooks/useSpeechRecognition';
-import { Mic } from 'lucide-react';
+import { Mic, Square } from 'lucide-react';
 
 interface VoiceInputButtonProps {
   onTranscript: (text: string) => void;
@@ -58,14 +58,14 @@ export const VoiceInputButton: React.FC<VoiceInputButtonProps> = ({
         onClick={handleClick}
         className={`rounded-xl transition-all flex items-center justify-center shrink-0 ${sizeClasses[size]} ${
           isListening
-            ? 'bg-rose-500 text-white shadow-md ring-4 ring-rose-400/30 animate-pulse'
+            ? 'bg-rose-600 text-white shadow-md ring-4 ring-rose-400/40 animate-pulse'
             : 'text-stone-400 hover:text-emerald-700 hover:bg-emerald-50 active:scale-95'
         } ${className}`}
-        title={isListening ? 'Höre zu... Tippen zum Stoppen' : title}
+        title={isListening ? 'Höre zu... Tippe zum Beenden ⏹️' : title}
         aria-label={isListening ? 'Sprachaufnahme beenden' : title}
       >
         {isListening ? (
-          <Mic className={`${iconSizes[size]} animate-bounce`} />
+          <Square className={`${iconSizes[size]} fill-white`} />
         ) : (
           <Mic className={iconSizes[size]} />
         )}
@@ -81,9 +81,9 @@ export const VoiceInputButton: React.FC<VoiceInputButtonProps> = ({
 
       {/* Live recording tooltip */}
       {isListening && (
-        <div className="absolute bottom-full mb-1.5 left-1/2 -translate-x-1/2 px-2.5 py-1 bg-stone-900/90 backdrop-blur-xs text-white text-[10px] font-bold rounded-lg whitespace-nowrap shadow-lg z-50 flex items-center gap-1.5 animate-in fade-in">
-          <span className="w-1.5 h-1.5 rounded-full bg-rose-400 animate-ping"></span>
-          <span>Höre zu... Jetzt sprechen!</span>
+        <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 px-3 py-1.5 bg-stone-900/95 backdrop-blur-xs text-white text-[11px] font-bold rounded-xl whitespace-nowrap shadow-xl z-50 flex items-center gap-2 animate-in fade-in">
+          <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping"></span>
+          <span>Höre zu... Tippe zum Stoppen ⏹️</span>
         </div>
       )}
 

@@ -69,7 +69,11 @@ export function useSpeechRecognition(options?: UseSpeechRecognitionOptions) {
 
   const recognitionRef = useRef<any>(null);
   const onTranscriptRef = useRef(options?.onTranscript);
-  const prefixTextRef = useRef('');
+  const isListeningRequestedRef = useRef(false);
+  const baseTextRef = useRef('');
+  const lastFullTextRef = useRef('');
+  const restartTimerRef = useRef<any>(null);
+  const safetyTimeoutRef = useRef<any>(null);
 
   useEffect(() => {
     onTranscriptRef.current = options?.onTranscript;
@@ -86,6 +90,16 @@ export function useSpeechRecognition(options?: UseSpeechRecognitionOptions) {
   }, []);
 
   const stopListening = useCallback(() => {
+    isListeningRequestedRef.current = false;
+    if (restartTimerRef.current) {
+      clearTimeout(restartTimerRef.current);
+      restartTimerRef.current = null;
+    }
+    if (safetyTimeoutRef.current) {
+      clearTimeout(safetyTimeoutRef.current);
+      safetyTimeoutRef.current = null;
+    }
+
     if (recognitionRef.current) {
       try {
         recognitionRef.current.stop();
@@ -94,8 +108,97 @@ export function useSpeechRecognition(options?: UseSpeechRecognitionOptions) {
       }
     }
     setIsListening(false);
-    prefixTextRef.current = '';
+    if (typeof navigator !== 'undefined' && navigator.vibrate) {
+      try {
+        navigator.vibrate(25);
+      } catch {}
+    }
   }, []);
+
+  const initAndStartEngine = useCallback(() => {
+    if (typeof window === 'undefined') return;
+    const SpeechRecognition =
+      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) return;
+
+    try {
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.abort();
+        } catch {}
+      }
+
+      const recognition = new SpeechRecognition();
+      recognition.lang = options?.lang || 'de-DE';
+      recognition.continuous = options?.continuous ?? true;
+      recognition.interimResults = true;
+
+      recognition.onstart = () => {
+        setIsListening(true);
+      };
+
+      recognition.onresult = (event: any) => {
+        const cleanedSession = cleanSpeechRecognitionResults(event.results);
+        const base = baseTextRef.current;
+        const fullText = base ? `${base} ${cleanedSession}`.trim() : cleanedSession.trim();
+        lastFullTextRef.current = fullText;
+
+        let isFinal = false;
+        if (event.results && event.results.length > 0) {
+          isFinal = Boolean(event.results[event.results.length - 1]?.isFinal);
+        }
+
+        if (onTranscriptRef.current) {
+          onTranscriptRef.current(fullText, isFinal);
+        }
+      };
+
+      recognition.onerror = (e: any) => {
+        if (e.error === 'not-allowed') {
+          isListeningRequestedRef.current = false;
+          setIsListening(false);
+          setErrorMessage('Mikrofon-Zugriff verweigert. Bitte erlaube das Mikrofon im Browser.');
+          return;
+        }
+
+        // 'no-speech' happens on pause/silence. If user still wants to speak, do not abort!
+        if (e.error === 'no-speech') {
+          return;
+        }
+
+        console.warn('Speech recognition warning:', e.error);
+      };
+
+      recognition.onend = () => {
+        // If the user hasn't explicitly stopped, keep listening by restarting!
+        if (isListeningRequestedRef.current) {
+          // Carry over what was heard into the base text
+          if (lastFullTextRef.current) {
+            baseTextRef.current = lastFullTextRef.current;
+          }
+
+          if (restartTimerRef.current) clearTimeout(restartTimerRef.current);
+          restartTimerRef.current = setTimeout(() => {
+            if (isListeningRequestedRef.current) {
+              try {
+                initAndStartEngine();
+              } catch (err) {
+                console.warn('Could not re-arm recognition engine:', err);
+              }
+            }
+          }, 60);
+          return;
+        }
+
+        setIsListening(false);
+      };
+
+      recognitionRef.current = recognition;
+      recognition.start();
+    } catch (err: any) {
+      console.warn('Speech engine start error:', err);
+    }
+  }, [options?.continuous, options?.lang]);
 
   const startListening = useCallback(
     (prefix: string = '', append: boolean = false) => {
@@ -109,80 +212,32 @@ export function useSpeechRecognition(options?: UseSpeechRecognitionOptions) {
       }
 
       setErrorMessage(null);
-      prefixTextRef.current = append ? prefix : '';
+      isListeningRequestedRef.current = true;
+      baseTextRef.current = append ? prefix : '';
+      lastFullTextRef.current = baseTextRef.current;
 
-      try {
-        if (recognitionRef.current) {
-          try {
-            recognitionRef.current.abort();
-          } catch {
-            // ignore
-          }
-        }
-
-        const recognition = new SpeechRecognition();
-        recognition.lang = options?.lang || 'de-DE';
-        recognition.continuous = options?.continuous ?? true;
-        recognition.interimResults = true;
-
-        recognition.onstart = () => {
-          setIsListening(true);
-          if (typeof navigator !== 'undefined' && navigator.vibrate) {
-            try {
-              navigator.vibrate(40);
-            } catch {
-              // ignore
-            }
-          }
-        };
-
-        recognition.onresult = (event: any) => {
-          const cleaned = cleanSpeechRecognitionResults(event.results);
-          const base = prefixTextRef.current;
-          const fullText = base ? `${base} ${cleaned}`.trim() : cleaned.trim();
-
-          let isFinal = false;
-          if (event.results && event.results.length > 0) {
-            isFinal = Boolean(event.results[event.results.length - 1]?.isFinal);
-          }
-
-          if (onTranscriptRef.current) {
-            onTranscriptRef.current(fullText, isFinal);
-          }
-        };
-
-        recognition.onerror = (e: any) => {
-          console.warn('Speech recognition error:', e.error);
-          if (e.error === 'not-allowed') {
-            setErrorMessage('Mikrofon-Zugriff wurde verweigert. Bitte erlaube das Mikrofon in deinen Browser-Einstellungen.');
-          } else if (e.error === 'no-speech') {
-            // No speech detected, silently end
-          } else {
-            setErrorMessage(`Spracherkennung: ${e.error || 'Fehler'}`);
-          }
-          setIsListening(false);
-          prefixTextRef.current = '';
-        };
-
-        recognition.onend = () => {
-          setIsListening(false);
-          prefixTextRef.current = '';
-        };
-
-        recognitionRef.current = recognition;
-        recognition.start();
-      } catch (err: any) {
-        console.error('Failed to start speech recognition:', err);
-        setIsListening(false);
-        setErrorMessage('Konnte Spracherkennung nicht starten.');
+      if (typeof navigator !== 'undefined' && navigator.vibrate) {
+        try {
+          navigator.vibrate(40);
+        } catch {}
       }
+
+      // Safety: auto-stop after 2 minutes of continuous listening to conserve battery
+      if (safetyTimeoutRef.current) clearTimeout(safetyTimeoutRef.current);
+      safetyTimeoutRef.current = setTimeout(() => {
+        if (isListeningRequestedRef.current) {
+          stopListening();
+        }
+      }, 120000);
+
+      initAndStartEngine();
     },
-    [options?.continuous, options?.lang]
+    [initAndStartEngine, stopListening]
   );
 
   const toggleListening = useCallback(
     (currentValue: string = '', append: boolean = false) => {
-      if (isListening) {
+      if (isListening || isListeningRequestedRef.current) {
         stopListening();
       } else {
         startListening(currentValue, append);
@@ -193,12 +248,13 @@ export function useSpeechRecognition(options?: UseSpeechRecognitionOptions) {
 
   useEffect(() => {
     return () => {
+      isListeningRequestedRef.current = false;
+      if (restartTimerRef.current) clearTimeout(restartTimerRef.current);
+      if (safetyTimeoutRef.current) clearTimeout(safetyTimeoutRef.current);
       if (recognitionRef.current) {
         try {
           recognitionRef.current.abort();
-        } catch {
-          // ignore
-        }
+        } catch {}
       }
     };
   }, []);

@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { db, type MealType, type EatingReason } from '../db/db';
 import { type FoodProduct } from '../services/foodApi';
-import { X, Plus } from 'lucide-react';
+import { getPortionPresets, type PortionPreset } from '../utils/portionPresets';
+import { X, Plus, Minus, Scale, Check } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
 interface PortionCalculatorModalProps {
@@ -12,8 +13,6 @@ interface PortionCalculatorModalProps {
   defaultMealType?: MealType;
 }
 
-type PortionUnit = 'gram' | 'portion' | 'piece';
-
 export const PortionCalculatorModal = ({
   product,
   isOpen,
@@ -21,7 +20,6 @@ export const PortionCalculatorModal = ({
   selectedDate,
   defaultMealType = 'lunch',
 }: PortionCalculatorModalProps) => {
-  const hasServing = Boolean(product?.servingWeightGrams && product.servingWeightGrams > 0);
   const isBreadOrSlice = Boolean(
     product?.servingSize?.toLowerCase().includes('scheibe') ||
     product?.name?.toLowerCase().includes('brot') ||
@@ -29,17 +27,29 @@ export const PortionCalculatorModal = ({
     product?.source === 'recipe'
   );
 
-  const [unit, setUnit] = useState<PortionUnit>(hasServing ? 'portion' : 'gram');
-  const [amount, setAmount] = useState<string>(hasServing ? '1' : '100');
+  // Compute available intuitive portion presets for this specific food
+  const presets = useMemo(() => getPortionPresets(product), [product]);
+  const defaultPreset = useMemo(() => {
+    return presets.find((p) => p.isDefault) || presets[0] || null;
+  }, [presets]);
+
+  // Mode: 'preset' (Klein/Mittel/Groß, Scheibe, etc.) or 'custom_grams' (Küchenwaage)
+  const [mode, setMode] = useState<'preset' | 'custom_grams'>('preset');
+  const [selectedPreset, setSelectedPreset] = useState<PortionPreset | null>(defaultPreset);
+  const [quantity, setQuantity] = useState<number>(1);
+  const [customGrams, setCustomGrams] = useState<string>('100');
   const [mealType, setMealType] = useState<MealType>(defaultMealType);
   const [reason, setReason] = useState<EatingReason | undefined>(undefined);
 
   // Sync state whenever selected product or defaultMealType changes
   useEffect(() => {
     if (product) {
-      const serves = Boolean(product.servingWeightGrams && product.servingWeightGrams > 0);
-      setUnit(serves ? 'portion' : 'gram');
-      setAmount(serves ? '1' : '100');
+      const pList = getPortionPresets(product);
+      const def = pList.find((p) => p.isDefault) || pList[0] || null;
+      setSelectedPreset(def);
+      setMode('preset');
+      setQuantity(1);
+      setCustomGrams(def ? String(def.grams) : (product.servingWeightGrams ? String(product.servingWeightGrams) : '100'));
       setMealType(defaultMealType);
       setReason(undefined);
     }
@@ -47,17 +57,12 @@ export const PortionCalculatorModal = ({
 
   if (!isOpen || !product) return null;
 
-  // Compute actual weight in grams based on chosen unit & amount
-  const numericAmount = parseFloat(amount.replace(',', '.')) || 0;
+  // Calculate effective weight in grams
   let effectiveGrams = 100;
-  if (unit === 'gram') {
-    effectiveGrams = numericAmount;
-  } else if (unit === 'portion') {
-    const servingGrams = product.servingWeightGrams || 100;
-    effectiveGrams = numericAmount * servingGrams;
-  } else if (unit === 'piece') {
-    const pieceGrams = product.servingWeightGrams || 50;
-    effectiveGrams = numericAmount * pieceGrams;
+  if (mode === 'preset' && selectedPreset) {
+    effectiveGrams = Math.max(1, selectedPreset.grams * quantity);
+  } else {
+    effectiveGrams = Math.max(1, parseFloat(customGrams.replace(',', '.')) || 100);
   }
 
   const multiplier = Math.max(0, effectiveGrams / 100);
@@ -66,15 +71,21 @@ export const PortionCalculatorModal = ({
   const calculatedCarbs = Math.round(product.carbs100g * multiplier * 10) / 10;
   const calculatedFat = Math.round(product.fat100g * multiplier * 10) / 10;
 
+  const mealLabels: Record<MealType, string> = {
+    breakfast: 'Frühstück',
+    lunch: 'Mittagessen',
+    dinner: 'Abendessen',
+    snack: 'Snacks',
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (calculatedKcal < 0) return;
 
-    // Unit description for diary
+    // Descriptive unit label for diary
     let unitLabel = `${Math.round(effectiveGrams)}g`;
-    if (unit === 'portion' && product.servingSize) {
-      const portionTitle = isBreadOrSlice ? (numericAmount === 1 ? 'Scheibe' : 'Scheiben') : 'Portion';
-      unitLabel = `${numericAmount}x ${portionTitle} (${Math.round(effectiveGrams)}g)`;
+    if (mode === 'preset' && selectedPreset) {
+      unitLabel = `${quantity}x ${selectedPreset.label} (${Math.round(effectiveGrams)}g)`;
     }
 
     // 1. Add to diary entries
@@ -137,7 +148,7 @@ export const PortionCalculatorModal = ({
             <span className="p-2 bg-emerald-50 text-emerald-600 rounded-xl text-lg">⚖️</span>
             <div>
               <h3 className="font-bold text-stone-800 text-base">Portionsrechner</h3>
-              <p className="text-xs text-stone-400">Passe Menge und Mahlzeit an</p>
+              <p className="text-xs text-stone-400">Schnell & ohne Waage eintragen</p>
             </div>
           </div>
           <button
@@ -148,7 +159,7 @@ export const PortionCalculatorModal = ({
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 overflow-y-auto space-y-5">
+        <form onSubmit={handleSubmit} className="p-5 sm:p-6 overflow-y-auto space-y-4">
           
           {/* Product Overview Card */}
           <div className="flex items-center gap-3.5 p-3.5 bg-stone-50/80 rounded-2xl border border-stone-100">
@@ -162,7 +173,7 @@ export const PortionCalculatorModal = ({
               <div className={`w-14 h-14 rounded-xl flex items-center justify-center text-2xl shrink-0 ${
                 isBreadOrSlice ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100/60 text-emerald-800'
               }`}>
-                {isBreadOrSlice ? '🍞' : '🥗'}
+                {selectedPreset?.icon || (isBreadOrSlice ? '🍞' : '🥗')}
               </div>
             )}
             <div className="flex-1 min-w-0">
@@ -176,120 +187,177 @@ export const PortionCalculatorModal = ({
             </div>
           </div>
 
-          {/* Unit Selector */}
-          <div>
-            <label className="text-xs font-semibold uppercase tracking-wider text-stone-400 block mb-1.5">
-              Einheit wählen
-            </label>
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  setUnit('gram');
-                  setAmount('100');
-                }}
-                className={`py-2 px-3 rounded-2xl border text-xs font-bold transition-all ${
-                  unit === 'gram'
-                    ? 'border-emerald-500 bg-emerald-50 text-emerald-900 shadow-sm'
-                    : 'border-stone-200 bg-white text-stone-600 hover:bg-stone-50'
-                }`}
-              >
-                Gramm (g / ml)
-              </button>
-
-              {hasServing ? (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setUnit('portion');
-                    setAmount('1');
-                  }}
-                  className={`py-2 px-3 rounded-2xl border text-xs font-bold transition-all ${
-                    unit === 'portion'
-                      ? 'border-emerald-500 bg-emerald-50 text-emerald-900 shadow-sm'
-                      : 'border-stone-200 bg-white text-stone-600 hover:bg-stone-50'
-                  }`}
-                >
-                  {isBreadOrSlice ? `Scheibe (${product.servingWeightGrams}g)` : `Portion (${product.servingWeightGrams}g)`}
-                </button>
+          {/* MODE SELECTOR (Portionsgrößen vs Exakte Gramm) */}
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold uppercase tracking-wider text-stone-400">
+              {mode === 'preset' ? 'Portionsgröße wählen' : 'Exaktes Gewicht'}
+            </span>
+            <button
+              type="button"
+              onClick={() => {
+                if (mode === 'preset') {
+                  setMode('custom_grams');
+                  setCustomGrams(String(Math.round(effectiveGrams)));
+                } else {
+                  setMode('preset');
+                }
+              }}
+              className="text-xs text-emerald-700 hover:text-emerald-800 font-bold flex items-center gap-1 hover:underline"
+            >
+              {mode === 'preset' ? (
+                <>
+                  <Scale className="w-3.5 h-3.5" />
+                  <span>Auf Küchenwaage (g) wechseln</span>
+                </>
               ) : (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setUnit('piece');
-                    setAmount('1');
-                  }}
-                  className={`py-2 px-3 rounded-2xl border text-xs font-bold transition-all ${
-                    unit === 'piece'
-                      ? 'border-emerald-500 bg-emerald-50 text-emerald-900 shadow-sm'
-                      : 'border-stone-200 bg-white text-stone-600 hover:bg-stone-50'
-                  }`}
-                >
-                  Stück (~50g)
-                </button>
+                <>
+                  <span>🍌 Zu Portionsgrößen wechseln</span>
+                </>
               )}
-            </div>
+            </button>
           </div>
 
-          {/* Quantity Input + Fast Presets */}
-          <div>
-            <div className="flex items-center justify-between mb-1">
-              <label className="text-xs font-semibold uppercase tracking-wider text-stone-400">
-                Menge ({unit === 'gram' ? 'Gramm' : isBreadOrSlice ? 'Scheiben' : 'Portionen'})
-              </label>
-              {unit !== 'gram' && (
-                <span className="text-xs text-stone-500 font-medium">
-                  = {Math.round(effectiveGrams)} Gramm
+          {/* 1. PRESET MODE (Klein, Mittel, Groß, Scheibe, etc.) */}
+          {mode === 'preset' && (
+            <div className="space-y-3">
+              {/* Portion Chips Grid */}
+              <div className="grid grid-cols-2 gap-2">
+                {presets.map((p) => {
+                  const isSelected = selectedPreset?.id === p.id;
+                  const pKcal = Math.round(product.calories100g * (p.grams / 100));
+                  return (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => {
+                        setSelectedPreset(p);
+                      }}
+                      className={`p-2.5 rounded-2xl border text-left transition-all relative ${
+                        isSelected
+                          ? 'border-emerald-500 bg-emerald-50/90 shadow-sm ring-2 ring-emerald-500/20'
+                          : 'border-stone-200 bg-white hover:bg-stone-50'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm">{p.icon || '🥗'}</span>
+                        <span className="text-[11px] font-black text-emerald-800 bg-emerald-100/70 px-1.5 py-0.5 rounded-lg">
+                          ~{pKcal} kcal
+                        </span>
+                      </div>
+                      <div className="mt-1 font-bold text-stone-800 text-xs truncate">
+                        {p.label}
+                      </div>
+                      {p.subtitle && (
+                        <div className="text-[10px] text-stone-400 font-medium">
+                          {p.subtitle}
+                        </div>
+                      )}
+                      {isSelected && (
+                        <div className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-emerald-600"></div>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Quantity Stepper: [-] 1x [ + ] */}
+              <div className="p-3 bg-stone-50 rounded-2xl border border-stone-200/70 flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <span className="text-[11px] text-stone-400 font-semibold block uppercase tracking-wider">
+                    Anzahl
+                  </span>
+                  <span className="text-xs font-bold text-stone-800 truncate block">
+                    {quantity}x {selectedPreset?.label || 'Portion'} ({Math.round(effectiveGrams)}g)
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setQuantity((q) => Math.max(0.5, q > 1 ? q - 1 : q === 1 ? 0.5 : 0.5))}
+                    className="w-9 h-9 rounded-xl bg-white border border-stone-200 hover:bg-stone-100 text-stone-700 font-bold flex items-center justify-center text-base shadow-2xs active:scale-95 transition-all"
+                    title="Weniger"
+                  >
+                    <Minus className="w-4 h-4" />
+                  </button>
+
+                  <span className="w-10 text-center font-extrabold text-base text-stone-800">
+                    {quantity}
+                  </span>
+
+                  <button
+                    type="button"
+                    onClick={() => setQuantity((q) => q + (q < 1 ? 0.5 : 1))}
+                    className="w-9 h-9 rounded-xl bg-white border border-stone-200 hover:bg-stone-100 text-stone-700 font-bold flex items-center justify-center text-base shadow-2xs active:scale-95 transition-all"
+                    title="Mehr"
+                  >
+                    <Plus className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Quick Stepper Shortcuts: 0.5x, 1x, 1.5x, 2x */}
+              <div className="flex gap-1.5">
+                {[0.5, 1, 1.5, 2, 3].map((val) => (
+                  <button
+                    key={val}
+                    type="button"
+                    onClick={() => setQuantity(val)}
+                    className={`flex-1 py-1 rounded-xl border text-xs font-bold transition-all ${
+                      quantity === val
+                        ? 'border-emerald-500 bg-emerald-50 text-emerald-900 shadow-2xs'
+                        : 'border-stone-200 bg-white text-stone-600 hover:bg-stone-50'
+                    }`}
+                  >
+                    {val}x
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* 2. CUSTOM GRAMS MODE (Kitchen scale) */}
+          {mode === 'custom_grams' && (
+            <div className="space-y-2">
+              <div className="relative">
+                <input
+                  type="number"
+                  step="1"
+                  min="1"
+                  max="5000"
+                  required
+                  value={customGrams}
+                  onChange={(e) => setCustomGrams(e.target.value)}
+                  className="w-full text-center text-3xl font-extrabold py-2.5 px-4 rounded-2xl border border-stone-200 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 text-stone-800"
+                  autoFocus
+                />
+                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold text-stone-400">
+                  Gramm (g)
                 </span>
-              )}
-            </div>
+              </div>
 
-            <div className="relative">
-              <input
-                type="number"
-                step={unit === 'gram' ? '1' : '0.1'}
-                min="0.1"
-                required
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                className="w-full text-center text-3xl font-extrabold py-2.5 px-4 rounded-2xl border border-stone-200 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 text-stone-800"
-              />
-              <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold text-stone-400">
-                {unit === 'gram' ? 'g' : isBreadOrSlice ? 'Sch.' : 'Port.'}
-              </span>
+              {/* Quick Gram Presets */}
+              <div className="flex gap-1.5">
+                {[25, 50, 100, 150, 200, 250].map((g) => (
+                  <button
+                    key={g}
+                    type="button"
+                    onClick={() => setCustomGrams(String(g))}
+                    className="flex-1 py-1 rounded-xl border border-stone-200 text-xs font-semibold text-stone-600 hover:bg-emerald-50 hover:text-emerald-800 hover:border-emerald-200 transition-all active:scale-95"
+                  >
+                    {g}g
+                  </button>
+                ))}
+              </div>
             </div>
-
-            {/* Quick Presets */}
-            <div className="flex gap-1.5 mt-2">
-              {unit === 'gram'
-                ? [50, 100, 150, 200, 250].map((g) => (
-                    <button
-                      key={g}
-                      type="button"
-                      onClick={() => setAmount(String(g))}
-                      className="flex-1 py-1 rounded-xl border border-stone-200 text-xs font-semibold text-stone-600 hover:bg-emerald-50 hover:text-emerald-800 hover:border-emerald-200 transition-all active:scale-95"
-                    >
-                      {g}g
-                    </button>
-                  ))
-                : (isBreadOrSlice ? [1, 2, 3, 4] : [0.5, 1, 1.5, 2]).map((p) => (
-                    <button
-                      key={p}
-                      type="button"
-                      onClick={() => setAmount(String(p))}
-                      className="flex-1 py-1 rounded-xl border border-stone-200 text-xs font-semibold text-stone-600 hover:bg-emerald-50 hover:text-emerald-800 hover:border-emerald-200 transition-all active:scale-95"
-                    >
-                      {p}{isBreadOrSlice ? (p === 1 ? ' Sch.' : ' Sch.') : 'x'}
-                    </button>
-                  ))}
-            </div>
-          </div>
+          )}
 
           {/* Live Calculated Nutritional Values Card */}
-          <div className="p-4 bg-gradient-to-br from-emerald-500/10 via-teal-500/5 to-transparent rounded-2xl border border-emerald-100 text-center space-y-2">
+          <div className="p-3.5 bg-gradient-to-br from-emerald-500/10 via-teal-500/5 to-transparent rounded-2xl border border-emerald-100 text-center space-y-2">
             <div>
               <span className="text-3xl font-black text-stone-800">{calculatedKcal}</span>
               <span className="text-sm font-semibold text-stone-500 ml-1.5">kcal</span>
+              <span className="text-xs text-stone-400 ml-2">({Math.round(effectiveGrams)}g)</span>
             </div>
 
             <div className="grid grid-cols-3 gap-2 pt-2 border-t border-emerald-200/50">
@@ -310,7 +378,7 @@ export const PortionCalculatorModal = ({
 
           {/* Meal Selection */}
           <div>
-            <label className="text-xs font-semibold uppercase tracking-wider text-stone-400 block mb-2">
+            <label className="text-xs font-semibold uppercase tracking-wider text-stone-400 block mb-1.5">
               Zu welcher Mahlzeit?
             </label>
             <div className="grid grid-cols-4 gap-2">
@@ -340,7 +408,7 @@ export const PortionCalculatorModal = ({
           {/* Essens-Psychologie (optional) */}
           <div>
             <label className="text-xs font-semibold uppercase tracking-wider text-stone-400 block mb-1.5">
-              Warum isst du? (1-Tap)
+              Warum isst du? (optional)
             </label>
             <div className="grid grid-cols-2 gap-2">
               {[
@@ -353,7 +421,7 @@ export const PortionCalculatorModal = ({
                   key={opt.key}
                   type="button"
                   onClick={() => setReason(reason === opt.key ? undefined : opt.key)}
-                  className={`py-2 px-3 rounded-2xl border text-xs font-semibold transition-all flex items-center gap-1.5 ${
+                  className={`py-1.5 px-2.5 rounded-xl border text-xs font-semibold transition-all flex items-center gap-1.5 ${
                     reason === opt.key ? opt.active : `bg-white ${opt.color}`
                   }`}
                 >
@@ -369,8 +437,8 @@ export const PortionCalculatorModal = ({
             type="submit"
             className="w-full py-3.5 rounded-2xl bg-emerald-600 hover:bg-emerald-700 active:scale-[0.99] text-white font-bold text-sm shadow-soft transition-all flex items-center justify-center gap-2"
           >
-            <Plus className="w-5 h-5" />
-            <span>{calculatedKcal} kcal ins Tagebuch eintragen</span>
+            <Check className="w-5 h-5" />
+            <span>In {mealLabels[mealType]} eintragen ({calculatedKcal} kcal)</span>
           </button>
         </form>
       </div>

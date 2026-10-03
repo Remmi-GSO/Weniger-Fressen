@@ -1,8 +1,11 @@
 import { useState, useMemo, useEffect } from 'react';
+import { useLiveQuery } from 'dexie-react-hooks';
 import { db, type RecipeIngredient, type CustomRecipe, type MealType } from '../db/db';
 import { ALL_LOCAL_FOODS, searchFoodProducts, type FoodProduct } from '../services/foodApi';
+import { getPortionPresets } from '../utils/portionPresets';
 import { VoiceInputButton } from './VoiceInputButton';
-import { X, Trash2, Scale, Check, Plus, Loader2, Sparkles } from 'lucide-react';
+import { BarcodeScannerModal } from './BarcodeScannerModal';
+import { X, Trash2, Plus, Minus, Loader2, Star, Barcode, Check } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
 interface RecipeCreatorModalProps {
@@ -28,9 +31,12 @@ const MEAL_STAPLES: Array<{ name: string; grams: number; icon: string }> = [
   { name: 'Rapsöl', grams: 15, icon: '🧈' },
   { name: 'Olivenöl (nativ extra)', grams: 15, icon: '🫒' },
   { name: 'Butter', grams: 20, icon: '🧈' },
+  { name: 'Zwiebel (frisch)', grams: 90, icon: '🧅' },
+  { name: 'Knoblauch (frisch)', grams: 5, icon: '🧄' },
   { name: 'Tomatenmark (2-fach konzentriert)', grams: 30, icon: '🥫' },
-  { name: 'Passierte Tomaten (Passata)', grams: 200, icon: '🥫' },
+  { name: 'Passierte Tomaten (Passata)', grams: 400, icon: '🥫' },
   { name: 'Gemüsebrühe (zubereitet)', grams: 250, icon: '🍲' },
+  { name: 'Hühnerei (frisch, Klasse M)', grams: 55, icon: '🥚' },
   { name: 'Speisesalz / Meersalz', grams: 5, icon: '🧂' },
 ];
 
@@ -61,12 +67,22 @@ export const RecipeCreatorModal = ({
   const [ingredientGrams, setIngredientGrams] = useState('50');
   const [searchResults, setSearchResults] = useState<FoodProduct[]>([]);
   const [isSearching, setIsSearching] = useState(false);
+  const [activePickerTab, setActivePickerTab] = useState<'search' | 'favorites' | 'staples'>('search');
+  const [isScannerOpen, setIsScannerOpen] = useState(false);
+
+  // Favorites from local database
+  const favoriteItems = useLiveQuery(() => db.favoriteItems.orderBy('useCount').reverse().limit(20).toArray()) || [];
+
+  // Portion presets for the currently selected ingredient
+  const ingredientPresets = useMemo(() => {
+    return getPortionPresets(selectedFood);
+  }, [selectedFood]);
 
   // Loaf / Dish weights & Portions
   const [customBakedWeight, setCustomBakedWeight] = useState<string>('');
   const [sliceWeight, setSliceWeight] = useState<string>(initialCategory === 'meal' ? '250' : '50');
 
-  // Debounced search combining local verified ingredients and online OpenFoodFacts
+  // Debounced search combining local verified items (all supermarket brands & staples) and online OpenFoodFacts
   useEffect(() => {
     const q = ingredientQuery.trim().toLowerCase();
     if (!q || q.length < 2) {
@@ -80,9 +96,10 @@ export const RecipeCreatorModal = ({
       const nameLower = item.name.toLowerCase();
       const brandLower = (item.brand || '').toLowerCase();
       return queryTokens.every((token) => nameLower.includes(token) || brandLower.includes(token));
-    }).slice(0, 10);
+    }).slice(0, 15);
 
     setSearchResults(localMatches);
+    setActivePickerTab('search');
 
     setIsSearching(true);
     const timer = setTimeout(async () => {
@@ -95,7 +112,7 @@ export const RecipeCreatorModal = ({
             seen.add(item.name.toLowerCase());
             merged.push(item);
           }
-          if (merged.length >= 20) break;
+          if (merged.length >= 25) break;
         }
         setSearchResults(merged);
       } catch (err) {
@@ -167,20 +184,41 @@ export const RecipeCreatorModal = ({
 
   if (!isOpen) return null;
 
+  const handleSelectFood = (food: FoodProduct, defaultGrams?: number) => {
+    setSelectedFood(food);
+    const presets = getPortionPresets(food);
+    const def = presets.find((p) => p.isDefault) || presets[0];
+    const initialGrams = defaultGrams || (def ? def.grams : food.servingWeightGrams || 50);
+    setIngredientGrams(String(initialGrams));
+    setIngredientQuery('');
+    setSearchResults([]);
+  };
+
+  const handleSelectFavorite = (fav: any) => {
+    const food: FoodProduct = {
+      id: String(fav.id || fav.name),
+      name: fav.name,
+      calories100g: fav.calories,
+      protein100g: fav.protein,
+      carbs100g: fav.carbs,
+      fat100g: fav.fat,
+      servingWeightGrams: fav.defaultAmount,
+      source: 'local',
+    };
+    handleSelectFood(food, fav.defaultAmount);
+  };
+
   const handleSelectStaple = (staple: { name: string; grams: number }) => {
     const found = ALL_LOCAL_FOODS.find((f) => f.name.toLowerCase() === staple.name.toLowerCase()) || {
       id: `staple_${Date.now()}`,
       name: staple.name,
-      calories100g: 0,
+      calories100g: staple.name.includes('öl') ? 884 : staple.name.includes('mehl') ? 345 : 0,
       protein100g: 0,
       carbs100g: 0,
       fat100g: 0,
       source: 'local' as const,
     };
-    setSelectedFood(found);
-    setIngredientGrams(String(staple.grams));
-    setIngredientQuery('');
-    setSearchResults([]);
+    handleSelectFood(found, staple.grams);
   };
 
   const handleAddIngredient = (e?: React.FormEvent) => {
@@ -209,7 +247,7 @@ export const RecipeCreatorModal = ({
 
     const mult = grams / 100;
     const newIng: RecipeIngredient = {
-      name: foodToAdd.name,
+      name: foodToAdd.name + (foodToAdd.brand ? ` (${foodToAdd.brand})` : ''),
       amountGrams: grams,
       calories: Math.round(foodToAdd.calories100g * mult),
       protein: Math.round(foodToAdd.protein100g * mult * 10) / 10,
@@ -250,7 +288,7 @@ export const RecipeCreatorModal = ({
     const id = await db.recipes.add(recipe);
     recipe.id = id;
 
-    // Also add to favoriteItems so it's directly accessible in the diary search
+    // Also add to favoriteItems so it's directly accessible in diary search
     await db.favoriteItems.add({
       name: recipe.name,
       calories: recipe.calories100g,
@@ -291,8 +329,8 @@ export const RecipeCreatorModal = ({
               </h3>
               <p className="text-xs text-stone-400">
                 {category === 'bread'
-                  ? 'Aus Zutaten exakte Scheiben- & 100g-Werte ermitteln'
-                  : 'Aus Zutaten exakte Portions- & 100g-Werte berechnen'}
+                  ? 'Exakte Scheiben- & 100g-Werte aus Zutaten ermitteln'
+                  : 'Exakte Portions- & 100g-Werte aus Zutaten ermitteln'}
               </p>
             </div>
           </div>
@@ -304,10 +342,10 @@ export const RecipeCreatorModal = ({
           </button>
         </div>
 
-        <form onSubmit={handleSaveRecipe} className="p-6 overflow-y-auto space-y-6">
+        <form onSubmit={handleSaveRecipe} className="p-5 sm:p-6 overflow-y-auto space-y-5">
           
           {/* Recipe Name & Category */}
-          <div className="space-y-3">
+          <div className="space-y-2.5">
             <div>
               <label className="text-xs font-semibold uppercase tracking-wider text-stone-500 block mb-1">
                 Name deines Rezepts *
@@ -371,7 +409,7 @@ export const RecipeCreatorModal = ({
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <label className="text-xs font-semibold uppercase tracking-wider text-stone-500">
-                  Zutaten ({ingredients.length})
+                  Zutaten im Rezept ({ingredients.length})
                 </label>
                 {ingredients.length > 0 && (
                   <button
@@ -410,52 +448,24 @@ export const RecipeCreatorModal = ({
                 ))}
               </div>
             ) : (
-              <div className="py-4 text-center text-stone-400 text-xs bg-stone-50/50 rounded-2xl border border-dashed border-stone-200">
-                Noch keine Zutaten hinzugefügt. Suche unten nach Zutaten für dein Rezept.
+              <div className="py-3.5 text-center text-stone-400 text-xs bg-stone-50/50 rounded-2xl border border-dashed border-stone-200">
+                Füge unten Zutaten hinzu (Öle, Mehl, Eier, Gemüse, Markenprodukte oder per Barcode).
               </div>
             )}
 
-            {/* Add ingredient sub-form */}
+            {/* ADD INGREDIENT PANEL */}
             <div className="p-3.5 bg-stone-50/80 rounded-2xl border border-stone-200/90 space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-stone-800 uppercase tracking-wider block">
-                  Zutat hinzufügen
-                </span>
-                <span className="text-[11px] text-stone-500 font-medium">
-                  {ingredients.length} Zutat{ingredients.length === 1 ? '' : 'en'} erfasst
-                </span>
-              </div>
-
-              {/* Quick Staple Chips */}
-              <div>
-                <span className="text-[10px] font-bold text-stone-400 uppercase tracking-wider block mb-1.5">
-                  Schnellauswahl (1-Tap):
-                </span>
-                <div className="flex flex-wrap gap-1.5">
-                  {(category === 'bread' ? BREAD_STAPLES : MEAL_STAPLES).map((s) => (
-                    <button
-                      key={s.name}
-                      type="button"
-                      onClick={() => handleSelectStaple(s)}
-                      className="px-2.5 py-1 bg-white hover:bg-emerald-50 active:scale-95 border border-stone-200 hover:border-emerald-300 text-stone-700 hover:text-emerald-900 rounded-xl text-xs font-medium transition-all shadow-2xs flex items-center gap-1"
-                    >
-                      <span>{s.icon}</span>
-                      <span>{s.name.split(' ')[0]}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* ACTIVE SELECTION BANNER (If an ingredient was selected) */}
+              
+              {/* If an ingredient is currently chosen: show Portion Presets + Grams Input */}
               {selectedFood ? (
-                <div className="p-3 bg-white rounded-xl border-2 border-emerald-500 shadow-xs space-y-2.5 animate-in fade-in">
+                <div className="p-3 bg-white rounded-2xl border-2 border-emerald-500 shadow-sm space-y-3 animate-in fade-in">
                   <div className="flex items-center justify-between">
                     <div>
                       <span className="font-bold text-stone-800 text-xs block">
                         {selectedFood.name}
                       </span>
                       <span className="text-[10px] text-stone-500">
-                        {selectedFood.calories100g} kcal / 100g • {selectedFood.brand || 'Basis'}
+                        {selectedFood.calories100g} kcal / 100g {selectedFood.brand ? `• ${selectedFood.brand}` : ''}
                       </span>
                     </div>
                     <button
@@ -471,7 +481,49 @@ export const RecipeCreatorModal = ({
                     </button>
                   </div>
 
+                  {/* Portion Presets (e.g. 1 Ei M, 1 EL Öl, 1 Dose Tomaten, etc.) */}
+                  {ingredientPresets.length > 0 && (
+                    <div>
+                      <span className="text-[10px] font-bold text-stone-400 uppercase tracking-wider block mb-1">
+                        Portions-Vorschlag (1-Tap):
+                      </span>
+                      <div className="flex flex-wrap gap-1.5">
+                        {ingredientPresets.map((p) => {
+                          const isCur = ingredientGrams === String(p.grams);
+                          return (
+                            <button
+                              key={p.id}
+                              type="button"
+                              onClick={() => setIngredientGrams(String(p.grams))}
+                              className={`py-1 px-2.5 rounded-xl border text-xs font-bold transition-all flex items-center gap-1 ${
+                                isCur
+                                  ? 'border-emerald-500 bg-emerald-50 text-emerald-900 shadow-2xs'
+                                  : 'border-stone-200 bg-stone-50 text-stone-700 hover:bg-emerald-50/50'
+                              }`}
+                            >
+                              <span>{p.icon || '🥗'}</span>
+                              <span>{p.label}</span>
+                              <span className="text-[10px] font-normal text-stone-400">({p.grams}g)</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Numerical Grams Input & Quantity Stepper */}
                   <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const cur = parseFloat(ingredientGrams) || 0;
+                        setIngredientGrams(String(Math.max(1, cur > 50 ? cur - 25 : cur > 10 ? cur - 10 : cur - 1)));
+                      }}
+                      className="w-8 h-8 rounded-xl bg-stone-100 hover:bg-stone-200 text-stone-700 flex items-center justify-center font-bold"
+                    >
+                      <Minus className="w-3.5 h-3.5" />
+                    </button>
+
                     <div className="flex-1 relative">
                       <input
                         type="number"
@@ -488,47 +540,104 @@ export const RecipeCreatorModal = ({
                           }
                         }}
                         autoFocus
-                        className="w-full pl-3 pr-12 py-2 rounded-xl border border-stone-200 bg-stone-50 font-extrabold text-stone-800 text-sm text-center focus:border-emerald-500 focus:bg-white"
+                        className="w-full pl-3 pr-12 py-1.5 rounded-xl border border-stone-200 bg-stone-50 font-extrabold text-stone-800 text-sm text-center focus:border-emerald-500 focus:bg-white"
                       />
                       <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-stone-400">
                         Gramm
                       </span>
                     </div>
 
-                    <div className="flex gap-1">
-                      {[10, 20, 50, 100, 250].map((g) => (
-                        <button
-                          key={g}
-                          type="button"
-                          onClick={() => setIngredientGrams(String(g))}
-                          className="px-2 py-1 bg-stone-100 hover:bg-emerald-50 border border-stone-200 text-stone-700 hover:text-emerald-800 rounded-lg text-[10px] font-bold transition-all"
-                        >
-                          {g}g
-                        </button>
-                      ))}
-                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const cur = parseFloat(ingredientGrams) || 0;
+                        setIngredientGrams(String(cur < 50 ? cur + 10 : cur + 25));
+                      }}
+                      className="w-8 h-8 rounded-xl bg-stone-100 hover:bg-stone-200 text-stone-700 flex items-center justify-center font-bold"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                    </button>
 
                     <button
                       type="button"
                       onClick={() => handleAddIngredient()}
                       className="py-2 px-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold text-xs shadow-soft transition-all shrink-0 flex items-center gap-1"
                     >
-                      <Plus className="w-3.5 h-3.5" />
-                      <span>Hinzufügen</span>
+                      <Check className="w-4 h-4" />
+                      <span>Ins Rezept ({Math.round(selectedFood.calories100g * ((parseFloat(ingredientGrams) || 0) / 100))} kcal)</span>
                     </button>
+                  </div>
+
+                  {/* Standard Gram Steps */}
+                  <div className="flex gap-1">
+                    {[10, 20, 50, 100, 250, 500].map((g) => (
+                      <button
+                        key={g}
+                        type="button"
+                        onClick={() => setIngredientGrams(String(g))}
+                        className={`flex-1 py-0.5 rounded-lg border text-[10px] font-bold transition-all ${
+                          ingredientGrams === String(g)
+                            ? 'border-emerald-500 bg-emerald-50 text-emerald-900'
+                            : 'border-stone-200 bg-white text-stone-600 hover:bg-stone-50'
+                        }`}
+                      >
+                        {g}g
+                      </button>
+                    ))}
                   </div>
                 </div>
               ) : (
-                /* INGREDIENT SEARCH INPUT */
-                <div className="space-y-2">
+                /* INGREDIENT SEARCH & TABS */
+                <div className="space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-stone-800 uppercase tracking-wider">
+                      Zutat auswählen:
+                    </span>
+                    
+                    {/* Navigation Pills */}
+                    <div className="flex gap-1">
+                      <button
+                        type="button"
+                        onClick={() => setActivePickerTab('search')}
+                        className={`px-2 py-0.5 rounded-lg text-[10px] font-bold transition-all ${
+                          activePickerTab === 'search'
+                            ? 'bg-emerald-600 text-white'
+                            : 'bg-stone-200/70 text-stone-600 hover:bg-stone-200'
+                        }`}
+                      >
+                        🔍 Suche
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setActivePickerTab('favorites')}
+                        className={`px-2 py-0.5 rounded-lg text-[10px] font-bold transition-all flex items-center gap-0.5 ${
+                          activePickerTab === 'favorites'
+                            ? 'bg-emerald-600 text-white'
+                            : 'bg-stone-200/70 text-stone-600 hover:bg-stone-200'
+                        }`}
+                      >
+                        <Star className="w-2.5 h-2.5" />
+                        <span>Favoriten</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setActivePickerTab('staples')}
+                        className={`px-2 py-0.5 rounded-lg text-[10px] font-bold transition-all ${
+                          activePickerTab === 'staples'
+                            ? 'bg-emerald-600 text-white'
+                            : 'bg-stone-200/70 text-stone-600 hover:bg-stone-200'
+                        }`}
+                      >
+                        🌾 Basics
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Search Bar + Barcode Scanner + Voice */}
                   <div className="relative">
                     <input
                       type="text"
-                      placeholder={
-                        category === 'bread'
-                          ? "Zutat suchen (z. B. Rapsöl, Dinkelmehl, Hefe)..."
-                          : "Zutat suchen (z. B. Rapsöl, Hackfleisch, Tomaten)..."
-                      }
+                      placeholder="Zutat oder Marke suchen (z. B. Rapsöl, Barilla, Tomaten, Eier)..."
                       value={ingredientQuery}
                       onChange={(e) => setIngredientQuery(e.target.value)}
                       onKeyDown={(e) => {
@@ -537,12 +646,20 @@ export const RecipeCreatorModal = ({
                           handleAddIngredient();
                         }
                       }}
-                      className="w-full pl-3 pr-10 py-2.5 rounded-xl border border-stone-200 text-xs font-medium focus:border-emerald-500 bg-white"
+                      className="w-full pl-3 pr-20 py-2 rounded-xl border border-stone-200 text-xs font-medium focus:border-emerald-500 bg-white"
                     />
-                    <div className="absolute right-1.5 top-1/2 -translate-y-1/2 flex items-center gap-0.5">
+                    <div className="absolute right-1.5 top-1/2 -translate-y-1/2 flex items-center gap-1">
                       {isSearching && (
-                        <Loader2 className="w-3.5 h-3.5 text-emerald-600 animate-spin mr-1" />
+                        <Loader2 className="w-3.5 h-3.5 text-emerald-600 animate-spin" />
                       )}
+                      <button
+                        type="button"
+                        onClick={() => setIsScannerOpen(true)}
+                        className="p-1 rounded-lg text-stone-400 hover:text-emerald-700 hover:bg-emerald-50"
+                        title="Barcode scannen"
+                      >
+                        <Barcode className="w-4 h-4" />
+                      </button>
                       <VoiceInputButton
                         onTranscript={(text) => setIngredientQuery(text)}
                         currentValue={ingredientQuery}
@@ -550,44 +667,95 @@ export const RecipeCreatorModal = ({
                         title="Zutat per Sprache suchen"
                       />
                     </div>
-
-                    {/* DROPDOWN RESULTS */}
-                    {searchResults.length > 0 && !selectedFood && (
-                      <div className="absolute top-full left-0 right-0 z-20 bg-white border border-stone-200 rounded-2xl mt-1 shadow-soft-lg divide-y divide-stone-100 max-h-56 overflow-y-auto">
-                        {searchResults.map((f) => (
-                          <div
-                            key={f.id}
-                            onClick={() => {
-                              setSelectedFood(f);
-                              setIngredientGrams(f.servingWeightGrams ? String(f.servingWeightGrams) : '50');
-                              setIngredientQuery('');
-                              setSearchResults([]);
-                            }}
-                            className="p-2.5 text-xs hover:bg-emerald-50 cursor-pointer flex justify-between items-center transition-colors"
-                          >
-                            <div>
-                              <span className="font-bold text-stone-800 block">{f.name}</span>
-                              {f.brand && <span className="text-[10px] text-stone-400">{f.brand}</span>}
-                            </div>
-                            <span className="text-emerald-700 font-extrabold text-xs shrink-0 ml-2">
-                              {f.calories100g} kcal <span className="text-[10px] font-normal text-stone-400">/100g</span>
-                            </span>
-                          </div>
-                        ))}
-
-                        {/* Free custom ingredient option in dropdown */}
-                        <div
-                          onClick={() => {
-                            handleAddIngredient();
-                          }}
-                          className="p-2.5 text-xs bg-stone-50 hover:bg-emerald-50 text-emerald-800 font-bold cursor-pointer flex items-center gap-1.5 border-t border-stone-200"
-                        >
-                          <Plus className="w-3.5 h-3.5 text-emerald-600" />
-                          <span>„{ingredientQuery}“ als Zutat übernehmen</span>
-                        </div>
-                      </div>
-                    )}
                   </div>
+
+                  {/* 1. SEARCH RESULTS LIST */}
+                  {searchResults.length > 0 && !selectedFood && (
+                    <div className="bg-white border border-stone-200 rounded-2xl shadow-soft-lg divide-y divide-stone-100 max-h-56 overflow-y-auto">
+                      {searchResults.map((f) => (
+                        <div
+                          key={f.id}
+                          onClick={() => handleSelectFood(f)}
+                          className="p-2.5 text-xs hover:bg-emerald-50 cursor-pointer flex justify-between items-center transition-colors"
+                        >
+                          <div className="min-w-0 pr-2">
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-bold text-stone-800 truncate">{f.name}</span>
+                              {f.source === 'supermarket' && (
+                                <span className="text-[8px] bg-emerald-50 text-emerald-700 font-bold px-1 rounded shrink-0">
+                                  Marke
+                                </span>
+                              )}
+                            </div>
+                            {f.brand && <span className="text-[10px] text-stone-400 block truncate">{f.brand}</span>}
+                          </div>
+                          <span className="text-emerald-700 font-extrabold text-xs shrink-0">
+                            {f.calories100g} kcal <span className="text-[10px] font-normal text-stone-400">/100g</span>
+                          </span>
+                        </div>
+                      ))}
+
+                      {/* Free custom ingredient fallback */}
+                      <div
+                        onClick={() => handleAddIngredient()}
+                        className="p-2.5 text-xs bg-stone-50 hover:bg-emerald-50 text-emerald-800 font-bold cursor-pointer flex items-center gap-1.5 border-t border-stone-200"
+                      >
+                        <Plus className="w-3.5 h-3.5 text-emerald-600" />
+                        <span>„{ingredientQuery}“ als freie Zutat übernehmen</span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 2. FAVORITES TAB */}
+                  {activePickerTab === 'favorites' && searchResults.length === 0 && (
+                    <div className="bg-white rounded-xl p-2 border border-stone-200/80 space-y-1.5 max-h-48 overflow-y-auto">
+                      <span className="text-[10px] font-bold text-stone-400 uppercase tracking-wider block px-1">
+                        Häufig genutzte Lebensmittel (1-Tap):
+                      </span>
+                      {favoriteItems.length > 0 ? (
+                        <div className="divide-y divide-stone-100">
+                          {favoriteItems.map((fav) => (
+                            <div
+                              key={fav.id || fav.name}
+                              onClick={() => handleSelectFavorite(fav)}
+                              className="py-1.5 px-2 hover:bg-emerald-50 rounded-lg cursor-pointer flex justify-between items-center text-xs transition-colors"
+                            >
+                              <span className="font-semibold text-stone-800 truncate">{fav.name}</span>
+                              <span className="text-emerald-700 font-bold text-[11px] shrink-0 ml-2">
+                                {fav.calories} kcal <span className="text-stone-400 font-normal">/100g</span>
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-[11px] text-stone-400 p-2 text-center">
+                          Noch keine Favoriten erfasst.
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  {/* 3. STAPLES TAB / DEFAULT CHIPS */}
+                  {(activePickerTab === 'staples' || (activePickerTab === 'search' && searchResults.length === 0)) && (
+                    <div>
+                      <span className="text-[10px] font-bold text-stone-400 uppercase tracking-wider block mb-1">
+                        Beliebte Zutaten (1-Tap):
+                      </span>
+                      <div className="flex flex-wrap gap-1.5">
+                        {(category === 'bread' ? BREAD_STAPLES : MEAL_STAPLES).map((s) => (
+                          <button
+                            key={s.name}
+                            type="button"
+                            onClick={() => handleSelectStaple(s)}
+                            className="px-2.5 py-1 bg-white hover:bg-emerald-50 active:scale-95 border border-stone-200 hover:border-emerald-300 text-stone-700 hover:text-emerald-900 rounded-xl text-xs font-medium transition-all shadow-2xs flex items-center gap-1"
+                          >
+                            <span>{s.icon}</span>
+                            <span>{s.name.split(' ')[0]}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -599,124 +767,85 @@ export const RecipeCreatorModal = ({
               ? 'bg-amber-50/70 border-amber-200/80 text-amber-900'
               : 'bg-emerald-50/70 border-emerald-200/80 text-emerald-900'
           }`}>
-            <div className="flex items-center gap-1.5 text-xs font-bold">
-              <Scale className={`w-4 h-4 ${category === 'bread' ? 'text-amber-600' : 'text-emerald-600'}`} />
-              <span>{category === 'bread' ? 'Backverlust & Scheibengewicht' : 'Kochverlust & Portionsgewicht'}</span>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <span className="text-xs block mb-1 font-semibold">
-                  {category === 'bread' ? 'Gebackener Laib (Endgewicht)' : 'Fertiges Gericht (Endgewicht)'}
-                </span>
-                <div className="relative">
-                  <input
-                    type="number"
-                    step="1"
-                    placeholder={`ca. ${effectiveBakedWeight}`}
-                    value={customBakedWeight}
-                    onChange={(e) => setCustomBakedWeight(e.target.value)}
-                    className="w-full py-2 px-3 rounded-xl border border-stone-200 bg-white font-bold text-stone-800 text-xs text-center"
-                  />
-                  <span className="text-[10px] text-stone-400 block text-center mt-0.5">
-                    {customBakedWeight
-                      ? 'Exakt gewogen'
-                      : category === 'bread'
-                      ? 'ca. 12% Backverlust'
-                      : 'ca. 5% Kochverlust / Dampf'}
-                  </span>
-                </div>
-              </div>
-
-              <div>
-                <span className="text-xs block mb-1 font-semibold">
-                  {category === 'bread' ? 'Gewicht 1 Scheibe' : 'Gewicht 1 Portion / Teller'}
-                </span>
-                <div className="relative">
-                  <input
-                    type="number"
-                    step="1"
-                    min="10"
-                    max="1000"
-                    required
-                    value={sliceWeight}
-                    onChange={(e) => setSliceWeight(e.target.value)}
-                    className="w-full py-2 px-3 rounded-xl border border-stone-200 bg-white font-bold text-stone-800 text-xs text-center"
-                  />
-                  <span className="text-[10px] text-stone-400 block text-center mt-0.5">
-                    Ergibt ca. {Math.max(1, Math.round(effectiveBakedWeight / numSliceWeight))} {category === 'bread' ? 'Scheiben' : 'Portionen'}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* Quick Portion Weight buttons */}
-            <div className="flex gap-1.5 pt-1">
-              {(category === 'bread' ? [40, 50, 55, 60, 70] : [150, 200, 250, 300, 400]).map((w) => (
-                <button
-                  key={w}
-                  type="button"
-                  onClick={() => setSliceWeight(String(w))}
-                  className={`flex-1 py-1 rounded-lg border text-[11px] font-semibold transition-all ${
-                    numSliceWeight === w
-                      ? category === 'bread'
-                        ? 'border-amber-600 bg-amber-600 text-white'
-                        : 'border-emerald-600 bg-emerald-600 text-white'
-                      : 'border-stone-200 bg-white text-stone-700 hover:bg-stone-50'
-                  }`}
-                >
-                  {w}g
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* DAS LIVE ERGEBNIS: PRO 100g UND PRO SCHEIBE / PORTION */}
-          <div className="p-4 bg-gradient-to-br from-emerald-500/10 via-teal-500/5 to-transparent rounded-2xl border border-emerald-200/80 space-y-3">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-emerald-800 uppercase tracking-wide flex items-center gap-1.5">
-                <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
-                Berechnetes Nährwertprofil
+              <span className="text-xs font-bold uppercase tracking-wider">
+                {category === 'bread' ? '🍞 Gebackenes Brotgewicht' : '🍲 Gekochtes Gesamtgewicht'}
               </span>
-              <span className="text-xs font-extrabold text-emerald-700 bg-white px-2 py-0.5 rounded-full border border-emerald-200">
-                {category === 'bread' ? '1 Scheibe' : '1 Portion'} ({numSliceWeight}g) = {caloriesPerSlice} kcal
+              <span className="text-xs font-black">
+                {effectiveBakedWeight} g fertig
               </span>
             </div>
 
-            {/* Per Portion Highlight */}
-            <div className="grid grid-cols-3 gap-2">
-              <div className="bg-white/90 p-2 rounded-xl text-center shadow-card border border-stone-100">
-                <span className="text-[10px] text-violet-600 font-bold block uppercase">Protein</span>
-                <span className="text-sm font-black text-stone-800">{proteinPerSlice} g</span>
-                <span className="text-[9px] text-stone-400 block">{category === 'bread' ? 'pro Scheibe' : 'pro Portion'}</span>
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              <div>
+                <label className="text-[10px] font-bold block mb-0.5 opacity-70">
+                  {category === 'bread' ? 'Gebackenes Gewicht (g)' : 'Fertiges Gewicht (g)'}
+                </label>
+                <input
+                  type="number"
+                  placeholder={`ca. ${effectiveBakedWeight}g`}
+                  value={customBakedWeight}
+                  onChange={(e) => setCustomBakedWeight(e.target.value)}
+                  className="w-full px-2.5 py-1.5 rounded-xl border border-stone-200 bg-white font-bold text-stone-800 text-xs"
+                />
               </div>
-              <div className="bg-white/90 p-2 rounded-xl text-center shadow-card border border-stone-100">
-                <span className="text-[10px] text-amber-600 font-bold block uppercase">Carbs</span>
-                <span className="text-sm font-black text-stone-800">{carbsPerSlice} g</span>
-                <span className="text-[9px] text-stone-400 block">{category === 'bread' ? 'pro Scheibe' : 'pro Portion'}</span>
-              </div>
-              <div className="bg-white/90 p-2 rounded-xl text-center shadow-card border border-stone-100">
-                <span className="text-[10px] text-cyan-600 font-bold block uppercase">Fett</span>
-                <span className="text-sm font-black text-stone-800">{fatPerSlice} g</span>
-                <span className="text-[9px] text-stone-400 block">{category === 'bread' ? 'pro Scheibe' : 'pro Portion'}</span>
+
+              <div>
+                <label className="text-[10px] font-bold block mb-0.5 opacity-70">
+                  {category === 'bread' ? 'Gewicht pro Scheibe (g)' : 'Gewicht pro Portion (g)'}
+                </label>
+                <input
+                  type="number"
+                  value={sliceWeight}
+                  onChange={(e) => setSliceWeight(e.target.value)}
+                  className="w-full px-2.5 py-1.5 rounded-xl border border-stone-200 bg-white font-bold text-stone-800 text-xs"
+                />
               </div>
             </div>
 
-            <div className="text-center text-[11px] text-stone-500 pt-1">
-              Vergleich pro 100g {category === 'bread' ? 'gebackenes Brot' : 'fertiges Gericht'}: <span className="font-bold text-stone-700">{caloriesPer100g} kcal</span> • P: {proteinPer100g}g • K: {carbsPer100g}g • F: {fatPer100g}g
+            {/* Live Nutrition Summary */}
+            <div className="p-3 bg-white/90 rounded-xl border border-stone-200/70 flex items-center justify-between gap-2 shadow-2xs">
+              <div>
+                <span className="text-[10px] font-bold text-stone-400 block uppercase">
+                  {category === 'bread' ? '1 Scheibe Brot' : '1 Portion'} ({numSliceWeight}g)
+                </span>
+                <span className="text-xl font-black text-stone-900">
+                  {caloriesPerSlice} <span className="text-xs font-normal text-stone-400">kcal</span>
+                </span>
+                <span className="text-[10px] text-stone-500 block">
+                  P: {proteinPerSlice}g • K: {carbsPerSlice}g • F: {fatPerSlice}g
+                </span>
+              </div>
+
+              <div className="text-right text-[11px] text-stone-500 space-y-0.5">
+                <div>Pro 100g: <span className="font-bold text-stone-800">{caloriesPer100g} kcal</span></div>
+                <div className="text-[10px] text-stone-400">
+                  P: {proteinPer100g}g • K: {carbsPer100g}g • F: {fatPer100g}g
+                </div>
+              </div>
             </div>
           </div>
 
           {/* Submit */}
           <button
             type="submit"
-            disabled={!name.trim() || ingredients.length === 0}
-            className="w-full py-4 rounded-2xl bg-emerald-600 hover:bg-emerald-700 active:scale-[0.99] disabled:opacity-50 text-white font-bold text-sm shadow-soft transition-all flex items-center justify-center gap-2"
+            disabled={ingredients.length === 0 || !name.trim()}
+            className="w-full py-3.5 rounded-2xl bg-emerald-600 hover:bg-emerald-700 active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold text-sm shadow-soft transition-all flex items-center justify-center gap-2"
           >
-            <Check className="w-5 h-5" />
-            <span>Rezept speichern & bereitstellen</span>
+            <span>Rezept dauerhaft speichern</span>
+            <span>({caloriesPerSlice} kcal / {category === 'bread' ? 'Scheibe' : 'Portion'})</span>
           </button>
         </form>
+
+        {/* Barcode Scanner Modal for Ingredients */}
+        <BarcodeScannerModal
+          isOpen={isScannerOpen}
+          onClose={() => setIsScannerOpen(false)}
+          onProductFound={(product) => {
+            setIsScannerOpen(false);
+            handleSelectFood(product);
+          }}
+        />
       </div>
     </div>
   );
