@@ -1,5 +1,5 @@
 import { db, type DiaryEntry, type MealType } from '../db/db';
-import { Plus, Trash2 } from 'lucide-react';
+import { Plus, Trash2, Sparkles } from 'lucide-react';
 
 interface MealCardProps {
   mealType: MealType;
@@ -9,6 +9,7 @@ interface MealCardProps {
   entries: DiaryEntry[];
   onAddClick: (mealType: MealType) => void;
   onSnackClick?: () => void;
+  onAiClick?: (mealType: MealType) => void;
 }
 
 const reasonLabels: Record<string, { label: string; bg: string; text: string }> = {
@@ -26,6 +27,7 @@ export const MealCard: React.FC<MealCardProps> = ({
   entries,
   onAddClick,
   onSnackClick,
+  onAiClick,
 }) => {
   const totalKcal = entries.reduce((sum, item) => sum + (item.calories || 0), 0);
   const totalProtein = entries.reduce((sum, item) => sum + (item.protein || 0), 0);
@@ -119,12 +121,23 @@ export const MealCard: React.FC<MealCardProps> = ({
       )}
 
       {/* Add Button(s) */}
-      <div className="pt-2 flex gap-2">
+      <div className="pt-2 flex flex-wrap gap-2">
+        {onAiClick && (
+          <button
+            type="button"
+            onClick={() => onAiClick(mealType)}
+            className="flex-1 py-2.5 px-3 rounded-2xl bg-gradient-to-r from-emerald-50 to-teal-50 hover:from-emerald-100 hover:to-teal-100 border border-emerald-200/80 text-emerald-800 text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-2xs min-w-[125px]"
+            title="Foto oder Sprache mit KI erfassen"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
+            <span>Foto / Sprache</span>
+          </button>
+        )}
         {mealType === 'snack' && onSnackClick && (
           <button
             type="button"
             onClick={onSnackClick}
-            className="flex-1 py-2.5 px-3 rounded-2xl bg-gradient-to-r from-pink-50 to-rose-50 hover:from-pink-100 hover:to-rose-100 border border-pink-200/80 text-pink-900 text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-xs"
+            className="flex-1 py-2.5 px-3 rounded-2xl bg-gradient-to-r from-pink-50 to-rose-50 hover:from-pink-100 hover:to-rose-100 border border-pink-200/80 text-pink-900 text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-xs min-w-[110px]"
           >
             <span>🍫</span>
             <span>Nascherei</span>
@@ -134,11 +147,11 @@ export const MealCard: React.FC<MealCardProps> = ({
           type="button"
           onClick={() => onAddClick(mealType)}
           className={`py-2.5 px-3 rounded-2xl bg-stone-50 hover:bg-emerald-50/70 border border-stone-100 hover:border-emerald-200/60 text-stone-600 hover:text-emerald-700 text-xs font-semibold transition-all flex items-center justify-center gap-1.5 ${
-            mealType === 'snack' && onSnackClick ? 'flex-1' : 'w-full'
+            onAiClick || (mealType === 'snack' && onSnackClick) ? 'flex-1 min-w-[120px]' : 'w-full'
           }`}
         >
           <Plus className="w-3.5 h-3.5" />
-          <span>{mealType === 'snack' ? 'Katalog' : 'Eintrag hinzufügen'}</span>
+          <span>{onAiClick ? 'Manuell suchen' : 'Eintrag hinzufügen'}</span>
         </button>
       </div>
     </div>

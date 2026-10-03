@@ -14,6 +14,7 @@ interface FoodSearchModalProps {
   onOpenQuickAdd: () => void;
   onOpenRecipeCreator?: () => void;
   onOpenSettings?: () => void;
+  onOpenAiMeal?: () => void;
   geminiApiKey?: string;
   selectedMealType?: MealType;
 }
@@ -26,6 +27,7 @@ export const FoodSearchModal = ({
   onOpenQuickAdd,
   onOpenRecipeCreator,
   onOpenSettings,
+  onOpenAiMeal,
   geminiApiKey,
   selectedMealType = 'lunch',
 }: FoodSearchModalProps) => {
@@ -207,6 +209,20 @@ export const FoodSearchModal = ({
                 </button>
               )}
             </div>
+
+            {onOpenAiMeal && (
+              <button
+                onClick={() => {
+                  onClose();
+                  onOpenAiMeal();
+                }}
+                className="px-3 py-2.5 rounded-2xl bg-gradient-to-r from-emerald-50 to-teal-50 hover:from-emerald-100 hover:to-teal-100 border border-emerald-200/80 text-emerald-800 flex items-center gap-1.5 shadow-2xs text-xs font-bold transition-all shrink-0"
+                title="Foto oder Sprache mit KI erfassen"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
+                <span className="hidden sm:inline">Foto/Sprache</span>
+              </button>
+            )}
 
             <button
               onClick={() => {

@@ -19,6 +19,7 @@ interface DashboardProps {
   onOpenRecipeCreator?: () => void;
   onOpenActivityModal?: () => void;
   onOpenSnackModal?: () => void;
+  onOpenAiMeal?: (mealType?: MealType) => void;
   onNavigateToTab: (tab: 'diary' | 'fasting' | 'weight' | 'settings') => void;
 }
 
@@ -35,6 +36,7 @@ export const Dashboard = ({
   onOpenRecipeCreator,
   onOpenActivityModal,
   onOpenSnackModal,
+  onOpenAiMeal,
   onNavigateToTab,
 }: DashboardProps) => {
   const isToday = selectedDate === getTodayDateString();
@@ -254,6 +256,16 @@ export const Dashboard = ({
             Mahlzeiten
           </h3>
           <div className="flex items-center gap-1.5 flex-wrap justify-end">
+            {onOpenAiMeal && (
+              <button
+                onClick={() => onOpenAiMeal()}
+                className="flex items-center gap-1 text-xs font-bold text-teal-800 bg-gradient-to-r from-emerald-50 to-teal-50 hover:from-emerald-100 hover:to-teal-100 px-2.5 py-1 rounded-full transition-all border border-emerald-200/80 shadow-2xs"
+                title="Foto oder Sprache mit KI erfassen"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
+                <span>KI-Mahlzeit</span>
+              </button>
+            )}
             {onOpenSnackModal && (
               <button
                 onClick={onOpenSnackModal}
@@ -291,6 +303,7 @@ export const Dashboard = ({
           recommendedKcal={Math.round(baseTargetKcal * 0.25)}
           entries={breakfastEntries}
           onAddClick={onOpenSearch}
+          onAiClick={onOpenAiMeal}
         />
 
         <MealCard
@@ -300,6 +313,7 @@ export const Dashboard = ({
           recommendedKcal={Math.round(baseTargetKcal * 0.35)}
           entries={lunchEntries}
           onAddClick={onOpenSearch}
+          onAiClick={onOpenAiMeal}
         />
 
         <MealCard
@@ -309,6 +323,7 @@ export const Dashboard = ({
           recommendedKcal={Math.round(baseTargetKcal * 0.30)}
           entries={dinnerEntries}
           onAddClick={onOpenSearch}
+          onAiClick={onOpenAiMeal}
         />
 
         <MealCard
@@ -319,6 +334,7 @@ export const Dashboard = ({
           entries={snackEntries}
           onAddClick={onOpenSearch}
           onSnackClick={onOpenSnackModal}
+          onAiClick={onOpenAiMeal}
         />
       </div>
 

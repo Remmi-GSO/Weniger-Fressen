@@ -18,6 +18,7 @@ import { RecipeCreatorModal } from './components/RecipeCreatorModal';
 import { RecipeReceiveModal } from './components/RecipeReceiveModal';
 import { ActivityModal } from './components/ActivityModal';
 import { SnackModal } from './components/SnackModal';
+import { AiMealModal } from './components/AiMealModal';
 import { Settings, Maximize, Minimize } from 'lucide-react';
 import { APP_VERSION } from './config/version';
 
@@ -33,6 +34,7 @@ export function App() {
   const [isRecipeCreatorOpen, setIsRecipeCreatorOpen] = useState(false);
   const [isActivityModalOpen, setIsActivityModalOpen] = useState(false);
   const [isSnackModalOpen, setIsSnackModalOpen] = useState(false);
+  const [isAiMealModalOpen, setIsAiMealModalOpen] = useState(false);
   const [receivedRecipe, setReceivedRecipe] = useState<Omit<CustomRecipe, 'id'> | null>(null);
   const [activeMealType, setActiveMealType] = useState<MealType>('lunch');
   const [selectedProduct, setSelectedProduct] = useState<FoodProduct | null>(null);
@@ -91,6 +93,11 @@ export function App() {
   const handleOpenRecipeCreator = (mealType: MealType = 'lunch') => {
     setActiveMealType(mealType);
     setIsRecipeCreatorOpen(true);
+  };
+
+  const handleOpenAiMeal = (mealType: MealType = 'breakfast') => {
+    setActiveMealType(mealType);
+    setIsAiMealModalOpen(true);
   };
 
   const handleProductSelected = (product: FoodProduct) => {
@@ -207,6 +214,7 @@ export function App() {
             onOpenRecipeCreator={handleOpenRecipeCreator}
             onOpenActivityModal={() => setIsActivityModalOpen(true)}
             onOpenSnackModal={() => setIsSnackModalOpen(true)}
+            onOpenAiMeal={handleOpenAiMeal}
             onNavigateToTab={setCurrentTab}
           />
         )}
@@ -286,6 +294,10 @@ export function App() {
         onOpenRecipeCreator={() => {
           setIsSearchOpen(false);
           setIsRecipeCreatorOpen(true);
+        }}
+        onOpenAiMeal={() => {
+          setIsSearchOpen(false);
+          setIsAiMealModalOpen(true);
         }}
         onOpenSettings={() => setShowSettings(true)}
         geminiApiKey={profile.geminiApiKey}
@@ -379,6 +391,16 @@ export function App() {
         isOpen={isSnackModalOpen}
         onClose={() => setIsSnackModalOpen(false)}
         selectedDate={selectedDate}
+      />
+
+      {/* Multimodal AI Meal Modal (Photo capture, speech-to-text, Gemini meal analysis & interactive breakdown) */}
+      <AiMealModal
+        isOpen={isAiMealModalOpen}
+        onClose={() => setIsAiMealModalOpen(false)}
+        selectedDate={selectedDate}
+        defaultMealType={activeMealType}
+        geminiApiKey={profile.geminiApiKey}
+        onOpenSettings={() => setShowSettings(true)}
       />
 
       {/* Settings Modal */}
