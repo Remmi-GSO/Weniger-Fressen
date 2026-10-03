@@ -8,6 +8,7 @@ import {
   type CalorieBurnCalculation 
 } from '../data/defaultActivities';
 import { X, Plus, Check, Flame, Clock, Info } from 'lucide-react';
+import { VoiceInputButton } from './VoiceInputButton';
 import confetti from 'canvas-confetti';
 
 interface ActivityModalProps {
@@ -197,14 +198,24 @@ export const ActivityModal = ({
               <form onSubmit={handleCreateCustomActivity} className="p-3 mb-3 bg-amber-50/70 border border-amber-200 rounded-2xl space-y-2.5">
                 <span className="text-xs font-bold text-amber-950 block">Neue Aktivität hinterlegen</span>
                 <div className="flex gap-2">
-                  <input
-                    type="text"
-                    required
-                    placeholder="Name (z.B. Holz hacken, Tennis, Badminton)"
-                    value={customName}
-                    onChange={(e) => setCustomName(e.target.value)}
-                    className="flex-1 px-3 py-1.5 rounded-xl border border-amber-200 text-xs font-medium"
-                  />
+                  <div className="flex-1 relative">
+                    <input
+                      type="text"
+                      required
+                      placeholder="Name (z.B. Holz hacken, Tennis, Badminton)"
+                      value={customName}
+                      onChange={(e) => setCustomName(e.target.value)}
+                      className="w-full pl-3 pr-8 py-1.5 rounded-xl border border-amber-200 text-xs font-medium"
+                    />
+                    <div className="absolute right-1 top-1/2 -translate-y-1/2">
+                      <VoiceInputButton
+                        onTranscript={(text) => setCustomName(text)}
+                        currentValue={customName}
+                        size="xs"
+                        title="Aktivität per Sprache benennen"
+                      />
+                    </div>
+                  </div>
                   <input
                     type="text"
                     title="Emoji Icon"

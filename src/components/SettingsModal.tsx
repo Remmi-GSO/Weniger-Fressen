@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { db, DEFAULT_USER_PROFILE, type UserProfile, DEFAULT_FOOD_FOCUS, type FoodFocusSettings } from '../db/db';
+import { VoiceInputButton } from './VoiceInputButton';
 import { X, Key, Download, Upload, Trash2, Sliders, Check, RefreshCw, CheckCircle, Maximize, Minimize, BarChart3, Scale, Sparkles, Leaf } from 'lucide-react';
 import { APP_VERSION, APP_BUILD_DATE, APP_DB_VERSION, APP_CACHE_VERSION } from '../config/version';
 import { calculateNutritionTargets, type DailyStepLevel, type WorkoutIntensity } from '../utils/nutrition';
@@ -339,13 +340,23 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               <span className="w-10 h-10 rounded-xl bg-white border border-stone-200 flex items-center justify-center text-lg shrink-0">
                 👤
               </span>
-              <input
-                type="text"
-                placeholder="Dein Vorname (z. B. Remmi)"
-                value={userName}
-                onChange={(e) => setUserName(e.target.value)}
-                className="flex-1 py-2.5 px-3.5 rounded-xl border border-stone-200 focus:border-emerald-500 font-bold text-stone-800 text-sm bg-white"
-              />
+              <div className="flex-1 relative">
+                <input
+                  type="text"
+                  placeholder="Dein Vorname (z. B. Remmi)"
+                  value={userName}
+                  onChange={(e) => setUserName(e.target.value)}
+                  className="w-full py-2.5 pl-3.5 pr-10 rounded-xl border border-stone-200 focus:border-emerald-500 font-bold text-stone-800 text-sm bg-white"
+                />
+                <div className="absolute right-2 top-1/2 -translate-y-1/2">
+                  <VoiceInputButton
+                    onTranscript={(text) => setUserName(text)}
+                    currentValue={userName}
+                    size="xs"
+                    title="Namen per Sprache einsprechen"
+                  />
+                </div>
+              </div>
             </div>
             <p className="text-[10px] text-stone-400">
               Ersetzt das unpersönliche „Hallo Du“ durch deinen Namen auf dem Dashboard.

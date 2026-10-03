@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { db, type EatingReason, type DiaryEntry } from '../db/db';
 import { PRESET_SNACKS, type PresetSnack } from '../data/defaultSnacks';
+import { VoiceInputButton } from './VoiceInputButton';
 import { X, Check } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
@@ -49,6 +50,18 @@ export const SnackModal = ({
     setSelectedSnackId(snack.id);
     setAmountMultiplier(1);
     setIsCustomSnack(false);
+  };
+
+  const handleCustomSnackVoice = (text: string) => {
+    if (!text) return;
+    const kcalMatch = text.match(/(\d+)\s*(?:kcal|kalorien|kalorie|cal)\b/i);
+    if (kcalMatch) {
+      setCustomCalories(kcalMatch[1]);
+      const cleaned = text.replace(kcalMatch[0], '').replace(/\s+/g, ' ').trim();
+      if (cleaned) setCustomName(cleaned);
+    } else {
+      setCustomName(text);
+    }
   };
 
   const handleSaveSnack = async () => {
@@ -178,15 +191,33 @@ export const SnackModal = ({
             <div className="p-4 bg-pink-50/70 border border-pink-200 rounded-2xl space-y-3">
               <span className="text-xs font-bold text-pink-950 block">Beliebige Nascherei frei eingeben</span>
               <div>
-                <label className="text-[11px] font-semibold text-stone-500 block mb-1">Was hast du genascht?</label>
-                <input
-                  type="text"
-                  autoFocus
-                  placeholder="z. B. 2 Pralinen, 1 Kugel Vanilleeis, 3 Toffifee..."
-                  value={customName}
-                  onChange={(e) => setCustomName(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl border border-stone-200 text-xs font-bold text-stone-800"
-                />
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-[11px] font-semibold text-stone-500">Was hast du genascht?</label>
+                  <VoiceInputButton
+                    onTranscript={handleCustomSnackVoice}
+                    currentValue={customName}
+                    size="xs"
+                    title="Nascherei per Sprache einsprechen (z. B. 'Zwei Stück Schokolade')"
+                  />
+                </div>
+                <div className="relative">
+                  <input
+                    type="text"
+                    autoFocus
+                    placeholder="z. B. 2 Pralinen, 1 Kugel Vanilleeis, 3 Toffifee..."
+                    value={customName}
+                    onChange={(e) => setCustomName(e.target.value)}
+                    className="w-full pl-3 pr-9 py-2 rounded-xl border border-stone-200 text-xs font-bold text-stone-800"
+                  />
+                  <div className="absolute right-1.5 top-1/2 -translate-y-1/2">
+                    <VoiceInputButton
+                      onTranscript={handleCustomSnackVoice}
+                      currentValue={customName}
+                      size="xs"
+                      title="Nascherei per Sprache einsprechen"
+                    />
+                  </div>
+                </div>
               </div>
 
               <div>

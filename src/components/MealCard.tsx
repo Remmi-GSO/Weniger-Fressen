@@ -1,5 +1,5 @@
 import { db, type DiaryEntry, type MealType } from '../db/db';
-import { Plus, Trash2, Sparkles, Pencil } from 'lucide-react';
+import { Plus, Trash2, Pencil, Mic } from 'lucide-react';
 
 interface MealCardProps {
   mealType: MealType;
@@ -157,10 +157,10 @@ export const MealCard: React.FC<MealCardProps> = ({
             type="button"
             onClick={() => onAiClick(mealType)}
             className="flex-1 py-2.5 px-3 rounded-2xl bg-gradient-to-r from-emerald-50 to-teal-50 hover:from-emerald-100 hover:to-teal-100 border border-emerald-200/80 text-emerald-800 text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-2xs min-w-[125px]"
-            title="Foto oder Sprache mit KI erfassen"
+            title="Mahlzeit per Mikrofon einsprechen oder Foto machen"
           >
-            <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
-            <span>Foto / Sprache</span>
+            <Mic className="w-3.5 h-3.5 text-emerald-600" />
+            <span>🎙️ Einsprechen / Foto</span>
           </button>
         )}
         {mealType === 'snack' && onSnackClick && (

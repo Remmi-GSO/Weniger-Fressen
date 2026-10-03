@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { db, type DiaryEntry, type MealType, type EatingReason } from '../db/db';
+import { VoiceInputButton } from './VoiceInputButton';
 import { X, Trash2, Check, Scale, Flame } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
@@ -168,12 +169,22 @@ export const EditEntryModal = ({
             <label className="text-xs font-bold uppercase tracking-wider text-stone-500">
               Bezeichnung / Zutat
             </label>
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="w-full py-2.5 px-3.5 rounded-2xl border border-stone-200 focus:border-emerald-500 text-sm font-semibold text-stone-800 bg-white"
-            />
+            <div className="relative">
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className="w-full py-2.5 pl-3.5 pr-10 rounded-2xl border border-stone-200 focus:border-emerald-500 text-sm font-semibold text-stone-800 bg-white"
+              />
+              <div className="absolute right-2 top-1/2 -translate-y-1/2">
+                <VoiceInputButton
+                  onTranscript={(text) => setName(text)}
+                  currentValue={name}
+                  size="xs"
+                  title="Bezeichnung per Sprache korrigieren"
+                />
+              </div>
+            </div>
           </div>
 
           {/* Amount in Grams & Steppers */}

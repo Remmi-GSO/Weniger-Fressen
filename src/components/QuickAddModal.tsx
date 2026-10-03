@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { db, type MealType, type EatingReason } from '../db/db';
+import { VoiceInputButton } from './VoiceInputButton';
 import { X, Plus, ChevronDown, ChevronUp } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
@@ -29,6 +30,24 @@ export const QuickAddModal: React.FC<QuickAddModalProps> = ({
   useEffect(() => {
     if (defaultMealType) setMealType(defaultMealType);
   }, [defaultMealType, isOpen]);
+
+  const handleVoiceTranscript = (text: string) => {
+    if (!text) return;
+    // Check if calories was spoken e.g. "350 Kalorien Schoko-Muffin" or "Apfel 80 kcal"
+    const kcalMatch = text.match(/(\d+)\s*(?:kcal|kalorien|kalorie|cal)\b/i);
+    if (kcalMatch) {
+      setCalories(kcalMatch[1]);
+      const cleaned = text.replace(kcalMatch[0], '').replace(/\s+/g, ' ').trim();
+      if (cleaned) {
+        setName(cleaned);
+      }
+    } else if (/^\d+$/.test(text.trim())) {
+      // Just a number was spoken
+      setCalories(text.trim());
+    } else {
+      setName(text);
+    }
+  };
 
   if (!isOpen) return null;
 
@@ -132,7 +151,17 @@ export const QuickAddModal: React.FC<QuickAddModalProps> = ({
 
           {/* Calorie input + quick preset buttons */}
           <div>
-            <label className="text-xs font-semibold uppercase tracking-wider text-stone-400 block mb-1">Kalorien (kcal) *</label>
+            <div className="flex items-center justify-between mb-1">
+              <label className="text-xs font-semibold uppercase tracking-wider text-stone-400">Kalorien (kcal) *</label>
+              <div className="flex items-center gap-1.5 bg-emerald-50 text-emerald-800 px-2 py-0.5 rounded-full text-[10px] font-bold">
+                <span>Einsprechen:</span>
+                <VoiceInputButton
+                  onTranscript={handleVoiceTranscript}
+                  size="xs"
+                  title="Kalorien oder Speise einsprechen (z. B. '350 Kalorien Nudeln')"
+                />
+              </div>
+            </div>
             <div className="relative">
               <input
                 type="number"
@@ -166,13 +195,23 @@ export const QuickAddModal: React.FC<QuickAddModalProps> = ({
           {/* Name */}
           <div>
             <label className="text-xs font-semibold uppercase tracking-wider text-stone-400 block mb-1">Bezeichnung (optional)</label>
-            <input
-              type="text"
-              placeholder="z. B. Haferbrei mit Beeren, Cappuccino..."
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="w-full px-4 py-2.5 rounded-2xl border border-stone-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 text-sm text-stone-800"
-            />
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="z. B. Haferbrei mit Beeren, Cappuccino..."
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className="w-full pl-4 pr-10 py-2.5 rounded-2xl border border-stone-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 text-sm text-stone-800"
+              />
+              <div className="absolute right-2 top-1/2 -translate-y-1/2">
+                <VoiceInputButton
+                  onTranscript={(text) => setName(text)}
+                  currentValue={name}
+                  size="xs"
+                  title="Bezeichnung per Sprache einsprechen"
+                />
+              </div>
+            </div>
           </div>
 
           {/* Warum gegessen? (Psychologie-Tracker) */}

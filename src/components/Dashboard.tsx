@@ -5,7 +5,7 @@ import { MealCard } from './MealCard';
 import { WaterTracker } from './WaterTracker';
 import { formatDisplayDate, getTodayDateString } from '../utils/nutrition';
 import { assessFoodQuality } from '../utils/foodQuality';
-import { ChevronLeft, ChevronRight, Calendar, Sparkles, Timer, Barcode, Plus, Trash2, Leaf } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar, Sparkles, Timer, Barcode, Plus, Trash2, Leaf, Mic } from 'lucide-react';
 
 interface DashboardProps {
   selectedDate: string;
@@ -450,11 +450,11 @@ export const Dashboard = ({
             {onOpenAiMeal && (
               <button
                 onClick={() => onOpenAiMeal()}
-                className="flex items-center gap-1 text-xs font-bold text-teal-800 bg-gradient-to-r from-emerald-50 to-teal-50 hover:from-emerald-100 hover:to-teal-100 px-2.5 py-1 rounded-full transition-all border border-emerald-200/80 shadow-2xs"
-                title="Foto oder Sprache mit KI erfassen"
+                className="flex items-center gap-1.5 text-xs font-bold text-teal-800 bg-gradient-to-r from-emerald-50 to-teal-50 hover:from-emerald-100 hover:to-teal-100 px-2.5 py-1 rounded-full transition-all border border-emerald-200/80 shadow-2xs"
+                title="Mahlzeit per Mikrofon einsprechen oder Foto machen"
               >
-                <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
-                <span>KI-Mahlzeit</span>
+                <Mic className="w-3.5 h-3.5 text-emerald-600" />
+                <span>🎙️ Einsprechen</span>
               </button>
             )}
             {onOpenSnackModal && (
