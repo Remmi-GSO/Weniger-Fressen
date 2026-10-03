@@ -119,7 +119,11 @@ export function App() {
                 Weniger Fressen
               </h1>
               <p className="text-[11px] text-stone-400 font-medium mt-0.5">
-                Hallo, <span className="font-semibold text-stone-600">{profile.name}</span> 👋
+                {profile.name && profile.name.trim() !== 'Du' ? (
+                  <>Hallo, <span className="font-semibold text-stone-600">{profile.name.trim()}</span> 👋</>
+                ) : (
+                  <>Willkommen 👋</>
+                )}
               </p>
             </div>
           </div>

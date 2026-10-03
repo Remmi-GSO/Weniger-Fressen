@@ -10,7 +10,9 @@ interface OnboardingModalProps {
 
 export const OnboardingModal = ({ onComplete, initialProfile }: OnboardingModalProps) => {
   const [gender, setGender] = useState<'female' | 'male'>(initialProfile?.gender || 'female');
-  const [name, setName] = useState(initialProfile?.name || '');
+  const [name, setName] = useState(
+    initialProfile?.name && initialProfile.name !== 'Du' ? initialProfile.name : ''
+  );
   const [age, setAge] = useState<number>(initialProfile?.age || 30);
   const [height, setHeight] = useState<number>(initialProfile?.height || 170);
   const [weight, setWeight] = useState<number>(initialProfile?.weight || 75);
@@ -41,7 +43,7 @@ export const OnboardingModal = ({ onComplete, initialProfile }: OnboardingModalP
     e.preventDefault();
     const profile: UserProfile = {
       id: 'current',
-      name: name.trim() || 'Du',
+      name: name.trim(),
       gender,
       age: Number(age),
       height: Number(height),
@@ -94,7 +96,24 @@ export const OnboardingModal = ({ onComplete, initialProfile }: OnboardingModalP
 
         <form onSubmit={handleSave} className="p-6 space-y-6">
           
-          {/* Name & Gender */}
+          {/* Dein Vorname */}
+          <div className="p-4 bg-emerald-50/60 rounded-2xl border border-emerald-100/90 space-y-2">
+            <label className="text-xs font-bold uppercase tracking-wider text-emerald-800 flex items-center gap-1.5">
+              <span>👤</span> Dein Vorname
+            </label>
+            <input
+              type="text"
+              placeholder="Wie heißt du? (z. B. Remmi)"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="w-full px-4 py-3 rounded-xl border border-emerald-200/80 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 bg-white text-stone-800 font-semibold text-sm placeholder:text-stone-400 placeholder:font-normal"
+            />
+            <p className="text-[11px] text-emerald-700/80">
+              Für deine persönliche Begrüßung auf dem Dashboard.
+            </p>
+          </div>
+
+          {/* Gender */}
           <div className="space-y-3">
             <label className="text-xs font-semibold uppercase tracking-wider text-stone-500">Biologisches Profil</label>
             <div className="grid grid-cols-2 gap-3">
@@ -120,17 +139,6 @@ export const OnboardingModal = ({ onComplete, initialProfile }: OnboardingModalP
               >
                 <span>Männlich</span>
               </button>
-            </div>
-
-            <div className="pt-1">
-              <label className="text-xs font-medium text-stone-600 block mb-1">Dein Name oder Spitzname (optional)</label>
-              <input
-                type="text"
-                placeholder="Wie dürfen wir dich nennen?"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                className="w-full px-4 py-3 rounded-2xl border border-stone-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 bg-white text-stone-800 text-sm"
-              />
             </div>
           </div>
 

@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { db, type UserProfile } from '../db/db';
+import { useState, useEffect } from 'react';
+import { db, DEFAULT_USER_PROFILE, type UserProfile } from '../db/db';
 import { X, Key, Download, Upload, Trash2, Sliders, Check, RefreshCw, CheckCircle } from 'lucide-react';
 
 interface SettingsModalProps {
@@ -15,7 +15,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   userProfile,
   onReopenOnboarding,
 }) => {
-  const [userName, setUserName] = useState(userProfile?.name && userProfile.name !== 'Du' ? userProfile.name : '');
+  const [userName, setUserName] = useState(
+    userProfile?.name && userProfile.name !== 'Du' ? userProfile.name : ''
+  );
   const [apiKey, setApiKey] = useState(userProfile?.geminiApiKey || '');
   const [targetCalories, setTargetCalories] = useState(userProfile?.targetCalories || 1800);
   const [targetProtein, setTargetProtein] = useState(userProfile?.targetProtein || 120);
@@ -24,6 +26,32 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [savedSuccess, setSavedSuccess] = useState(false);
   const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
   const [updateMessage, setUpdateMessage] = useState<string | null>(null);
+
+  // Sync state when userProfile is loaded or modal opens
+  useEffect(() => {
+    if (isOpen) {
+      if (userProfile?.name && userProfile.name !== 'Du') {
+        setUserName(userProfile.name);
+      } else if (!userProfile?.name || userProfile.name === 'Du') {
+        setUserName('');
+      }
+      if (userProfile?.geminiApiKey !== undefined) {
+        setApiKey(userProfile.geminiApiKey || '');
+      }
+      if (userProfile?.targetCalories) {
+        setTargetCalories(userProfile.targetCalories);
+      }
+      if (userProfile?.targetProtein) {
+        setTargetProtein(userProfile.targetProtein);
+      }
+      if (userProfile?.targetCarbs) {
+        setTargetCarbs(userProfile.targetCarbs);
+      }
+      if (userProfile?.targetFat) {
+        setTargetFat(userProfile.targetFat);
+      }
+    }
+  }, [userProfile, isOpen]);
 
   const handleCheckForUpdates = async () => {
     setIsCheckingUpdate(true);
@@ -54,19 +82,31 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    await db.userProfile.update('current', {
-      name: userName.trim() || 'Du',
-      geminiApiKey: apiKey.trim(),
-      targetCalories: Number(targetCalories),
-      targetProtein: Number(targetProtein),
-      targetCarbs: Number(targetCarbs),
-      targetFat: Number(targetFat),
-    });
-    setSavedSuccess(true);
-    setTimeout(() => {
-      setSavedSuccess(false);
-      onClose();
-    }, 800);
+    try {
+      const existing = await db.userProfile.get('current');
+      const base = existing || DEFAULT_USER_PROFILE;
+      const cleanName = userName.trim();
+
+      await db.userProfile.put({
+        ...base,
+        id: 'current',
+        name: cleanName,
+        geminiApiKey: apiKey.trim(),
+        targetCalories: Number(targetCalories) || base.targetCalories,
+        targetProtein: Number(targetProtein) || base.targetProtein,
+        targetCarbs: Number(targetCarbs) || base.targetCarbs,
+        targetFat: Number(targetFat) || base.targetFat,
+        isOnboarded: true,
+      });
+
+      setSavedSuccess(true);
+      setTimeout(() => {
+        setSavedSuccess(false);
+        onClose();
+      }, 700);
+    } catch (err) {
+      console.error('Fehler beim Speichern des Profils:', err);
+    }
   };
 
   const handleExportData = async () => {

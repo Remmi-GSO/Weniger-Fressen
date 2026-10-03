@@ -1,4 +1,4 @@
-const CACHE_NAME = 'weniger-fressen-v1';
+const CACHE_NAME = 'weniger-fressen-v2';
 const CORE_ASSETS = [
   './',
   './index.html',

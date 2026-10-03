@@ -35,8 +35,11 @@ export const WeightTracker: React.FC<WeightTrackerProps> = ({ logs, userProfile 
     }
 
     // Also update current profile weight
-    if (userProfile) {
+    const existingProf = await db.userProfile.get('current');
+    if (existingProf) {
       await db.userProfile.update('current', { weight: val });
+    } else if (userProfile) {
+      await db.userProfile.put({ ...userProfile, id: 'current', weight: val });
     }
 
     setNewWeight('');

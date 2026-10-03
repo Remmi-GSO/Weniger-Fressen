@@ -160,7 +160,7 @@ export const db = new WenigerFressenDB();
 // Default standard profile for fresh installations
 export const DEFAULT_USER_PROFILE: UserProfile = {
   id: 'current',
-  name: 'Du',
+  name: '',
   gender: 'female',
   age: 30,
   height: 170,
