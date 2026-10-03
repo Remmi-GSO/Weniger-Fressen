@@ -15,6 +15,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   userProfile,
   onReopenOnboarding,
 }) => {
+  const [userName, setUserName] = useState(userProfile?.name && userProfile.name !== 'Du' ? userProfile.name : '');
   const [apiKey, setApiKey] = useState(userProfile?.geminiApiKey || '');
   const [targetCalories, setTargetCalories] = useState(userProfile?.targetCalories || 1800);
   const [targetProtein, setTargetProtein] = useState(userProfile?.targetProtein || 120);
@@ -54,6 +55,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     await db.userProfile.update('current', {
+      name: userName.trim() || 'Du',
       geminiApiKey: apiKey.trim(),
       targetCalories: Number(targetCalories),
       targetProtein: Number(targetProtein),
@@ -164,6 +166,28 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
         <form onSubmit={handleSave} className="p-6 overflow-y-auto space-y-6">
           
+          {/* Dein Name */}
+          <div className="p-4 bg-stone-50 rounded-2xl border border-stone-200/80 space-y-2">
+            <label className="text-xs font-semibold uppercase tracking-wider text-stone-500 block">
+              Dein Name / Wie darf die App dich nennen?
+            </label>
+            <div className="flex items-center gap-2.5">
+              <span className="w-10 h-10 rounded-xl bg-white border border-stone-200 flex items-center justify-center text-lg shrink-0">
+                👤
+              </span>
+              <input
+                type="text"
+                placeholder="Dein Vorname (z. B. Remmi)"
+                value={userName}
+                onChange={(e) => setUserName(e.target.value)}
+                className="flex-1 py-2.5 px-3.5 rounded-xl border border-stone-200 focus:border-emerald-500 font-bold text-stone-800 text-sm bg-white"
+              />
+            </div>
+            <p className="text-[10px] text-stone-400">
+              Ersetzt das unpersönliche „Hallo Du“ durch deinen Namen auf dem Dashboard.
+            </p>
+          </div>
+
           {/* Calorie & Macro Target adjustments */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">

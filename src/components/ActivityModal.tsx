@@ -417,10 +417,10 @@ export const ActivityModal = ({
                   >
                     {isDogWalk
                       ? lvl === 'light'
-                        ? '🐕 Schnüffelrunde'
+                        ? '🐕 Schnüffeln mit Snoopy'
                         : lvl === 'moderate'
-                        ? '🐾 Normales Gassi'
-                        : '⚡ Flottes Gehen'
+                        ? '🐾 Gassi mit Snoopy'
+                        : '⚡ Flottes Gehen mit Snoopy'
                       : lvl === 'light'
                       ? 'Gemütlich'
                       : lvl === 'moderate'

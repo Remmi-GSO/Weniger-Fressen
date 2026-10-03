@@ -13,14 +13,14 @@ export interface ActivityDefinition {
 export const DEFAULT_ACTIVITIES: ActivityDefinition[] = [
   {
     id: 'dog_walk',
-    name: 'Spaziergang mit dem Hund',
+    name: 'Gassi gehen mit Snoopy',
     category: 'daily',
     icon: '🐕',
     met: 3.0, // Ainsworth Compendium Code 17151 (Walking the dog): 3.0 Brutto-MET -> Netto-MET = 2.0 (ca. 75 kcal / 30 Min bei 75 kg)
     defaultDurationMinutes: 30,
     unitStepMinutes: 30,
     unitLabel: 'Halbstündige Einheiten (je 30 Min)',
-    description: 'Gassi gehen in 30-Min-Einheiten (berücksichtigt Schnüffeln, Stehenbleiben & Gehen)',
+    description: 'Spaziergang mit Snoopy in 30-Min-Einheiten (Schnüffeln, Stehenbleiben & Gehen)',
   },
   {
     id: 'back_yoga',

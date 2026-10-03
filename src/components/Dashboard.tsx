@@ -210,89 +210,6 @@ export const Dashboard = ({
         </div>
       </div>
 
-      {/* Activities & Movement Section */}
-      <div className="bg-white rounded-3xl p-5 shadow-card border border-surface-border space-y-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="w-10 h-10 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center text-xl shadow-xs border border-amber-100">
-              🏃
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h4 className="font-extrabold text-stone-900 text-sm">Aktivitäten & Bewegung</h4>
-                {totalBurnedKcal > 0 && (
-                  <span className="text-[10px] bg-amber-100 text-amber-900 font-bold px-2 py-0.5 rounded-full">
-                    +{totalBurnedKcal} kcal Budget
-                  </span>
-                )}
-              </div>
-              <p className="text-[11px] text-stone-400">
-                Hundegassi (halbstündlich), Rückenfit, Yoga, Garten & Putzen
-              </p>
-            </div>
-          </div>
-
-          {onOpenActivityModal && (
-            <button
-              onClick={onOpenActivityModal}
-              className="flex items-center gap-1 text-xs font-bold text-amber-800 bg-amber-50 hover:bg-amber-100 px-3 py-1.5 rounded-2xl transition-all border border-amber-200/70 shrink-0"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              <span>Aktivität</span>
-            </button>
-          )}
-        </div>
-
-        {/* List of today's logged activities */}
-        {activityLogs && activityLogs.length > 0 ? (
-          <div className="divide-y divide-stone-100 pt-1">
-            {activityLogs.map((act) => {
-              const halfUnits = Math.round(act.durationMinutes / 30);
-              return (
-                <div key={act.id} className="py-2.5 flex items-center justify-between text-xs group hover:bg-stone-50/60 px-1 -mx-1 rounded-xl">
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    <span className="text-2xl shrink-0">{act.icon}</span>
-                    <div className="min-w-0">
-                      <span className="font-bold text-stone-800 block truncate">{act.name}</span>
-                      <span className="text-[10px] text-stone-400">
-                        {act.durationMinutes} Min {act.activityId === 'dog_walk' ? `(${halfUnits}x Halbe Std.)` : ''}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-2.5">
-                    <span className="font-black text-amber-700 bg-amber-50 px-2 py-0.5 rounded-lg border border-amber-200/50">
-                      -{act.caloriesBurned} kcal
-                    </span>
-                    <button
-                      onClick={async () => {
-                        if (act.id) await db.activityLogs.delete(act.id);
-                      }}
-                      className="opacity-0 group-hover:opacity-100 text-stone-300 hover:text-rose-500 p-1 transition-all"
-                      title="Aktivität löschen"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        ) : (
-          <div
-            onClick={onOpenActivityModal}
-            className="p-3 bg-stone-50/80 hover:bg-amber-50/50 rounded-2xl border border-stone-200/60 cursor-pointer transition-colors text-center space-y-0.5"
-          >
-            <span className="text-xs font-semibold text-stone-600 block">
-              🐕 Hundegassi, 🧘 Rückenfit/Yoga oder 🪴 Gartenarbeit gemacht?
-            </span>
-            <span className="text-[11px] text-amber-700 font-bold block">
-              + Jetzt Aktivität erfassen & extra Kalorien gutschreiben lassen
-            </span>
-          </div>
-        )}
-      </div>
-
       {/* Active Fasting Teaser Banner (if active) */}
       {activeFastingSession?.isActive && (
         <div
@@ -403,6 +320,90 @@ export const Dashboard = ({
           onAddClick={onOpenSearch}
           onSnackClick={onOpenSnackModal}
         />
+      </div>
+
+      {/* Activities & Movement Section - Directly under Breakfast, Lunch, Dinner, Snacks */}
+      <div className="bg-white rounded-3xl p-5 shadow-card border border-surface-border space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <div className="w-10 h-10 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center text-xl shadow-xs border border-amber-100">
+              🏃
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h4 className="font-extrabold text-stone-900 text-sm">Aktivitäten & Bewegung</h4>
+                {totalBurnedKcal > 0 && (
+                  <span className="text-[10px] bg-amber-100 text-amber-900 font-bold px-2 py-0.5 rounded-full">
+                    +{totalBurnedKcal} kcal Budget
+                  </span>
+                )}
+              </div>
+              <p className="text-[11px] text-stone-400">
+                Gassi mit Snoopy (halbstündlich), Rückenfit, Yoga, Garten & Putzen
+              </p>
+            </div>
+          </div>
+
+          {onOpenActivityModal && (
+            <button
+              onClick={onOpenActivityModal}
+              className="flex items-center gap-1 text-xs font-bold text-amber-800 bg-amber-50 hover:bg-amber-100 px-3 py-1.5 rounded-2xl transition-all border border-amber-200/70 shrink-0"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>Aktivität</span>
+            </button>
+          )}
+        </div>
+
+        {/* List of today's logged activities */}
+        {activityLogs && activityLogs.length > 0 ? (
+          <div className="divide-y divide-stone-100 pt-1">
+            {activityLogs.map((act) => {
+              const halfUnits = Math.round(act.durationMinutes / 30);
+              const displayName = act.activityId === 'dog_walk' ? 'Gassi gehen mit Snoopy' : act.name;
+              return (
+                <div key={act.id} className="py-2.5 flex items-center justify-between text-xs group hover:bg-stone-50/60 px-1 -mx-1 rounded-xl">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <span className="text-2xl shrink-0">{act.icon}</span>
+                    <div className="min-w-0">
+                      <span className="font-bold text-stone-800 block truncate">{displayName}</span>
+                      <span className="text-[10px] text-stone-400">
+                        {act.durationMinutes} Min {act.activityId === 'dog_walk' ? `(${halfUnits}x Halbe Std.)` : ''}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2.5">
+                    <span className="font-black text-amber-700 bg-amber-50 px-2 py-0.5 rounded-lg border border-amber-200/50">
+                      -{act.caloriesBurned} kcal
+                    </span>
+                    <button
+                      onClick={async () => {
+                        if (act.id) await db.activityLogs.delete(act.id);
+                      }}
+                      className="opacity-0 group-hover:opacity-100 text-stone-300 hover:text-rose-500 p-1 transition-all"
+                      title="Aktivität löschen"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div
+            onClick={onOpenActivityModal}
+            className="p-3 bg-stone-50/80 hover:bg-amber-50/50 rounded-2xl border border-stone-200/60 cursor-pointer transition-colors text-center space-y-0.5"
+          >
+            <span className="text-xs font-semibold text-stone-600 block">
+              🐕 Gassi mit Snoopy, 🧘 Rückenfit/Yoga oder 🪴 Gartenarbeit gemacht?
+            </span>
+            <span className="text-[11px] text-amber-700 font-bold block">
+              + Jetzt Aktivität erfassen & extra Kalorien gutschreiben lassen
+            </span>
+          </div>
+        )}
       </div>
 
       {/* Water Tracker Section */}
