@@ -13,90 +13,6 @@ export interface GeminiNutritionResponse {
   confidenceNote?: string;
 }
 
-/**
- * Queries Gemini 2.5 Flash with structured JSON output to identify any food,
- * supermarket branded product, bakery item, or meal with accurate German nutrition facts.
- */
-export async function queryFoodWithGemini(
-  query: string,
-  apiKey: string
-): Promise<FoodProduct | null> {
-  const cleanKey = apiKey.trim();
-  if (!cleanKey) {
-    throw new Error('Kein Gemini API-Key hinterlegt.');
-  }
-
-  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${cleanKey}`;
-
-  const prompt = `Du bist ein präziser Experte für Lebensmittel-Nährwerte und den deutschen Lebensmitteleinzelhandel (Supermärkte wie Rewe, Edeka, Aldi, Lidl, Kaufland sowie Bäckereien und bekannte Herstellermarken wie Harry, Lieken Urkorn, Golden Toast, Barilla, Alpro, Rügenwalder Mühle usw.).
-
-Der Nutzer sucht nach: "${query}".
-
-Bestimme die exakten oder typischen Nährwerte pro 100g für dieses Lebensmittel bzw. diese Supermarktpackung in Deutschland.
-Gebe die typische Portionsgröße an (z. B. "1 Scheibe (ca. 45g)", "1 Becher (ca. 250g)", "1 Riegel (ca. 40g)").
-
-Antworte ausschließlich im angegebenen JSON-Format:
-{
-  "name": "Vollständiger Produktname",
-  "brand": "Marke / Supermarkt (oder Bäckerei/Standard)",
-  "calories100g": 240,
-  "protein100g": 8.5,
-  "carbs100g": 44.0,
-  "fat100g": 2.5,
-  "fiber100g": 6.0,
-  "servingSize": "1 Scheibe (ca. 45g)",
-  "servingWeightGrams": 45
-}`;
-
-  try {
-    const res = await fetch(endpoint, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        contents: [
-          {
-            parts: [{ text: prompt }],
-          },
-        ],
-        generationConfig: {
-          responseMimeType: 'application/json',
-          temperature: 0.2,
-        },
-      }),
-    });
-
-    if (!res.ok) {
-      const errJson = await res.json().catch(() => ({}));
-      const msg = errJson?.error?.message || res.statusText;
-      throw new Error(`Gemini API Fehler (${res.status}): ${msg}`);
-    }
-
-    const data = await res.json();
-    const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-    if (!rawText) return null;
-
-    const parsed: GeminiNutritionResponse = JSON.parse(rawText);
-
-    return {
-      id: `ai_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
-      name: parsed.name,
-      brand: parsed.brand || 'KI-Recherche',
-      calories100g: Math.round(parsed.calories100g),
-      protein100g: Math.round(parsed.protein100g * 10) / 10,
-      carbs100g: Math.round(parsed.carbs100g * 10) / 10,
-      fat100g: Math.round(parsed.fat100g * 10) / 10,
-      fiber100g: parsed.fiber100g ? Math.round(parsed.fiber100g * 10) / 10 : undefined,
-      servingSize: parsed.servingSize,
-      servingWeightGrams: parsed.servingWeightGrams,
-    };
-  } catch (err: any) {
-    console.error('Gemini food query failed:', err);
-    throw err;
-  }
-}
-
 export interface AiMealComponent {
   id: string;
   name: string;
@@ -120,10 +36,173 @@ export interface AiMealAnalysisResult {
   totalProtein: number;
   totalCarbs: number;
   totalFat: number;
+  usedModel?: string;
 }
 
 /**
- * Analyzes a full meal photo, voice description, or text with Gemini 2.5 Flash.
+ * Budget-friendly & free-tier optimized Gemini models.
+ * Google recommends gemini-3.8-flash and gemini-3.5-flash-lite for ultra-low latency,
+ * zero/minimal cost and generous free tier quotas.
+ */
+export const CANDIDATE_MODELS = [
+  'gemini-3.8-flash',
+  'gemini-3.5-flash-lite',
+  'gemini-2.5-flash',
+  'gemini-2.0-flash',
+  'gemini-1.5-flash',
+];
+
+let cachedWorkingModel: string | null = null;
+
+export function getActiveGeminiModel(): string {
+  return cachedWorkingModel || CANDIDATE_MODELS[0];
+}
+
+/**
+ * Executes a Gemini request with automatic graceful fallback across models.
+ * Prevents 404 deprecation errors for new/unprovisioned models and protects user budget.
+ */
+async function callGeminiApi({
+  apiKey,
+  parts,
+  temperature = 0.2,
+}: {
+  apiKey: string;
+  parts: Array<{ text?: string; inlineData?: { mimeType: string; data: string } }>;
+  temperature?: number;
+}): Promise<{ rawText: string; model: string }> {
+  const cleanKey = apiKey.trim();
+  if (!cleanKey) {
+    throw new Error('Kein Gemini API-Key hinterlegt. Bitte trage deinen kostenlosen Key in den Einstellungen ein.');
+  }
+
+  const modelsToTry = cachedWorkingModel
+    ? [cachedWorkingModel, ...CANDIDATE_MODELS.filter((m) => m !== cachedWorkingModel)]
+    : CANDIDATE_MODELS;
+
+  let lastError: Error | null = null;
+
+  for (const model of modelsToTry) {
+    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${cleanKey}`;
+    try {
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          contents: [{ parts }],
+          generationConfig: {
+            responseMimeType: 'application/json',
+            temperature,
+          },
+        }),
+      });
+
+      if (res.ok) {
+        cachedWorkingModel = model;
+        const data = await res.json();
+        const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (!rawText) {
+          throw new Error('Keine Antwort von Gemini erhalten.');
+        }
+        return { rawText, model };
+      }
+
+      const errJson = await res.json().catch(() => ({}));
+      const msg = errJson?.error?.message || res.statusText;
+
+      // Check if model is deprecated or not available for this project/user (404)
+      const isModelUnavailable =
+        res.status === 404 ||
+        msg.includes('is no longer available') ||
+        msg.includes('not found') ||
+        msg.includes('not supported') ||
+        msg.includes('deprecated');
+
+      if (isModelUnavailable) {
+        console.warn(`Gemini-Modell ${model} nicht verfügbar (${msg}), versuche nächstes Modell...`);
+        lastError = new Error(`Gemini API Fehler (${res.status}): ${msg}`);
+        continue;
+      }
+
+      // If budget / quota (429) or invalid key (400 / 403), throw immediately with helpful German guidance
+      if (res.status === 429) {
+        throw new Error('Gemini API-Limit erreicht (429). Bitte warte einen kurzen Moment und versuche es erneut (im kostenlosen Kontingent von Google).');
+      }
+      if (res.status === 400 || res.status === 403) {
+        throw new Error(`Gemini API-Key ungültig oder Berechtigung verweigert (${res.status}): ${msg}`);
+      }
+
+      throw new Error(`Gemini API Fehler (${res.status}): ${msg}`);
+    } catch (err: any) {
+      if (err.message?.includes('Gemini API-Limit') || err.message?.includes('Gemini API-Key')) {
+        throw err;
+      }
+      lastError = err;
+    }
+  }
+
+  throw lastError || new Error('Kein kompatibles Gemini-Modell gefunden.');
+}
+
+/**
+ * Queries Gemini with structured JSON output to identify any food,
+ * supermarket branded product, bakery item, or meal with accurate German nutrition facts.
+ */
+export async function queryFoodWithGemini(
+  query: string,
+  apiKey: string
+): Promise<FoodProduct | null> {
+  const prompt = `Du bist ein präziser Experte für Lebensmittel-Nährwerte und den deutschen Lebensmitteleinzelhandel (Supermärkte wie Rewe, Edeka, Aldi, Lidl, Kaufland sowie Bäckereien und bekannte Herstellermarken wie Harry, Lieken Urkorn, Golden Toast, Barilla, Alpro, Rügenwalder Mühle usw.).
+
+Der Nutzer sucht nach: "${query}".
+
+Bestimme die exakten oder typischen Nährwerte pro 100g für dieses Lebensmittel bzw. diese Supermarktpackung in Deutschland.
+Gebe die typische Portionsgröße an (z. B. "1 Scheibe (ca. 45g)", "1 Becher (ca. 250g)", "1 Riegel (ca. 40g)").
+
+Antworte ausschließlich im angegebenen JSON-Format:
+{
+  "name": "Vollständiger Produktname",
+  "brand": "Marke / Supermarkt (oder Bäckerei/Standard)",
+  "calories100g": 240,
+  "protein100g": 8.5,
+  "carbs100g": 44.0,
+  "fat100g": 2.5,
+  "fiber100g": 6.0,
+  "servingSize": "1 Scheibe (ca. 45g)",
+  "servingWeightGrams": 45
+}`;
+
+  try {
+    const { rawText } = await callGeminiApi({
+      apiKey,
+      parts: [{ text: prompt }],
+      temperature: 0.2,
+    });
+
+    const parsed: GeminiNutritionResponse = JSON.parse(rawText);
+
+    return {
+      id: `ai_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+      name: parsed.name,
+      brand: parsed.brand || 'KI-Recherche',
+      calories100g: Math.round(parsed.calories100g),
+      protein100g: Math.round(parsed.protein100g * 10) / 10,
+      carbs100g: Math.round(parsed.carbs100g * 10) / 10,
+      fat100g: Math.round(parsed.fat100g * 10) / 10,
+      fiber100g: parsed.fiber100g ? Math.round(parsed.fiber100g * 10) / 10 : undefined,
+      servingSize: parsed.servingSize,
+      servingWeightGrams: parsed.servingWeightGrams,
+    };
+  } catch (err: any) {
+    console.error('Gemini food query failed:', err);
+    throw err;
+  }
+}
+
+/**
+ * Analyzes a full meal photo, voice description, or text with Gemini Flash.
  * Returns structured ingredients/components with realistic portions, calories, and macros.
  */
 export async function analyzeMealWithGemini({
@@ -146,13 +225,6 @@ export async function analyzeMealWithGemini({
     servingWeightGrams?: number;
   }>;
 }): Promise<AiMealAnalysisResult> {
-  const cleanKey = apiKey.trim();
-  if (!cleanKey) {
-    throw new Error('Kein Gemini API-Key hinterlegt. Bitte trage deinen Key in den Einstellungen ein.');
-  }
-
-  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${cleanKey}`;
-
   const recipesContext = userRecipes && userRecipes.length > 0
     ? `\nBekannte Rezepte des Nutzers in der App:\n${userRecipes.map(r => `- ${r.name}: ${r.calories100g} kcal/100g, Protein: ${r.protein100g}g, KH: ${r.carbs100g}g, Fett: ${r.fat100g}g${r.servingWeightGrams ? ` (Portion ca. ${r.servingWeightGrams}g)` : ''}`).join('\n')}\nWenn der Nutzer eines dieser Rezepte erwähnt (z. B. "selbstgebackenes Brot" oder einen ähnlichen Namen), verwende bevorzugt dessen genaue Nährwerte.\n`
     : '';
@@ -203,35 +275,11 @@ Antworte ausschließlich im angegebenen JSON-Format:
   }
 
   try {
-    const res = await fetch(endpoint, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        contents: [
-          {
-            parts,
-          },
-        ],
-        generationConfig: {
-          responseMimeType: 'application/json',
-          temperature: 0.2,
-        },
-      }),
+    const { rawText, model } = await callGeminiApi({
+      apiKey,
+      parts,
+      temperature: 0.2,
     });
-
-    if (!res.ok) {
-      const errJson = await res.json().catch(() => ({}));
-      const msg = errJson?.error?.message || res.statusText;
-      throw new Error(`Gemini API Fehler (${res.status}): ${msg}`);
-    }
-
-    const data = await res.json();
-    const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-    if (!rawText) {
-      throw new Error('Keine Antwort von Gemini erhalten.');
-    }
 
     const parsed = JSON.parse(rawText);
     const rawItems: any[] = Array.isArray(parsed.items) ? parsed.items : [];
@@ -277,10 +325,10 @@ Antworte ausschließlich im angegebenen JSON-Format:
       totalProtein,
       totalCarbs,
       totalFat,
+      usedModel: model,
     };
   } catch (err: any) {
     console.error('Gemini meal analysis failed:', err);
     throw err;
   }
 }
-

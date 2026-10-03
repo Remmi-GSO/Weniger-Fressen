@@ -350,8 +350,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 Optional
               </span>
             </div>
-            <p className="text-xs text-stone-500">
-              Ermöglicht Foto- und Sprach-Logging mit <span className="font-semibold text-emerald-700">Gemini 2.5 Flash</span>. Der Key wird ausschließlich in deinem Browser (IndexedDB) gespeichert.
+            <p className="text-xs text-stone-500 leading-relaxed">
+              Ermöglicht Foto- und Sprach-Logging mit dem sparsamen und schnellen <span className="font-semibold text-emerald-700">Gemini 3.8 Flash</span> (über das kostenlose Google AI Studio Free-Tier Kontingent, 0,00 €). Der Key wird ausschließlich lokal in deinem Browser (IndexedDB) gespeichert.
             </p>
             <input
               type="password"

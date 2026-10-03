@@ -22,3 +22,8 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# User screenshots
+WhatsApp*.jpeg
+WhatsApp*.jpg
+WhatsApp*.png

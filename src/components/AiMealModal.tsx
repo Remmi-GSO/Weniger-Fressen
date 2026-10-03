@@ -163,6 +163,7 @@ export const AiMealModal = ({
   const [analysisError, setAnalysisError] = useState<string | null>(null);
   const [analyzedTitle, setAnalyzedTitle] = useState<string | null>(null);
   const [analyzedNote, setAnalyzedNote] = useState<string | null>(null);
+  const [usedModel, setUsedModel] = useState<string | null>(null);
   const [components, setComponents] = useState<AiMealComponent[] | null>(null);
 
   // Eating reason & saving state
@@ -350,6 +351,7 @@ export const AiMealModal = ({
 
       setAnalyzedTitle(result.mealTitle);
       setAnalyzedNote(result.summaryNote || null);
+      setUsedModel(result.usedModel || null);
       setComponents(result.items);
     } catch (err: any) {
       setAnalysisError(err.message || 'Die Mahlzeiten-Analyse ist fehlgeschlagen.');
@@ -411,6 +413,7 @@ export const AiMealModal = ({
     setComponents(null);
     setAnalyzedTitle(null);
     setAnalyzedNote(null);
+    setUsedModel(null);
   };
 
   const totalCalculatedKcal = components?.reduce((sum, it) => sum + it.calories, 0) || 0;
@@ -513,7 +516,7 @@ export const AiMealModal = ({
                 <span>Kostenloser Google Gemini API-Key erforderlich</span>
               </div>
               <p className="text-[11px] text-amber-800 leading-relaxed">
-                Damit die KI dein Frühstück auf dem Foto und deine Spracheingabe auswerten kann, trage bitte einmal deinen kostenlosen Gemini-Key ein:
+                Trage bitte deinen Google Gemini Key ein. Die App nutzt automatisch das schnelle, sparsame Modell <strong>Gemini 3.8 Flash</strong> (bzw. <strong>3.5 Flash-Lite</strong>). Über Google AI Studio ist dieses Kontingent <strong>vollkommen kostenlos (0,00 €)</strong> – es entstehen dir garantiert keine Kosten oder Budgetüberschreitungen.
               </p>
               <form onSubmit={handleSaveApiKey} className="flex gap-2">
                 <input
@@ -721,7 +724,7 @@ export const AiMealModal = ({
                 {isAnalyzing ? (
                   <>
                     <Loader2 className="w-4 h-4 animate-spin" />
-                    <span>Gemini 2.5 Flash analysiert dein Essen...</span>
+                    <span>KI analysiert dein Essen (Gemini Flash)...</span>
                   </>
                 ) : (
                   <>
@@ -741,9 +744,16 @@ export const AiMealModal = ({
               <div className="p-4 bg-gradient-to-r from-emerald-50 via-teal-50 to-emerald-50 border border-emerald-200/80 rounded-2xl space-y-2">
                 <div className="flex items-center justify-between">
                   <div className="min-w-0 pr-2">
-                    <h4 className="font-extrabold text-stone-900 text-sm truncate">
-                      {analyzedTitle || 'Analysiertes Essen'}
-                    </h4>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <h4 className="font-extrabold text-stone-900 text-sm truncate">
+                        {analyzedTitle || 'Analysiertes Essen'}
+                      </h4>
+                      {usedModel && (
+                        <span className="text-[10px] bg-emerald-100/90 text-emerald-800 font-bold px-2 py-0.5 rounded-full border border-emerald-200/60 shadow-2xs">
+                          {usedModel} (0 €)
+                        </span>
+                      )}
+                    </div>
                     {analyzedNote && (
                       <p className="text-[11px] text-stone-500 line-clamp-2 mt-0.5">
                         {analyzedNote}
