@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { db, type MealType, type EatingReason } from '../db/db';
 import { type FoodProduct } from '../services/foodApi';
 import { getPortionPresets, type PortionPreset } from '../utils/portionPresets';
+import { estimateFiber, estimateSugar } from '../utils/nutrientEstimator';
 import { X, Plus, Minus, Scale, Check } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
@@ -70,6 +71,12 @@ export const PortionCalculatorModal = ({
   const calculatedProtein = Math.round(product.protein100g * multiplier * 10) / 10;
   const calculatedCarbs = Math.round(product.carbs100g * multiplier * 10) / 10;
   const calculatedFat = Math.round(product.fat100g * multiplier * 10) / 10;
+  const calculatedFiber = product.fiber100g !== undefined
+    ? Math.round(product.fiber100g * multiplier * 10) / 10
+    : estimateFiber(product.name, effectiveGrams, calculatedKcal);
+  const calculatedSugar = product.sugar100g !== undefined
+    ? Math.round(product.sugar100g * multiplier * 10) / 10
+    : estimateSugar(product.name, effectiveGrams, calculatedCarbs);
 
   const mealLabels: Record<MealType, string> = {
     breakfast: 'Frühstück',
@@ -97,6 +104,8 @@ export const PortionCalculatorModal = ({
       protein: calculatedProtein,
       carbs: calculatedCarbs,
       fat: calculatedFat,
+      fiber: calculatedFiber,
+      sugar: calculatedSugar,
       amount: Math.round(effectiveGrams),
       unit: unitLabel,
       barcode: product.barcode,
@@ -113,6 +122,8 @@ export const PortionCalculatorModal = ({
         protein: product.protein100g,
         carbs: product.carbs100g,
         fat: product.fat100g,
+        fiber: product.fiber100g,
+        sugar: product.sugar100g,
       });
     } else {
       await db.favoriteItems.add({
@@ -121,6 +132,8 @@ export const PortionCalculatorModal = ({
         protein: product.protein100g,
         carbs: product.carbs100g,
         fat: product.fat100g,
+        fiber: product.fiber100g,
+        sugar: product.sugar100g,
         defaultAmount: Math.round(effectiveGrams),
         defaultUnit: unitLabel,
         useCount: 1,
@@ -372,6 +385,17 @@ export const PortionCalculatorModal = ({
               <div className="bg-white/80 p-1.5 rounded-xl shadow-card">
                 <span className="text-[10px] font-bold text-cyan-600 uppercase block">Fett</span>
                 <span className="text-xs font-bold text-stone-800">{calculatedFat}g</span>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 pt-1 text-[11px]">
+              <div className="bg-white/70 py-1 px-2 rounded-lg flex items-center justify-between">
+                <span className="text-emerald-800 font-semibold flex items-center gap-1">🌾 Ballaststoffe</span>
+                <span className="font-bold text-stone-800">{calculatedFiber}g</span>
+              </div>
+              <div className="bg-white/70 py-1 px-2 rounded-lg flex items-center justify-between">
+                <span className="text-rose-700 font-semibold flex items-center gap-1">🍬 Zucker</span>
+                <span className="font-bold text-stone-800">{calculatedSugar}g</span>
               </div>
             </div>
           </div>

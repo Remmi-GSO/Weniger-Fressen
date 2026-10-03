@@ -1,10 +1,11 @@
 import { useMemo } from 'react';
-import { type UserProfile, type DiaryEntry, type WaterLog, type FastingSession, type MealType, type ActivityLog, db } from '../db/db';
+import { type UserProfile, type DiaryEntry, type WaterLog, type FastingSession, type MealType, type ActivityLog, DEFAULT_NUTRIENT_BARS, type DashboardNutrientBars, db } from '../db/db';
 import { CircularProgress } from './CircularProgress';
 import { MealCard } from './MealCard';
 import { WaterTracker } from './WaterTracker';
 import { formatDisplayDate, getTodayDateString } from '../utils/nutrition';
 import { assessFoodQuality } from '../utils/foodQuality';
+import { estimateFiber, estimateSugar } from '../utils/nutrientEstimator';
 import { ChevronLeft, ChevronRight, Calendar, Sparkles, Timer, Barcode, Plus, Trash2, Leaf, Mic } from 'lucide-react';
 
 interface DashboardProps {
@@ -61,6 +62,12 @@ export const Dashboard = ({
   const totalProtein = Math.round(diaryEntries.reduce((sum, e) => sum + (e.protein || 0), 0));
   const totalCarbs = Math.round(diaryEntries.reduce((sum, e) => sum + (e.carbs || 0), 0));
   const totalFat = Math.round(diaryEntries.reduce((sum, e) => sum + (e.fat || 0), 0));
+  const totalFiber = Math.round(
+    diaryEntries.reduce((sum, e) => sum + (e.fiber !== undefined ? e.fiber : estimateFiber(e.name, e.amount || 100, e.calories)), 0) * 10
+  ) / 10;
+  const totalSugar = Math.round(
+    diaryEntries.reduce((sum, e) => sum + (e.sugar !== undefined ? e.sugar : estimateSugar(e.name, e.amount || 100, e.carbs)), 0) * 10
+  ) / 10;
 
   const totalBurnedKcal = (activityLogs || []).reduce((sum, a) => sum + (a.caloriesBurned || 0), 0);
 
@@ -100,6 +107,13 @@ export const Dashboard = ({
   const targetProtein = userProfile.targetProtein || 120;
   const targetCarbs = userProfile.targetCarbs || 180;
   const targetFat = userProfile.targetFat || 55;
+  const targetFiber = userProfile.targetFiber || 30;
+  const targetSugar = userProfile.targetSugar || 35;
+
+  const nutrientBars: DashboardNutrientBars = {
+    ...DEFAULT_NUTRIENT_BARS,
+    ...(userProfile.nutrientBars || {}),
+  };
 
   // Filter entries by meal
   const breakfastEntries = diaryEntries.filter((e) => e.mealType === 'breakfast');
@@ -228,50 +242,132 @@ export const Dashboard = ({
               </div>
             </div>
 
-            {/* Macro Bars */}
+            {/* Customizable Nutrient Bars */}
             <div className="space-y-2 pt-1">
               
               {/* Protein */}
-              <div>
-                <div className="flex justify-between text-xs mb-1">
-                  <span className="font-bold text-violet-700">Protein</span>
-                  <span className="text-stone-500 font-medium">{totalProtein} / {targetProtein}g</span>
+              {nutrientBars.protein && (
+                <div>
+                  <div className="flex justify-between text-xs mb-1">
+                    <span className="font-bold text-violet-700">Protein</span>
+                    <span className="text-stone-500 font-medium">{totalProtein} / {targetProtein}g</span>
+                  </div>
+                  <div className="w-full bg-violet-100/60 rounded-full h-2 overflow-hidden">
+                    <div
+                      className="bg-violet-500 h-full rounded-full transition-all duration-500"
+                      style={{ width: `${Math.min(100, (totalProtein / targetProtein) * 100)}%` }}
+                    />
+                  </div>
                 </div>
-                <div className="w-full bg-violet-100/60 rounded-full h-2 overflow-hidden">
-                  <div
-                    className="bg-violet-500 h-full rounded-full transition-all duration-500"
-                    style={{ width: `${Math.min(100, (totalProtein / targetProtein) * 100)}%` }}
-                  />
-                </div>
-              </div>
+              )}
 
-              {/* Carbs */}
-              <div>
-                <div className="flex justify-between text-xs mb-1">
-                  <span className="font-bold text-amber-700">Kohlenhydrate</span>
-                  <span className="text-stone-500 font-medium">{totalCarbs} / {targetCarbs}g</span>
+              {/* Kohlenhydrate */}
+              {nutrientBars.carbs && (
+                <div>
+                  <div className="flex justify-between text-xs mb-1">
+                    <span className="font-bold text-amber-700">Kohlenhydrate</span>
+                    <span className="text-stone-500 font-medium">{totalCarbs} / {targetCarbs}g</span>
+                  </div>
+                  <div className="w-full bg-amber-100/60 rounded-full h-2 overflow-hidden">
+                    <div
+                      className="bg-amber-500 h-full rounded-full transition-all duration-500"
+                      style={{ width: `${Math.min(100, (totalCarbs / targetCarbs) * 100)}%` }}
+                    />
+                  </div>
                 </div>
-                <div className="w-full bg-amber-100/60 rounded-full h-2 overflow-hidden">
-                  <div
-                    className="bg-amber-500 h-full rounded-full transition-all duration-500"
-                    style={{ width: `${Math.min(100, (totalCarbs / targetCarbs) * 100)}%` }}
-                  />
-                </div>
-              </div>
+              )}
 
-              {/* Fat */}
-              <div>
-                <div className="flex justify-between text-xs mb-1">
-                  <span className="font-bold text-cyan-700">Fett</span>
-                  <span className="text-stone-500 font-medium">{totalFat} / {targetFat}g</span>
+              {/* Fett */}
+              {nutrientBars.fat && (
+                <div>
+                  <div className="flex justify-between text-xs mb-1">
+                    <span className="font-bold text-cyan-700">Fett</span>
+                    <span className="text-stone-500 font-medium">{totalFat} / {targetFat}g</span>
+                  </div>
+                  <div className="w-full bg-cyan-100/60 rounded-full h-2 overflow-hidden">
+                    <div
+                      className="bg-cyan-500 h-full rounded-full transition-all duration-500"
+                      style={{ width: `${Math.min(100, (totalFat / targetFat) * 100)}%` }}
+                    />
+                  </div>
                 </div>
-                <div className="w-full bg-cyan-100/60 rounded-full h-2 overflow-hidden">
-                  <div
-                    className="bg-cyan-500 h-full rounded-full transition-all duration-500"
-                    style={{ width: `${Math.min(100, (totalFat / targetFat) * 100)}%` }}
-                  />
+              )}
+
+              {/* Ballaststoffe (Fiber) */}
+              {nutrientBars.fiber && (
+                <div>
+                  <div className="flex justify-between text-xs mb-1">
+                    <span className="font-bold text-emerald-800 flex items-center gap-1">
+                      <span>🌾 Ballaststoffe</span>
+                      {totalFiber >= targetFiber && (
+                        <span className="text-[9px] text-emerald-700 font-black bg-emerald-100 px-1.5 py-0.2 rounded-full">
+                          ✓ Ziel erreicht!
+                        </span>
+                      )}
+                    </span>
+                    <span className="text-stone-500 font-medium">{totalFiber} / {targetFiber}g</span>
+                  </div>
+                  <div className="w-full bg-emerald-100/60 rounded-full h-2 overflow-hidden">
+                    <div
+                      className="bg-emerald-600 h-full rounded-full transition-all duration-500"
+                      style={{ width: `${Math.min(100, (totalFiber / targetFiber) * 100)}%` }}
+                    />
+                  </div>
                 </div>
-              </div>
+              )}
+
+              {/* Zucker (Sugar - Obergrenze) */}
+              {nutrientBars.sugar && (
+                <div>
+                  <div className="flex justify-between text-xs mb-1">
+                    <span className="font-bold text-rose-700 flex items-center gap-1">
+                      <span>🍬 Zucker (Max.)</span>
+                      {totalSugar > targetSugar && (
+                        <span className="text-[9px] text-rose-700 font-black bg-rose-100 px-1.5 py-0.2 rounded-full">
+                          Limit überschritten
+                        </span>
+                      )}
+                    </span>
+                    <span className="text-stone-500 font-medium">{totalSugar} / {targetSugar}g</span>
+                  </div>
+                  <div className="w-full bg-rose-100/60 rounded-full h-2 overflow-hidden">
+                    <div
+                      className={`${totalSugar > targetSugar ? 'bg-rose-500' : 'bg-rose-400'} h-full rounded-full transition-all duration-500`}
+                      style={{ width: `${Math.min(100, (totalSugar / targetSugar) * 100)}%` }}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Netto-Kohlenhydrate (KH minus Ballaststoffe) */}
+              {nutrientBars.netCarbs && (
+                <div>
+                  <div className="flex justify-between text-xs mb-1">
+                    <span className="font-bold text-teal-800 flex items-center gap-1">
+                      <span>🥑 Netto-Carbs</span>
+                      <span className="text-[9px] text-stone-400 font-normal">(KH - Ballastst.)</span>
+                    </span>
+                    <span className="text-stone-500 font-medium">
+                      {Math.max(0, Math.round((totalCarbs - totalFiber) * 10) / 10)}g
+                    </span>
+                  </div>
+                  <div className="w-full bg-teal-100/60 rounded-full h-2 overflow-hidden">
+                    <div
+                      className="bg-teal-500 h-full rounded-full transition-all duration-500"
+                      style={{
+                        width: `${Math.min(100, (Math.max(0, totalCarbs - totalFiber) / Math.max(1, targetCarbs - targetFiber)) * 100)}%`,
+                      }}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* All bars hidden state */}
+              {!nutrientBars.protein && !nutrientBars.carbs && !nutrientBars.fat && !nutrientBars.fiber && !nutrientBars.sugar && !nutrientBars.netCarbs && (
+                <div className="text-center py-1.5 text-[11px] text-stone-400">
+                  Keine Nährstoff-Balken aktiv.
+                </div>
+              )}
 
             </div>
           </div>

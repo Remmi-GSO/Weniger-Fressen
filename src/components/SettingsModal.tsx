@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { db, DEFAULT_USER_PROFILE, type UserProfile, DEFAULT_FOOD_FOCUS, type FoodFocusSettings } from '../db/db';
+import { db, DEFAULT_USER_PROFILE, type UserProfile, DEFAULT_FOOD_FOCUS, type FoodFocusSettings, DEFAULT_NUTRIENT_BARS, type DashboardNutrientBars } from '../db/db';
 import { VoiceInputButton } from './VoiceInputButton';
 import { X, Key, Download, Upload, Trash2, Sliders, Check, RefreshCw, CheckCircle, Maximize, Minimize, BarChart3, Scale, Sparkles, Leaf } from 'lucide-react';
 import { APP_VERSION, APP_BUILD_DATE, APP_DB_VERSION, APP_CACHE_VERSION } from '../config/version';
@@ -46,6 +46,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [targetProtein, setTargetProtein] = useState(userProfile?.targetProtein || 120);
   const [targetCarbs, setTargetCarbs] = useState(userProfile?.targetCarbs || 180);
   const [targetFat, setTargetFat] = useState(userProfile?.targetFat || 55);
+  const [targetFiber, setTargetFiber] = useState<number>(userProfile?.targetFiber || 30);
+  const [targetSugar, setTargetSugar] = useState<number>(userProfile?.targetSugar || 35);
+  const [nutrientBars, setNutrientBars] = useState<DashboardNutrientBars>(
+    userProfile?.nutrientBars || DEFAULT_NUTRIENT_BARS
+  );
   const [savedSuccess, setSavedSuccess] = useState(false);
   const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
   const [updateMessage, setUpdateMessage] = useState<string | null>(null);
@@ -145,6 +150,15 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       if (userProfile.targetFat) {
         setTargetFat(userProfile.targetFat);
       }
+      if (userProfile.targetFiber) {
+        setTargetFiber(userProfile.targetFiber);
+      }
+      if (userProfile.targetSugar) {
+        setTargetSugar(userProfile.targetSugar);
+      }
+      if (userProfile.nutrientBars) {
+        setNutrientBars({ ...DEFAULT_NUTRIENT_BARS, ...userProfile.nutrientBars });
+      }
     }
   }, [userProfile, isOpen]);
 
@@ -206,6 +220,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         targetProtein: Number(targetProtein) || calculation.targetProtein,
         targetCarbs: Number(targetCarbs) || calculation.targetCarbs,
         targetFat: Number(targetFat) || calculation.targetFat,
+        targetFiber: Number(targetFiber) || 30,
+        targetSugar: Number(targetSugar) || 35,
+        nutrientBars,
         foodFocus,
         isOnboarded: true,
       });
@@ -546,70 +563,304 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             </div>
           </div>
 
-          {/* Calorie & Macro Target adjustments */}
-          <div className="space-y-3">
+          {/* Dashboard-Balken & Nährstoff-Filter */}
+          <div className="p-4 bg-gradient-to-br from-violet-50/60 via-stone-50/50 to-emerald-50/60 rounded-2xl border border-stone-200/90 space-y-4">
             <div className="flex items-center justify-between">
-              <label className="text-xs font-semibold uppercase tracking-wider text-stone-500">Tägliche Nährwertziele</label>
+              <div className="flex items-center gap-2">
+                <span className="text-xl">📊</span>
+                <div>
+                  <h4 className="text-xs font-bold text-stone-800 uppercase tracking-wider">
+                    Dashboard-Balken anpassen
+                  </h4>
+                  <p className="text-[11px] text-stone-500">
+                    Bestimme selbst, welche Fortschrittsbalken du auf der Startseite sehen möchtest.
+                  </p>
+                </div>
+              </div>
               <button
                 type="button"
                 onClick={() => {
                   onClose();
                   onReopenOnboarding();
                 }}
-                className="text-xs font-bold text-emerald-600 hover:text-emerald-700 underline"
+                className="text-[11px] font-bold text-emerald-700 hover:text-emerald-800 underline shrink-0"
               >
-                Neu berechnen (Bedarfsrechner)
+                Bedarfsrechner
               </button>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            {/* Kalorienziel */}
+            <div className="p-3 bg-white rounded-xl border border-stone-200/80 flex items-center justify-between shadow-2xs">
               <div>
-                <span className="text-xs text-stone-500 block mb-1">Kalorienziel (kcal)</span>
+                <span className="text-xs font-bold text-stone-800 block">Tägliches Kalorienziel</span>
+                <span className="text-[10px] text-stone-400">Budget für den Haupt-Kalorienring</span>
+              </div>
+              <div className="flex items-center gap-1">
                 <input
                   type="number"
                   min="1000"
                   max="5000"
                   value={targetCalories}
                   onChange={(e) => setTargetCalories(Number(e.target.value))}
-                  className="w-full py-2 px-3 rounded-2xl border border-stone-200 text-stone-800 font-bold text-center focus:border-emerald-500"
+                  className="w-20 py-1 px-2 rounded-lg border border-stone-200 text-xs font-extrabold text-center text-stone-800 focus:border-emerald-500"
                 />
+                <span className="text-[10px] text-stone-400 font-bold">kcal</span>
+              </div>
+            </div>
+
+            {/* Balken-Auswahl & Nährstoffziele */}
+            <div className="space-y-2.5">
+              <span className="text-[10px] font-bold text-stone-400 uppercase tracking-wider block">
+                Nährstoff-Balken ein- oder ausblenden:
+              </span>
+
+              {/* Protein */}
+              <div className="p-2.5 bg-white rounded-xl border border-stone-200/80 flex items-center justify-between gap-3 shadow-2xs">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="w-8 h-8 rounded-lg bg-violet-100 text-violet-700 flex items-center justify-center font-bold text-xs shrink-0">
+                    P
+                  </div>
+                  <div>
+                    <span className="text-xs font-bold text-stone-800 block">Protein / Eiweiß</span>
+                    <span className="text-[10px] text-stone-400">Muskelschutz & Sättigung</span>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0">
+                  {nutrientBars.protein && (
+                    <div className="flex items-center gap-1">
+                      <input
+                        type="number"
+                        min="20"
+                        max="400"
+                        value={targetProtein}
+                        onChange={(e) => setTargetProtein(Number(e.target.value))}
+                        className="w-14 py-1 px-1 rounded-lg border border-stone-200 text-xs font-bold text-center text-stone-800"
+                        title="Tagesziel in Gramm"
+                      />
+                      <span className="text-[10px] text-stone-400 font-bold">g</span>
+                    </div>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setNutrientBars((prev) => ({ ...prev, protein: !prev.protein }))}
+                    className={`w-11 h-6 rounded-full transition-colors p-0.5 ${
+                      nutrientBars.protein ? 'bg-violet-600' : 'bg-stone-300'
+                    }`}
+                  >
+                    <div className={`w-5 h-5 rounded-full bg-white transition-transform ${
+                      nutrientBars.protein ? 'translate-x-5' : 'translate-x-0'
+                    }`} />
+                  </button>
+                </div>
               </div>
 
-              <div>
-                <span className="text-xs text-stone-500 block mb-1">Protein (g)</span>
-                <input
-                  type="number"
-                  min="30"
-                  max="400"
-                  value={targetProtein}
-                  onChange={(e) => setTargetProtein(Number(e.target.value))}
-                  className="w-full py-2 px-3 rounded-2xl border border-stone-200 text-stone-800 font-bold text-center focus:border-violet-500"
-                />
+              {/* Kohlenhydrate */}
+              <div className="p-2.5 bg-white rounded-xl border border-stone-200/80 flex items-center justify-between gap-3 shadow-2xs">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="w-8 h-8 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center font-bold text-xs shrink-0">
+                    KH
+                  </div>
+                  <div>
+                    <span className="text-xs font-bold text-stone-800 block">Kohlenhydrate</span>
+                    <span className="text-[10px] text-stone-400">Primäre Energie</span>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0">
+                  {nutrientBars.carbs && (
+                    <div className="flex items-center gap-1">
+                      <input
+                        type="number"
+                        min="0"
+                        max="600"
+                        value={targetCarbs}
+                        onChange={(e) => setTargetCarbs(Number(e.target.value))}
+                        className="w-14 py-1 px-1 rounded-lg border border-stone-200 text-xs font-bold text-center text-stone-800"
+                        title="Tagesziel in Gramm"
+                      />
+                      <span className="text-[10px] text-stone-400 font-bold">g</span>
+                    </div>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setNutrientBars((prev) => ({ ...prev, carbs: !prev.carbs }))}
+                    className={`w-11 h-6 rounded-full transition-colors p-0.5 ${
+                      nutrientBars.carbs ? 'bg-amber-500' : 'bg-stone-300'
+                    }`}
+                  >
+                    <div className={`w-5 h-5 rounded-full bg-white transition-transform ${
+                      nutrientBars.carbs ? 'translate-x-5' : 'translate-x-0'
+                    }`} />
+                  </button>
+                </div>
               </div>
 
-              <div>
-                <span className="text-xs text-stone-500 block mb-1">Kohlenhydrate (g)</span>
-                <input
-                  type="number"
-                  min="0"
-                  max="600"
-                  value={targetCarbs}
-                  onChange={(e) => setTargetCarbs(Number(e.target.value))}
-                  className="w-full py-2 px-3 rounded-2xl border border-stone-200 text-stone-800 font-bold text-center focus:border-amber-500"
-                />
+              {/* Fett */}
+              <div className="p-2.5 bg-white rounded-xl border border-stone-200/80 flex items-center justify-between gap-3 shadow-2xs">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="w-8 h-8 rounded-lg bg-cyan-100 text-cyan-700 flex items-center justify-center font-bold text-xs shrink-0">
+                    F
+                  </div>
+                  <div>
+                    <span className="text-xs font-bold text-stone-800 block">Fett</span>
+                    <span className="text-[10px] text-stone-400">Essentielle Fette & Hormone</span>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0">
+                  {nutrientBars.fat && (
+                    <div className="flex items-center gap-1">
+                      <input
+                        type="number"
+                        min="10"
+                        max="300"
+                        value={targetFat}
+                        onChange={(e) => setTargetFat(Number(e.target.value))}
+                        className="w-14 py-1 px-1 rounded-lg border border-stone-200 text-xs font-bold text-center text-stone-800"
+                        title="Tagesziel in Gramm"
+                      />
+                      <span className="text-[10px] text-stone-400 font-bold">g</span>
+                    </div>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setNutrientBars((prev) => ({ ...prev, fat: !prev.fat }))}
+                    className={`w-11 h-6 rounded-full transition-colors p-0.5 ${
+                      nutrientBars.fat ? 'bg-cyan-500' : 'bg-stone-300'
+                    }`}
+                  >
+                    <div className={`w-5 h-5 rounded-full bg-white transition-transform ${
+                      nutrientBars.fat ? 'translate-x-5' : 'translate-x-0'
+                    }`} />
+                  </button>
+                </div>
               </div>
 
-              <div>
-                <span className="text-xs text-stone-500 block mb-1">Fett (g)</span>
-                <input
-                  type="number"
-                  min="20"
-                  max="200"
-                  value={targetFat}
-                  onChange={(e) => setTargetFat(Number(e.target.value))}
-                  className="w-full py-2 px-3 rounded-2xl border border-stone-200 text-stone-800 font-bold text-center focus:border-cyan-500"
-                />
+              {/* Ballaststoffe (Fiber) - SPEZIELL GEWÜNSCHT */}
+              <div className={`p-2.5 rounded-xl border transition-all flex items-center justify-between gap-3 shadow-2xs ${
+                nutrientBars.fiber ? 'bg-emerald-50/80 border-emerald-300' : 'bg-white border-stone-200/80'
+              }`}>
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-800 flex items-center justify-center text-base shrink-0">
+                    🌾
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-xs font-bold text-stone-900">Ballaststoffe</span>
+                      <span className="text-[9px] bg-emerald-100 text-emerald-800 font-bold px-1.5 py-0.2 rounded-full">
+                        Empfohlen
+                      </span>
+                    </div>
+                    <span className="text-[10px] text-stone-500 block">
+                      Darmgesundheit & Sättigung (DGE: mind. 30g)
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0">
+                  {nutrientBars.fiber && (
+                    <div className="flex items-center gap-1">
+                      <input
+                        type="number"
+                        min="10"
+                        max="100"
+                        value={targetFiber}
+                        onChange={(e) => setTargetFiber(Number(e.target.value))}
+                        className="w-14 py-1 px-1 rounded-lg border border-emerald-300 bg-white text-xs font-bold text-center text-stone-800"
+                        title="Ballaststoff-Ziel in Gramm"
+                      />
+                      <span className="text-[10px] text-emerald-700 font-bold">g</span>
+                    </div>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setNutrientBars((prev) => ({ ...prev, fiber: !prev.fiber }))}
+                    className={`w-11 h-6 rounded-full transition-colors p-0.5 ${
+                      nutrientBars.fiber ? 'bg-emerald-600' : 'bg-stone-300'
+                    }`}
+                  >
+                    <div className={`w-5 h-5 rounded-full bg-white transition-transform ${
+                      nutrientBars.fiber ? 'translate-x-5' : 'translate-x-0'
+                    }`} />
+                  </button>
+                </div>
               </div>
+
+              {/* Zucker (Obergrenze) */}
+              <div className={`p-2.5 rounded-xl border transition-all flex items-center justify-between gap-3 shadow-2xs ${
+                nutrientBars.sugar ? 'bg-rose-50/80 border-rose-200' : 'bg-white border-stone-200/80'
+              }`}>
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="w-8 h-8 rounded-lg bg-rose-100 text-rose-700 flex items-center justify-center text-base shrink-0">
+                    🍬
+                  </div>
+                  <div>
+                    <span className="text-xs font-bold text-stone-900 block">Zucker (Maximal-Grenze)</span>
+                    <span className="text-[10px] text-stone-500 block">
+                      WHO-Empfehlung: max. 25–50g/Tag
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0">
+                  {nutrientBars.sugar && (
+                    <div className="flex items-center gap-1">
+                      <input
+                        type="number"
+                        min="10"
+                        max="150"
+                        value={targetSugar}
+                        onChange={(e) => setTargetSugar(Number(e.target.value))}
+                        className="w-14 py-1 px-1 rounded-lg border border-rose-300 bg-white text-xs font-bold text-center text-stone-800"
+                        title="Zucker-Obergrenze in Gramm"
+                      />
+                      <span className="text-[10px] text-rose-700 font-bold">g</span>
+                    </div>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setNutrientBars((prev) => ({ ...prev, sugar: !prev.sugar }))}
+                    className={`w-11 h-6 rounded-full transition-colors p-0.5 ${
+                      nutrientBars.sugar ? 'bg-rose-600' : 'bg-stone-300'
+                    }`}
+                  >
+                    <div className={`w-5 h-5 rounded-full bg-white transition-transform ${
+                      nutrientBars.sugar ? 'translate-x-5' : 'translate-x-0'
+                    }`} />
+                  </button>
+                </div>
+              </div>
+
+              {/* Netto-Kohlenhydrate */}
+              <div className={`p-2.5 rounded-xl border transition-all flex items-center justify-between gap-3 shadow-2xs ${
+                nutrientBars.netCarbs ? 'bg-teal-50/80 border-teal-200' : 'bg-white border-stone-200/80'
+              }`}>
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="w-8 h-8 rounded-lg bg-teal-100 text-teal-800 flex items-center justify-center text-base shrink-0">
+                    🥑
+                  </div>
+                  <div>
+                    <span className="text-xs font-bold text-stone-900 block">Netto-Kohlenhydrate</span>
+                    <span className="text-[10px] text-stone-500 block">
+                      Gesamtkohlenhydrate abzüglich Ballaststoffe (Low Carb)
+                    </span>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setNutrientBars((prev) => ({ ...prev, netCarbs: !prev.netCarbs }))}
+                  className={`w-11 h-6 rounded-full transition-colors p-0.5 ${
+                    nutrientBars.netCarbs ? 'bg-teal-600' : 'bg-stone-300'
+                  }`}
+                >
+                  <div className={`w-5 h-5 rounded-full bg-white transition-transform ${
+                    nutrientBars.netCarbs ? 'translate-x-5' : 'translate-x-0'
+                  }`} />
+                </button>
+              </div>
+
             </div>
           </div>
 

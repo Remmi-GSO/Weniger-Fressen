@@ -36,6 +36,8 @@ export const EditEntryModal = ({
   const [protein, setProtein] = useState<number>(0);
   const [carbs, setCarbs] = useState<number>(0);
   const [fat, setFat] = useState<number>(0);
+  const [fiber, setFiber] = useState<number>(0);
+  const [sugar, setSugar] = useState<number>(0);
   const [mealType, setMealType] = useState<MealType>('breakfast');
   const [reason, setReason] = useState<EatingReason | undefined>(undefined);
 
@@ -45,6 +47,8 @@ export const EditEntryModal = ({
   const [baseProtein, setBaseProtein] = useState<number>(0);
   const [baseCarbs, setBaseCarbs] = useState<number>(0);
   const [baseFat, setBaseFat] = useState<number>(0);
+  const [baseFiber, setBaseFiber] = useState<number>(0);
+  const [baseSugar, setBaseSugar] = useState<number>(0);
 
   useEffect(() => {
     if (entry) {
@@ -56,6 +60,8 @@ export const EditEntryModal = ({
       setProtein(entry.protein || 0);
       setCarbs(entry.carbs || 0);
       setFat(entry.fat || 0);
+      setFiber(entry.fiber || 0);
+      setSugar(entry.sugar || 0);
       setMealType(entry.mealType);
       setReason(entry.reason);
 
@@ -64,6 +70,8 @@ export const EditEntryModal = ({
       setBaseProtein(entry.protein || 0);
       setBaseCarbs(entry.carbs || 0);
       setBaseFat(entry.fat || 0);
+      setBaseFiber(entry.fiber || 0);
+      setBaseSugar(entry.sugar || 0);
     }
   }, [entry, isOpen]);
 
@@ -80,6 +88,8 @@ export const EditEntryModal = ({
       setProtein(Math.round(baseProtein * ratio * 10) / 10);
       setCarbs(Math.round(baseCarbs * ratio * 10) / 10);
       setFat(Math.round(baseFat * ratio * 10) / 10);
+      setFiber(Math.round(baseFiber * ratio * 10) / 10);
+      setSugar(Math.round(baseSugar * ratio * 10) / 10);
     }
   };
 
@@ -105,6 +115,8 @@ export const EditEntryModal = ({
         protein: Math.max(0, Number(protein) || 0),
         carbs: Math.max(0, Number(carbs) || 0),
         fat: Math.max(0, Number(fat) || 0),
+        fiber: Math.max(0, Number(fiber) || 0),
+        sugar: Math.max(0, Number(sugar) || 0),
         mealType,
         reason,
       });
@@ -339,6 +351,37 @@ export const EditEntryModal = ({
                   value={fat}
                   onChange={(e) => setFat(Number(e.target.value))}
                   className="w-full py-2 px-2 rounded-xl border border-stone-200 font-bold text-center text-xs text-stone-800 bg-white"
+                />
+              </div>
+            </div>
+
+            {/* Extended Nutrients: Fiber & Sugar */}
+            <div className="grid grid-cols-2 gap-2 pt-2 border-t border-emerald-200/50">
+              <div className="space-y-1">
+                <span className="text-[10px] font-bold text-emerald-800 block uppercase tracking-wider">
+                  🌾 Ballaststoffe (g)
+                </span>
+                <input
+                  type="number"
+                  step="0.5"
+                  min="0"
+                  value={fiber}
+                  onChange={(e) => setFiber(Number(e.target.value))}
+                  className="w-full py-1.5 px-2 rounded-xl border border-emerald-200 font-bold text-center text-xs text-emerald-950 bg-white"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <span className="text-[10px] font-bold text-rose-700 block uppercase tracking-wider">
+                  🍬 Zucker (g)
+                </span>
+                <input
+                  type="number"
+                  step="0.5"
+                  min="0"
+                  value={sugar}
+                  onChange={(e) => setSugar(Number(e.target.value))}
+                  className="w-full py-1.5 px-2 rounded-xl border border-rose-200 font-bold text-center text-xs text-rose-950 bg-white"
                 />
               </div>
             </div>

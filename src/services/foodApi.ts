@@ -10,6 +10,7 @@ export interface FoodProduct {
   carbs100g: number;
   fat100g: number;
   fiber100g?: number;
+  sugar100g?: number;
   servingSize?: string;
   servingWeightGrams?: number;
   imageUrl?: string;
@@ -67,6 +68,7 @@ export function normalizeProduct(raw: any, barcode?: string): FoodProduct | null
   const carbs = Math.round((Number(nutriments.carbohydrates_100g) || 0) * 10) / 10;
   const fat = Math.round((Number(nutriments.fat_100g) || 0) * 10) / 10;
   const fiber = nutriments.fiber_100g !== undefined ? Math.round(Number(nutriments.fiber_100g) * 10) / 10 : undefined;
+  const sugar = nutriments.sugars_100g !== undefined ? Math.round(Number(nutriments.sugars_100g) * 10) / 10 : undefined;
 
   const servingSize = raw.serving_size || undefined;
   const servingWeightGrams = parseServingGrams(servingSize) || (raw.serving_quantity ? Number(raw.serving_quantity) : undefined);
@@ -87,6 +89,7 @@ export function normalizeProduct(raw: any, barcode?: string): FoodProduct | null
     carbs100g: Math.max(0, carbs),
     fat100g: Math.max(0, fat),
     fiber100g: fiber,
+    sugar100g: sugar,
     servingSize,
     servingWeightGrams,
     imageUrl,

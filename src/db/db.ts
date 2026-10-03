@@ -20,6 +20,24 @@ export const DEFAULT_FOOD_FOCUS: FoodFocusSettings = {
   salt: false,
 };
 
+export interface DashboardNutrientBars {
+  protein: boolean; // Eiweiß / Protein (default: true)
+  carbs: boolean; // Kohlenhydrate (default: true)
+  fat: boolean; // Fett (default: true)
+  fiber: boolean; // Ballaststoffe (default: true)
+  sugar: boolean; // Zucker / Obergrenze (default: false)
+  netCarbs: boolean; // Netto-Kohlenhydrate: KH - Ballaststoffe (default: false)
+}
+
+export const DEFAULT_NUTRIENT_BARS: DashboardNutrientBars = {
+  protein: true,
+  carbs: true,
+  fat: true,
+  fiber: true,
+  sugar: false,
+  netCarbs: false,
+};
+
 export interface UserProfile {
   id: string; // 'current'
   name: string;
@@ -39,7 +57,10 @@ export interface UserProfile {
   targetProtein: number; // in grams
   targetCarbs: number; // in grams
   targetFat: number; // in grams
+  targetFiber?: number; // in grams (default: 30g)
+  targetSugar?: number; // max in grams (default: 35g)
   waterGoal: number; // in ml (e.g. 2500)
+  nutrientBars?: DashboardNutrientBars;
   foodFocus?: FoodFocusSettings;
   geminiApiKey?: string;
   isOnboarded: boolean;
@@ -58,6 +79,8 @@ export interface DiaryEntry {
   protein: number;
   carbs: number;
   fat: number;
+  fiber?: number; // Ballaststoffe in Gramm
+  sugar?: number; // Zucker in Gramm
   amount?: number; // e.g. grams or pieces
   unit?: string; // 'g', 'ml', 'Portion', 'Stück'
   barcode?: string;
@@ -95,6 +118,8 @@ export interface FavoriteItem {
   protein: number;
   carbs: number;
   fat: number;
+  fiber?: number;
+  sugar?: number;
   defaultUnit: string;
   defaultAmount: number;
   useCount: number;
@@ -107,6 +132,8 @@ export interface RecipeIngredient {
   protein: number;
   carbs: number;
   fat: number;
+  fiber?: number;
+  sugar?: number;
 }
 
 export interface CustomRecipe {
@@ -122,6 +149,8 @@ export interface CustomRecipe {
   protein100g: number;
   carbs100g: number;
   fat100g: number;
+  fiber100g?: number;
+  sugar100g?: number;
   createdAt: number;
 }
 
