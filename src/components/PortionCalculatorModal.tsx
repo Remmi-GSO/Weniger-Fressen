@@ -21,14 +21,12 @@ export const PortionCalculatorModal = ({
   selectedDate,
   defaultMealType = 'lunch',
 }: PortionCalculatorModalProps) => {
-  if (!isOpen || !product) return null;
-
-  const hasServing = Boolean(product.servingWeightGrams && product.servingWeightGrams > 0);
+  const hasServing = Boolean(product?.servingWeightGrams && product.servingWeightGrams > 0);
   const isBreadOrSlice = Boolean(
-    product.servingSize?.toLowerCase().includes('scheibe') ||
-    product.name.toLowerCase().includes('brot') ||
-    product.brand?.toLowerCase().includes('selbstgebacken') ||
-    product.source === 'recipe'
+    product?.servingSize?.toLowerCase().includes('scheibe') ||
+    product?.name?.toLowerCase().includes('brot') ||
+    product?.brand?.toLowerCase().includes('selbstgebacken') ||
+    product?.source === 'recipe'
   );
 
   const [unit, setUnit] = useState<PortionUnit>(hasServing ? 'portion' : 'gram');
@@ -46,6 +44,8 @@ export const PortionCalculatorModal = ({
       setReason(undefined);
     }
   }, [product, defaultMealType]);
+
+  if (!isOpen || !product) return null;
 
   // Compute actual weight in grams based on chosen unit & amount
   const numericAmount = parseFloat(amount.replace(',', '.')) || 0;

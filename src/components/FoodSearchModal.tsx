@@ -69,6 +69,12 @@ export const FoodSearchModal = ({
     return () => clearTimeout(timer);
   }, [query]);
 
+  const matchingRecipes = useMemo(() => {
+    if (!query.trim() || query.trim().length < 2) return [];
+    const q = query.toLowerCase();
+    return customRecipes.filter((r) => r.name.toLowerCase().includes(q));
+  }, [query, customRecipes]);
+
   if (!isOpen) return null;
 
   const popularChips = [
@@ -147,12 +153,6 @@ export const FoodSearchModal = ({
       source: 'recipe',
     };
   };
-
-  const matchingRecipes = useMemo(() => {
-    if (!query.trim() || query.trim().length < 2) return [];
-    const q = query.toLowerCase();
-    return customRecipes.filter((r) => r.name.toLowerCase().includes(q));
-  }, [query, customRecipes]);
 
   const handleDeleteRecipe = async (e: React.MouseEvent, recipeId?: number) => {
     e.stopPropagation();
