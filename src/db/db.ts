@@ -1,0 +1,181 @@
+import Dexie, { type Table } from 'dexie';
+
+export interface UserProfile {
+  id: string; // 'current'
+  name: string;
+  gender: 'male' | 'female';
+  age: number;
+  height: number; // in cm
+  weight: number; // current weight in kg
+  targetWeight: number; // target weight in kg
+  activityLevel: number; // PAL factor (1.2 to 1.9)
+  stepLevel?: 'sedentary' | 'moderate_walk' | 'active_standing' | 'heavy_work';
+  workoutSessionsPerWeek?: number; // 0, 1, 2, 3, 4, 5+
+  workoutIntensity?: 'gentle' | 'intense';
+  goalDeficit: number; // kcal deficit, e.g. 500
+  targetCalories: number;
+  targetProtein: number; // in grams
+  targetCarbs: number; // in grams
+  targetFat: number; // in grams
+  waterGoal: number; // in ml (e.g. 2500)
+  geminiApiKey?: string;
+  isOnboarded: boolean;
+  createdAt: string;
+}
+
+export type MealType = 'breakfast' | 'lunch' | 'dinner' | 'snack';
+export type EatingReason = 'hunger' | 'cravings' | 'stress' | 'social';
+
+export interface DiaryEntry {
+  id?: number;
+  date: string; // Format: YYYY-MM-DD
+  mealType: MealType;
+  name: string;
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+  amount?: number; // e.g. grams or pieces
+  unit?: string; // 'g', 'ml', 'Portion', 'Stück'
+  barcode?: string;
+  reason?: EatingReason;
+  isSnackNibble?: boolean; // True if logged via Nascherei tracker outside of 3 main meals
+  timestamp: number;
+}
+
+export interface WaterLog {
+  id?: number;
+  date: string; // YYYY-MM-DD
+  amount: number; // ml
+  timestamp: number;
+}
+
+export interface WeightLog {
+  id?: number;
+  date: string; // YYYY-MM-DD
+  weight: number; // kg
+  timestamp: number;
+}
+
+export interface FastingSession {
+  id?: number;
+  startTime: number; // epoch ms
+  targetDurationHours: number; // e.g. 16
+  endTime?: number; // epoch ms
+  isActive: boolean;
+}
+
+export interface FavoriteItem {
+  id?: number;
+  name: string;
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+  defaultUnit: string;
+  defaultAmount: number;
+  useCount: number;
+}
+
+export interface RecipeIngredient {
+  name: string;
+  amountGrams: number;
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+}
+
+export interface CustomRecipe {
+  id?: number;
+  name: string;
+  category: 'bread' | 'meal' | 'snack';
+  ingredients: RecipeIngredient[];
+  totalRawWeight: number; // in grams
+  cookedWeight: number; // in grams (baked loaf weight)
+  servingName: string; // e.g. "1 Scheibe"
+  servingWeightGrams: number; // e.g. 50g
+  calories100g: number;
+  protein100g: number;
+  carbs100g: number;
+  fat100g: number;
+  createdAt: number;
+}
+
+export interface ActivityLog {
+  id?: number;
+  date: string; // YYYY-MM-DD
+  activityId: string; // e.g. 'dog_walk', 'back_yoga', 'gardening', 'housework'
+  name: string;
+  icon: string;
+  durationMinutes: number; // in minutes
+  caloriesBurned: number; // calculated from MET * weight * duration
+  intensity?: 'light' | 'moderate' | 'intense';
+  notes?: string;
+  timestamp: number;
+}
+
+export interface CustomActivity {
+  id?: number;
+  name: string;
+  icon: string;
+  caloriesPerHour: number;
+  unitStepMinutes?: number;
+  createdAt: number;
+}
+
+export class WenigerFressenDB extends Dexie {
+  userProfile!: Table<UserProfile, string>;
+  diaryEntries!: Table<DiaryEntry, number>;
+  waterLogs!: Table<WaterLog, number>;
+  weightLogs!: Table<WeightLog, number>;
+  fastingSessions!: Table<FastingSession, number>;
+  favoriteItems!: Table<FavoriteItem, number>;
+  recipes!: Table<CustomRecipe, number>;
+  activityLogs!: Table<ActivityLog, number>;
+  customActivities!: Table<CustomActivity, number>;
+
+  constructor() {
+    super('WenigerFressenDB');
+    this.version(1).stores({
+      userProfile: 'id',
+      diaryEntries: '++id, date, mealType, timestamp',
+      waterLogs: '++id, date, timestamp',
+      weightLogs: '++id, date, timestamp',
+      fastingSessions: '++id, isActive, startTime',
+      favoriteItems: '++id, name, useCount',
+    });
+    this.version(2).stores({
+      recipes: '++id, name, category, createdAt',
+    });
+    this.version(3).stores({
+      activityLogs: '++id, date, timestamp',
+      customActivities: '++id, name, createdAt',
+    });
+  }
+}
+
+export const db = new WenigerFressenDB();
+
+// Default standard profile for fresh installations
+export const DEFAULT_USER_PROFILE: UserProfile = {
+  id: 'current',
+  name: 'Du',
+  gender: 'female',
+  age: 30,
+  height: 170,
+  weight: 75,
+  targetWeight: 68,
+  activityLevel: 1.35,
+  stepLevel: 'moderate_walk',
+  workoutSessionsPerWeek: 1,
+  workoutIntensity: 'gentle',
+  goalDeficit: 500, // Gesundes moderates Defizit
+  targetCalories: 1750,
+  targetProtein: 110,
+  targetCarbs: 180,
+  targetFat: 55,
+  waterGoal: 2500,
+  isOnboarded: false,
+  createdAt: new Date().toISOString(),
+};
