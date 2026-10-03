@@ -6,7 +6,7 @@ import { getPortionPresets } from '../utils/portionPresets';
 import { queryFoodWithGemini } from '../services/geminiApi';
 import { RecipeShareModal } from './RecipeShareModal';
 import { VoiceInputButton } from './VoiceInputButton';
-import { Search, X, Barcode, Star, Loader2, Sparkles, AlertCircle, Plus, Trash2, Share2 } from 'lucide-react';
+import { Search, X, Barcode, Star, Loader2, Sparkles, AlertCircle, Plus, Trash2, QrCode } from 'lucide-react';
 
 interface FoodSearchModalProps {
   isOpen: boolean;
@@ -475,11 +475,25 @@ export const FoodSearchModal = ({
                           </div>
                         </div>
 
-                        <div className="text-right shrink-0">
-                          <div className="text-xs font-black text-amber-950">
-                            {r.calories100g} <span className="text-[10px] font-normal text-stone-400">kcal</span>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSharingRecipe(r);
+                            }}
+                            className="px-2.5 py-1 rounded-xl text-emerald-800 bg-emerald-100/90 hover:bg-emerald-200 transition-colors flex items-center gap-1 text-[11px] font-bold"
+                            title="Rezept per WhatsApp oder QR-Code teilen"
+                          >
+                            <QrCode className="w-3.5 h-3.5" />
+                            <span>Teilen</span>
+                          </button>
+                          <div className="text-right">
+                            <div className="text-xs font-black text-amber-950">
+                              {r.calories100g} <span className="text-[10px] font-normal text-stone-400">kcal</span>
+                            </div>
+                            <span className="text-[10px] text-stone-400 block">/ 100g</span>
                           </div>
-                          <span className="text-[10px] text-stone-400 block">/ 100g</span>
                         </div>
                       </div>
                     );
@@ -628,6 +642,16 @@ export const FoodSearchModal = ({
                 </button>
               </div>
 
+              {/* Recipe sharing tip banner */}
+              <div className="p-3 bg-emerald-50 border border-emerald-200/80 rounded-2xl flex items-center justify-between text-xs text-emerald-950">
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="text-lg shrink-0">📲</span>
+                  <span className="leading-snug">
+                    Tippe bei jedem Rezept auf <strong>WhatsApp / QR</strong>, um es mit Partner oder Freunden zu teilen.
+                  </span>
+                </div>
+              </div>
+
               {customRecipes.length > 0 ? (
                 <div className="space-y-3">
                   {customRecipes.map((r) => {
@@ -668,18 +692,18 @@ export const FoodSearchModal = ({
                             </div>
                           </div>
 
-                          <div className="flex items-center gap-1">
+                          <div className="flex items-center gap-1.5">
                             <button
                               type="button"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 setSharingRecipe(r);
                               }}
-                              className="px-2 py-1 rounded-xl text-amber-700 bg-amber-50 hover:bg-amber-100 transition-colors flex items-center gap-1 text-[11px] font-bold"
-                              title="Rezept per QR-Code oder WhatsApp teilen"
+                              className="px-2.5 py-1.5 rounded-xl text-emerald-900 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 transition-colors flex items-center gap-1.5 text-xs font-bold shadow-2xs shrink-0"
+                              title="Rezept per WhatsApp oder QR-Code teilen"
                             >
-                              <Share2 className="w-3.5 h-3.5" />
-                              <span className="hidden sm:inline">Teilen</span>
+                              <QrCode className="w-3.5 h-3.5 text-emerald-700" />
+                              <span>WhatsApp / QR</span>
                             </button>
 
                             <button

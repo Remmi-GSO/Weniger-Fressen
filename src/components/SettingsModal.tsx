@@ -10,6 +10,7 @@ interface SettingsModalProps {
   onClose: () => void;
   userProfile?: UserProfile | null;
   onReopenOnboarding: () => void;
+  onOpenRecipeCreator?: () => void;
 }
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({
@@ -17,6 +18,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onClose,
   userProfile,
   onReopenOnboarding,
+  onOpenRecipeCreator,
 }) => {
   const [userName, setUserName] = useState(
     userProfile?.name && userProfile.name !== 'Du' ? userProfile.name : ''
@@ -1044,6 +1046,31 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               className="w-full py-2.5 px-3.5 rounded-xl border border-stone-200 font-mono text-xs focus:border-emerald-500 bg-white"
             />
           </div>
+
+          {/* Rezepte & Brot verwalten & per WhatsApp/QR teilen */}
+          {onOpenRecipeCreator && (
+            <div className="p-4 bg-gradient-to-r from-amber-500/10 via-orange-500/5 to-amber-500/10 rounded-2xl border border-amber-200/90 space-y-2.5">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <span className="p-2 bg-amber-100 text-amber-900 rounded-xl text-lg">🍞</span>
+                  <div>
+                    <h4 className="text-xs font-bold text-stone-800">Rezepte & selbstgebackenes Brot</h4>
+                    <p className="text-[11px] text-stone-500">Eigene Rezepte ansehen, verwalten & per WhatsApp oder QR-Code teilen</p>
+                  </div>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  onOpenRecipeCreator();
+                }}
+                className="w-full py-2.5 px-3 rounded-xl bg-amber-600 hover:bg-amber-700 active:scale-[0.99] text-white text-xs font-bold transition-all flex items-center justify-center gap-2 shadow-xs"
+              >
+                <span>📲 Rezepte öffnen & per WhatsApp / QR teilen</span>
+              </button>
+            </div>
+          )}
 
           {/* Data Backup & Export */}
           <div className="space-y-2">

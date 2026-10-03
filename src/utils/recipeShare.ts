@@ -21,6 +21,8 @@ interface MinifiedRecipePayload {
   p: number; // protein100g
   cb: number; // carbs100g
   f: number; // fat100g
+  fib?: number; // fiber100g
+  sug?: number; // sugar100g
   ing?: MinifiedIngredient[];
 }
 
@@ -39,6 +41,8 @@ export function encodeRecipeToPayload(recipe: CustomRecipe): string {
     p: recipe.protein100g,
     cb: recipe.carbs100g,
     f: recipe.fat100g,
+    fib: recipe.fiber100g,
+    sug: recipe.sugar100g,
     ing: recipe.ingredients?.map((i) => ({
       n: i.name,
       g: i.amountGrams,
@@ -81,6 +85,8 @@ export function decodePayloadToRecipe(compressed: string): Omit<CustomRecipe, 'i
       protein100g: min.p || 0,
       carbs100g: min.cb || 0,
       fat100g: min.f || 0,
+      fiber100g: min.fib || 0,
+      sugar100g: min.sug || 0,
       ingredients: min.ing
         ? min.ing.map((i) => ({
             name: i.n,

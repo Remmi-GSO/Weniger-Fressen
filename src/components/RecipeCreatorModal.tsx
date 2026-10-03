@@ -3,9 +3,11 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { db, type RecipeIngredient, type CustomRecipe, type MealType } from '../db/db';
 import { ALL_LOCAL_FOODS, searchFoodProducts, type FoodProduct } from '../services/foodApi';
 import { getPortionPresets } from '../utils/portionPresets';
+import { queryFoodWithGemini } from '../services/geminiApi';
 import { VoiceInputButton } from './VoiceInputButton';
 import { BarcodeScannerModal } from './BarcodeScannerModal';
-import { X, Trash2, Plus, Minus, Loader2, Star, Barcode, Check } from 'lucide-react';
+import { RecipeShareModal } from './RecipeShareModal';
+import { X, Trash2, Plus, Minus, Loader2, Star, Barcode, Check, QrCode, BookOpen, Utensils, Sparkles, AlertCircle } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
 interface RecipeCreatorModalProps {
@@ -14,23 +16,32 @@ interface RecipeCreatorModalProps {
   onRecipeSaved?: (recipe: CustomRecipe) => void;
   defaultMealType?: MealType;
   initialCategory?: 'bread' | 'meal' | 'snack';
+  geminiApiKey?: string;
+  onOpenSettings?: () => void;
 }
 
 const BREAD_STAPLES: Array<{ name: string; grams: number; icon: string }> = [
   { name: 'Dinkelmehl Type 630', grams: 500, icon: '🌾' },
   { name: 'Wasser (Leitungswasser)', grams: 350, icon: '💧' },
+  { name: 'Reine Buttermilch', grams: 250, icon: '🥛' },
+  { name: 'Kefir mild (1,5% Fett)', grams: 250, icon: '🥛' },
   { name: 'Sauerteig / Anstellgut (Roggen/Dinkel)', grams: 100, icon: '🍞' },
   { name: 'Rapsöl', grams: 20, icon: '🧈' },
   { name: 'Hefe (frisch / Hefewürfel)', grams: 10, icon: '🥖' },
   { name: 'Speisesalz / Meersalz', grams: 10, icon: '🧂' },
   { name: 'Sonnenblumenkerne', grams: 50, icon: '🌻' },
   { name: 'Dinkelvollkornmehl', grams: 250, icon: '🌾' },
+  { name: 'Magerquark / Speisequark Magerstufe', grams: 250, icon: '🥣' },
 ];
 
 const MEAL_STAPLES: Array<{ name: string; grams: number; icon: string }> = [
   { name: 'Rapsöl', grams: 15, icon: '🧈' },
   { name: 'Olivenöl (nativ extra)', grams: 15, icon: '🫒' },
   { name: 'Butter', grams: 20, icon: '🧈' },
+  { name: 'Reine Buttermilch', grams: 200, icon: '🥛' },
+  { name: 'Kefir mild (1,5% Fett)', grams: 200, icon: '🥛' },
+  { name: 'Magerquark / Speisequark Magerstufe', grams: 250, icon: '🥣' },
+  { name: 'Schmand (24% Fett)', grams: 50, icon: '🥣' },
   { name: 'Zwiebel (frisch)', grams: 90, icon: '🧅' },
   { name: 'Knoblauch (frisch)', grams: 5, icon: '🧄' },
   { name: 'Tomatenmark (2-fach konzentriert)', grams: 30, icon: '🥫' },
@@ -45,6 +56,8 @@ export const RecipeCreatorModal = ({
   onClose,
   onRecipeSaved,
   initialCategory = 'bread',
+  geminiApiKey,
+  onOpenSettings,
 }: RecipeCreatorModalProps) => {
   const [name, setName] = useState(initialCategory === 'meal' ? 'Mein Gericht' : 'Unser selbstgebackenes Brot');
   const [category, setCategory] = useState<'bread' | 'meal' | 'snack'>(initialCategory);
@@ -70,6 +83,10 @@ export const RecipeCreatorModal = ({
   const [activePickerTab, setActivePickerTab] = useState<'search' | 'favorites' | 'staples'>('search');
   const [isScannerOpen, setIsScannerOpen] = useState(false);
 
+  // AI Ingredient Lookup State
+  const [isAiSearching, setIsAiSearching] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
+
   // Favorites from local database
   const favoriteItems = useLiveQuery(() => db.favoriteItems.orderBy('useCount').reverse().limit(20).toArray()) || [];
 
@@ -81,6 +98,19 @@ export const RecipeCreatorModal = ({
   // Loaf / Dish weights & Portions
   const [customBakedWeight, setCustomBakedWeight] = useState<string>('');
   const [sliceWeight, setSliceWeight] = useState<string>(initialCategory === 'meal' ? '250' : '50');
+
+  // Custom recipes list & sharing
+  const customRecipes = useLiveQuery(() => db.recipes.reverse().toArray()) || [];
+  const [activeTab, setActiveTab] = useState<'create' | 'list'>('create');
+  const [sharingRecipe, setSharingRecipe] = useState<CustomRecipe | null>(null);
+
+  const handleDeleteRecipe = async (e: React.MouseEvent, recipeId?: number) => {
+    e.stopPropagation();
+    if (!recipeId) return;
+    if (window.confirm('Möchtest du dieses Rezept wirklich dauerhaft löschen?')) {
+      await db.recipes.delete(recipeId);
+    }
+  };
 
   // Debounced search combining local verified items (all supermarket brands & staples) and online OpenFoodFacts
   useEffect(() => {
@@ -221,6 +251,32 @@ export const RecipeCreatorModal = ({
     handleSelectFood(found, staple.grams);
   };
 
+  const handleAiLookupIngredient = async () => {
+    const q = ingredientQuery.trim();
+    if (!q) return;
+
+    if (!geminiApiKey) {
+      setAiError('Kein Gemini API-Key hinterlegt. Bitte trage deinen kostenlosen Key in den Profileinstellungen ein.');
+      return;
+    }
+
+    setIsAiSearching(true);
+    setAiError(null);
+    try {
+      const product = await queryFoodWithGemini(q, geminiApiKey);
+      if (product) {
+        handleSelectFood(product);
+        setIngredientQuery('');
+      } else {
+        setAiError(`Konnte für „${q}“ keine Nährwerte über KI ermitteln.`);
+      }
+    } catch (err: any) {
+      setAiError(err.message || 'KI-Recherche fehlgeschlagen.');
+    } finally {
+      setIsAiSearching(false);
+    }
+  };
+
   const handleAddIngredient = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     let foodToAdd = selectedFood;
@@ -342,7 +398,37 @@ export const RecipeCreatorModal = ({
           </button>
         </div>
 
-        <form onSubmit={handleSaveRecipe} className="p-5 sm:p-6 overflow-y-auto space-y-5">
+        {/* Navigation Tabs: Neues Rezept vs. Meine Rezepte & Teilen */}
+        <div className="flex border-b border-stone-100 bg-stone-50/70 px-4 pt-1.5 shrink-0">
+          <button
+            type="button"
+            onClick={() => setActiveTab('create')}
+            className={`flex-1 py-2.5 px-3 text-xs font-bold border-b-2 transition-all flex items-center justify-center gap-1.5 ${
+              activeTab === 'create'
+                ? 'border-emerald-600 text-emerald-800 bg-white rounded-t-xl shadow-2xs'
+                : 'border-transparent text-stone-400 hover:text-stone-700'
+            }`}
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>Neues Brot / Rezept</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab('list')}
+            className={`flex-1 py-2.5 px-3 text-xs font-bold border-b-2 transition-all flex items-center justify-center gap-1.5 ${
+              activeTab === 'list'
+                ? 'border-emerald-600 text-emerald-800 bg-white rounded-t-xl shadow-2xs'
+                : 'border-transparent text-stone-400 hover:text-stone-700'
+            }`}
+          >
+            <BookOpen className="w-3.5 h-3.5" />
+            <span>Meine Rezepte & Teilen ({customRecipes.length})</span>
+          </button>
+        </div>
+
+        {activeTab === 'create' && (
+          <form onSubmit={handleSaveRecipe} className="p-5 sm:p-6 overflow-y-auto space-y-5 flex-1">
           
           {/* Recipe Name & Category */}
           <div className="space-y-2.5">
@@ -669,6 +755,91 @@ export const RecipeCreatorModal = ({
                     </div>
                   </div>
 
+                  {/* AI Quick Button when query is entered */}
+                  {ingredientQuery.trim().length >= 2 && !selectedFood && (
+                    <div className="bg-gradient-to-r from-emerald-50 via-teal-50 to-emerald-50 p-2.5 rounded-2xl border border-emerald-200/80 flex items-center justify-between gap-2 shadow-2xs">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <Sparkles className="w-4 h-4 text-emerald-600 shrink-0" />
+                        <div className="min-w-0">
+                          <span className="text-xs font-bold text-stone-800 block truncate">
+                            Nicht genau gefunden?
+                          </span>
+                          <span className="text-[10px] text-stone-500 block truncate">
+                            Gemini KI ermittelt die exakten Nährwerte
+                          </span>
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={handleAiLookupIngredient}
+                        disabled={isAiSearching}
+                        className="py-1.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-xs font-bold transition-all flex items-center gap-1 shrink-0 shadow-xs disabled:opacity-50"
+                      >
+                        {isAiSearching ? (
+                          <>
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            <span>Recherchiere...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Sparkles className="w-3.5 h-3.5" />
+                            <span>Mit KI finden</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  )}
+
+                  {/* AI Error Alert */}
+                  {aiError && (
+                    <div className="p-3 bg-amber-50 border border-amber-200 text-amber-900 rounded-2xl text-xs flex items-center justify-between">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+                        <span className="truncate">{aiError}</span>
+                      </div>
+                      {!geminiApiKey && onOpenSettings && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            onClose();
+                            onOpenSettings();
+                          }}
+                          className="font-bold underline text-amber-950 ml-2 shrink-0"
+                        >
+                          Key eintragen
+                        </button>
+                      )}
+                    </div>
+                  )}
+
+                  {/* 0 Results & AI Fallback */}
+                  {searchResults.length === 0 && !isSearching && ingredientQuery.trim().length >= 2 && !selectedFood && (
+                    <div className="p-3 bg-amber-50/70 rounded-2xl border border-amber-200/80 text-center space-y-2">
+                      <p className="text-xs text-amber-950 font-medium">
+                        Kein Standard-Lebensmittel für „{ingredientQuery}“ gefunden.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={handleAiLookupIngredient}
+                        disabled={isAiSearching}
+                        className="w-full py-2.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-xs font-bold transition-all flex items-center justify-center gap-2 shadow-xs"
+                      >
+                        {isAiSearching ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            <span>Gemini KI ermittelt Nährwerte...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Sparkles className="w-4 h-4" />
+                            <span>„{ingredientQuery}“ jetzt mit KI recherchieren</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  )}
+
                   {/* 1. SEARCH RESULTS LIST */}
                   {searchResults.length > 0 && !selectedFood && (
                     <div className="bg-white border border-stone-200 rounded-2xl shadow-soft-lg divide-y divide-stone-100 max-h-56 overflow-y-auto">
@@ -836,6 +1007,146 @@ export const RecipeCreatorModal = ({
             <span>({caloriesPerSlice} kcal / {category === 'bread' ? 'Scheibe' : 'Portion'})</span>
           </button>
         </form>
+        )}
+
+        {/* TAB 2: LIST & SHARE ALL SAVED RECIPES */}
+        {activeTab === 'list' && (
+          <div className="p-4 sm:p-5 overflow-y-auto space-y-4 flex-1">
+            {/* Share info banner */}
+            <div className="p-3.5 bg-gradient-to-r from-emerald-50 via-teal-50 to-emerald-50 border border-emerald-200/90 rounded-2xl flex items-center justify-between text-xs text-emerald-950 shadow-2xs">
+              <div className="flex items-center gap-2.5">
+                <span className="text-xl">📲</span>
+                <div>
+                  <div className="font-bold">Rezepte teilen leicht gemacht!</div>
+                  <div className="text-[11px] text-emerald-800/80">
+                    Tippe auf <strong>Per WhatsApp / QR teilen</strong>, um einen Link oder QR-Code für Partner & Freunde zu erstellen.
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {customRecipes.length > 0 ? (
+              <div className="space-y-3">
+                {customRecipes.map((r) => {
+                  const isBread = r.category === 'bread' || r.name.toLowerCase().includes('brot');
+                  const sliceWeight = r.servingWeightGrams || (isBread ? 50 : 250);
+                  const sliceKcal = Math.round(r.calories100g * (sliceWeight / 100));
+                  const servLabel = r.servingName || (isBread ? '1 Scheibe' : '1 Portion');
+
+                  return (
+                    <div
+                      key={r.id}
+                      className="p-4 bg-white border border-stone-200/80 hover:border-amber-400 rounded-3xl transition-all shadow-xs space-y-3"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className={`w-12 h-12 rounded-2xl border flex items-center justify-center text-2xl shrink-0 ${
+                            isBread
+                              ? 'bg-amber-500/10 text-amber-700 border-amber-200/50'
+                              : 'bg-emerald-500/10 text-emerald-700 border-emerald-200/50'
+                          }`}>
+                            {isBread ? '🍞' : '🍲'}
+                          </div>
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-1.5">
+                              <h4 className="font-extrabold text-stone-900 text-sm truncate">
+                                {r.name}
+                              </h4>
+                              <span className={`text-[9px] font-bold px-1.5 py-0.2 rounded-md shrink-0 ${
+                                isBread ? 'bg-amber-100 text-amber-900' : 'bg-emerald-100 text-emerald-900'
+                              }`}>
+                                {r.category === 'bread' ? 'Brot' : 'Gericht'}
+                              </span>
+                            </div>
+                            <span className="text-[11px] text-stone-400 block truncate">
+                              {isBread ? 'Laib' : 'Gericht'} gewogen: {r.cookedWeight || r.totalRawWeight}g (Roh: {r.totalRawWeight}g)
+                            </span>
+                          </div>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={(e) => handleDeleteRecipe(e, r.id)}
+                          className="p-1.5 rounded-xl text-stone-300 hover:text-rose-500 hover:bg-rose-50 transition-colors"
+                          title="Rezept löschen"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+
+                      {/* Ingredients preview */}
+                      {r.ingredients && r.ingredients.length > 0 && (
+                        <div className="text-[11px] text-stone-500 bg-stone-50 p-2.5 rounded-xl border border-stone-100/80">
+                          <span className="font-semibold text-stone-700">Zutaten ({r.ingredients.length}): </span>
+                          <span>{r.ingredients.map((ing) => `${ing.name} (${ing.amountGrams}g)`).join(', ')}</span>
+                        </div>
+                      )}
+
+                      {/* Nutrition Summary & Action Buttons */}
+                      <div className="pt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-t border-stone-100 text-xs">
+                        <div>
+                          <span className={`font-bold block ${isBread ? 'text-amber-800' : 'text-emerald-800'}`}>
+                            {servLabel} ({sliceWeight}g): <strong className="text-stone-900 text-sm font-black">{sliceKcal} kcal</strong>
+                          </span>
+                          <span className="text-[10px] text-stone-400">
+                            100g: {r.calories100g} kcal • P: {r.protein100g}g • K: {r.carbs100g}g • F: {r.fat100g}g
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setSharingRecipe(r)}
+                            className="flex-1 sm:flex-none py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold text-xs shadow-soft transition-all flex items-center justify-center gap-1.5"
+                            title="Per WhatsApp oder QR-Code teilen"
+                          >
+                            <QrCode className="w-4 h-4" />
+                            <span>Per WhatsApp / QR teilen</span>
+                          </button>
+
+                          {onRecipeSaved && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                onRecipeSaved(r);
+                                onClose();
+                              }}
+                              className="py-2 px-3 rounded-xl bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-900 font-bold text-xs transition-colors flex items-center justify-center gap-1"
+                              title="Dieses Rezept jetzt als Mahlzeit eintragen"
+                            >
+                              <Utensils className="w-3.5 h-3.5" />
+                              <span>Eintragen</span>
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="py-12 text-center text-stone-400 space-y-3">
+                <div className="w-16 h-16 rounded-3xl bg-stone-100 flex items-center justify-center text-3xl mx-auto">
+                  📖
+                </div>
+                <div className="space-y-1">
+                  <h4 className="font-bold text-stone-700 text-sm">Noch keine eigenen Rezepte vorhanden</h4>
+                  <p className="text-xs text-stone-400 max-w-xs mx-auto">
+                    Erstelle dein erstes selbstgebackenes Brot oder Gericht, oder empfange Rezepte per WhatsApp / QR-Code von Freunden.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('create')}
+                  className="py-2.5 px-4 rounded-xl bg-emerald-600 text-white font-bold text-xs hover:bg-emerald-700 transition-colors inline-flex items-center gap-1.5 shadow-soft"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Jetzt Rezept erstellen</span>
+                </button>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Barcode Scanner Modal for Ingredients */}
         <BarcodeScannerModal
@@ -845,6 +1156,13 @@ export const RecipeCreatorModal = ({
             setIsScannerOpen(false);
             handleSelectFood(product);
           }}
+        />
+
+        {/* Recipe Sharing Modal */}
+        <RecipeShareModal
+          isOpen={!!sharingRecipe}
+          onClose={() => setSharingRecipe(null)}
+          recipe={sharingRecipe}
         />
       </div>
     </div>

@@ -337,6 +337,8 @@ export function App() {
         isOpen={isRecipeCreatorOpen}
         onClose={() => setIsRecipeCreatorOpen(false)}
         defaultMealType={activeMealType}
+        geminiApiKey={profile.geminiApiKey}
+        onOpenSettings={() => setShowSettings(true)}
         onRecipeSaved={(recipe) => {
           setIsRecipeCreatorOpen(false);
           // Convert newly created recipe into FoodProduct and open PortionCalculator immediately
@@ -419,6 +421,10 @@ export function App() {
         onClose={() => setShowSettings(false)}
         userProfile={profile}
         onReopenOnboarding={() => setForceOnboarding(true)}
+        onOpenRecipeCreator={() => {
+          setShowSettings(false);
+          setIsRecipeCreatorOpen(true);
+        }}
       />
 
       {/* Onboarding Modal for First Time Users or Re-calculation */}
