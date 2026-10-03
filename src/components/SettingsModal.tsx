@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { db, type UserProfile } from '../db/db';
-import { X, Key, Download, Upload, Trash2, Sliders, Check } from 'lucide-react';
+import { X, Key, Download, Upload, Trash2, Sliders, Check, RefreshCw, CheckCircle } from 'lucide-react';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -21,6 +21,33 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [targetCarbs, setTargetCarbs] = useState(userProfile?.targetCarbs || 180);
   const [targetFat, setTargetFat] = useState(userProfile?.targetFat || 55);
   const [savedSuccess, setSavedSuccess] = useState(false);
+  const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
+  const [updateMessage, setUpdateMessage] = useState<string | null>(null);
+
+  const handleCheckForUpdates = async () => {
+    setIsCheckingUpdate(true);
+    setUpdateMessage(null);
+    try {
+      if ('serviceWorker' in navigator) {
+        const registrations = await navigator.serviceWorker.getRegistrations();
+        for (const reg of registrations) {
+          await reg.update();
+        }
+      }
+      if ('caches' in window) {
+        const cacheNames = await caches.keys();
+        await Promise.all(cacheNames.map((name) => caches.delete(name)));
+      }
+      setUpdateMessage('Cache geleert! App wird mit neuester Version neu geladen...');
+      setTimeout(() => {
+        window.location.reload();
+      }, 1000);
+    } catch (err) {
+      console.error('Update check failed', err);
+      setUpdateMessage('Aktualisierung fehlgeschlagen.');
+      setIsCheckingUpdate(false);
+    }
+  };
 
   if (!isOpen) return null;
 
@@ -248,6 +275,45 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 <input type="file" accept=".json" onChange={handleImportData} className="hidden" />
               </label>
             </div>
+          </div>
+
+          {/* App Version & PWA Updates / Cache */}
+          <div className="p-4 bg-stone-50 rounded-2xl border border-stone-200/80 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="p-1.5 bg-emerald-100 text-emerald-800 rounded-xl text-xs font-black">
+                  PWA
+                </span>
+                <div>
+                  <h4 className="text-xs font-bold text-stone-800">App-Version & Updates</h4>
+                  <p className="text-[11px] text-stone-400">Weniger Fressen v1.0.0 (Offline-Ready)</p>
+                </div>
+              </div>
+              <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
+                Lokal aktiv
+              </span>
+            </div>
+
+            {updateMessage && (
+              <div className="p-2.5 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-800 flex items-center gap-1.5 animate-in fade-in">
+                <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span className="font-medium">{updateMessage}</span>
+              </div>
+            )}
+
+            <button
+              type="button"
+              onClick={handleCheckForUpdates}
+              disabled={isCheckingUpdate}
+              className="w-full py-2.5 px-3 rounded-xl bg-white border border-stone-200 hover:border-emerald-500 hover:bg-emerald-50/50 text-stone-700 hover:text-emerald-800 text-xs font-bold transition-all flex items-center justify-center gap-2 shadow-2xs"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${isCheckingUpdate ? 'animate-spin text-emerald-600' : 'text-emerald-600'}`} />
+              <span>{isCheckingUpdate ? 'Aktualisiere...' : 'Auf Update prüfen & Cache leeren'}</span>
+            </button>
+
+            <p className="text-[10px] text-stone-400 leading-tight">
+              💡 Lädt die neueste App-Version von GitHub Pages und leert den Browser-App-Cache. Deine Tagebucheinträge, Brotrezepte und Einstellungen bleiben zu 100 % erhalten.
+            </p>
           </div>
 
           {/* Reset App */}

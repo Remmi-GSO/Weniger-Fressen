@@ -54,3 +54,18 @@ self.addEventListener('fetch', (event) => {
     })
   );
 });
+
+// Listen for messages from SettingsModal (e.g. force update / clear cache)
+self.addEventListener('message', (event) => {
+  if (event.data) {
+    if (event.data.type === 'SKIP_WAITING') {
+      self.skipWaiting();
+    }
+    if (event.data.type === 'CLEAR_CACHE') {
+      caches.keys().then((keys) => {
+        return Promise.all(keys.map((key) => caches.delete(key)));
+      });
+    }
+  }
+});
+
