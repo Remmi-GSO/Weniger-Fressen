@@ -1268,6 +1268,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   </li>
                   <li className="flex items-start gap-1.5">
                     <span className="text-emerald-600 shrink-0 font-bold">✓</span>
+                    <span><strong>🦘 Neue Aktivitäten (Jumping Fit, Crosstrainer & Quest 3 Sport):</strong> Jumping Fit mit 75 Min Komplettsession (45m HIIT + 20m Tabata + 10m Dehnen); Crosstrainer mit direkter Kalorieneingabe vom Gerätedisplay; Meta Quest 3 Sport mit Schätzwert für VR-Badminton/Tennis oder Eingabe vom Quest Move Tracker. Nicht mehr benötigte Aktivitäten (Holz hacken, Fahrrad, Spaziergang) entfernt.</span>
+                  </li>
+                  <li className="flex items-start gap-1.5">
+                    <span className="text-emerald-600 shrink-0 font-bold">✓</span>
                     <span><strong>Versionshistorie:</strong> Diese neue Übersicht zeigt die Änderungen der letzten 3 Versionen transparent auf.</span>
                   </li>
                 </ul>

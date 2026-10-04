@@ -8,6 +8,7 @@ export interface ActivityDefinition {
   unitStepMinutes: number; // e.g. 30 for dog walk, 15 for workout
   unitLabel?: string; // e.g. "Halbe Stunde (1 Einheit)"
   description: string;
+  allowManualCalories?: boolean;
 }
 
 export const DEFAULT_ACTIVITIES: ActivityDefinition[] = [
@@ -21,6 +22,41 @@ export const DEFAULT_ACTIVITIES: ActivityDefinition[] = [
     unitStepMinutes: 30,
     unitLabel: 'Halbstündige Einheiten (je 30 Min)',
     description: 'Spaziergang mit Snoopy in 30-Min-Einheiten (Schnüffeln, Stehenbleiben & Gehen)',
+  },
+  {
+    id: 'jumping_fit',
+    name: 'Jumping Fit (Trampolin)',
+    category: 'fitness',
+    icon: '🦘',
+    met: 8.9, // 45m HIIT (9.5 MET) + 20m Tabata (10.5 MET) + 10m Dehnen (2.5 MET) gewichtet = 8.9 Gross MET
+    defaultDurationMinutes: 75,
+    unitStepMinutes: 15,
+    unitLabel: 'Session (45m HIIT + 20m Tabata + 10m Dehnen)',
+    description: 'Sehr anstrengendes Trampolin-Workout: 45 Min HIIT + 20 Min Tabata + 10 Min Dehnen',
+  },
+  {
+    id: 'crosstrainer',
+    name: 'Crosstrainer',
+    category: 'fitness',
+    icon: '🎿',
+    met: 7.0, // Ainsworth Code 02048 (Elliptical trainer, moderate to vigorous): ~7.0 MET
+    defaultDurationMinutes: 30,
+    unitStepMinutes: 5,
+    unitLabel: 'Minuten',
+    description: 'Ganzkörper-Cardio. Verbrauchte Kalorien können direkt vom Display eingegeben werden.',
+    allowManualCalories: true,
+  },
+  {
+    id: 'quest3_sport',
+    name: 'Meta Quest 3 Sport (VR)',
+    category: 'fitness',
+    icon: '🥽',
+    met: 6.5, // VR Health Institute (VR Racketsport Tennis/Badminton): ~6.5 Brutto-MET / Netto 5.5
+    defaultDurationMinutes: 45,
+    unitStepMinutes: 15,
+    unitLabel: 'Minuten',
+    description: 'VR Racketsport (Badminton/Tennis) oder Kalorien vom Quest 3 Move Tracker eingeben.',
+    allowManualCalories: true,
   },
   {
     id: 'back_yoga',
@@ -56,28 +92,6 @@ export const DEFAULT_ACTIVITIES: ActivityDefinition[] = [
     description: 'Staubsaugen, Wischen, Fenster putzen, Betten beziehen, Aufräumen',
   },
   {
-    id: 'walking',
-    name: 'Spaziergang / Zügiges Gehen',
-    category: 'daily',
-    icon: '🚶',
-    met: 3.3, // Ainsworth Code 17170 (Walking 4.5 km/h ohne Hund): Netto-MET = 2.3
-    defaultDurationMinutes: 30,
-    unitStepMinutes: 15,
-    unitLabel: 'Minuten',
-    description: 'Flotter Spaziergang oder Walking im Grünen bei gleichmäßigem Tempo',
-  },
-  {
-    id: 'cycling',
-    name: 'Fahrrad fahren (Alltag & Tour)',
-    category: 'daily',
-    icon: '🚴',
-    met: 4.0, // Ainsworth Code 01015 (Gemütliches Radfahren ~15 km/h): Netto-MET = 3.0
-    defaultDurationMinutes: 45,
-    unitStepMinutes: 15,
-    unitLabel: 'Minuten',
-    description: 'Gemütliche Radtour, Einkaufsfahrt oder Arbeitsweg',
-  },
-  {
     id: 'gym',
     name: 'Krafttraining / Gym',
     category: 'fitness',
@@ -109,17 +123,6 @@ export const DEFAULT_ACTIVITIES: ActivityDefinition[] = [
     unitStepMinutes: 15,
     unitLabel: 'Minuten',
     description: 'Brust- oder Kraulschwimmen im Hallen- oder Freibad',
-  },
-  {
-    id: 'woodchopping',
-    name: 'Holz hacken / Schwere Arbeit',
-    category: 'household',
-    icon: '🪵',
-    met: 6.0, // Ainsworth Code 08060 (Holz spalten, schwere Hofarbeit): Netto-MET = 5.0
-    defaultDurationMinutes: 45,
-    unitStepMinutes: 15,
-    unitLabel: 'Minuten',
-    description: 'Holz spalten, Schleppen, schwere Renovierungsarbeiten',
   },
 ];
 

@@ -731,7 +731,7 @@ export const Dashboard = ({
                 )}
               </div>
               <p className="text-[11px] text-stone-400">
-                Gassi mit Snoopy (halbstündlich), Rückenfit, Yoga, Garten & Putzen
+                Jumping Fit, Crosstrainer, Quest 3 Sport, Gassi mit Snoopy & Yoga
               </p>
             </div>
           </div>
@@ -789,7 +789,7 @@ export const Dashboard = ({
             className="p-3 bg-stone-50/80 hover:bg-orange-50/50 rounded-2xl border border-stone-200/60 cursor-pointer transition-colors text-center space-y-0.5"
           >
             <span className="text-xs font-semibold text-stone-600 block">
-              🐕 Gassi mit Snoopy, 🧘 Rückenfit/Yoga oder 🪴 Gartenarbeit gemacht?
+              🦘 Jumping Fit, 🎿 Crosstrainer, 🥽 Quest 3, 🐕 Snoopy-Gassi oder 🧘 Yoga gemacht?
             </span>
             <span className="text-[11px] text-orange-700 font-bold block">
               + Jetzt Aktivität erfassen & extra Kalorien gutschreiben lassen
