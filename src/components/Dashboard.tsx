@@ -420,6 +420,25 @@ export const Dashboard = ({
             </span>
           </div>
         )}
+
+        {/* Puristischer Ernährungsbericht Startbutton ganz unten im Nährstoff-Rahmen */}
+        {onOpenNutritionReport && (
+          <button
+            type="button"
+            onClick={onOpenNutritionReport}
+            className="w-full mt-3 py-2 px-3 rounded-xl bg-stone-50 hover:bg-stone-100 active:scale-[0.99] border border-stone-200/70 text-stone-700 hover:text-stone-900 text-xs font-bold transition-all flex items-center justify-between group cursor-pointer shadow-2xs"
+            title="Ernährungsbericht über flexible Tage öffnen"
+          >
+            <div className="flex items-center gap-2">
+              <span className="text-sm">📊</span>
+              <span>Ernährungsbericht</span>
+            </div>
+            <div className="flex items-center gap-1 text-[11px] text-stone-400 font-medium">
+              <span>Analyse öffnen</span>
+              <ChevronRight className="w-3.5 h-3.5 text-stone-400 group-hover:text-stone-700 transition-colors" />
+            </div>
+          </button>
+        )}
       </div>
 
       {/* Active Fasting Teaser Banner (if active) */}
@@ -544,24 +563,6 @@ export const Dashboard = ({
             </div>
           )}
         </div>
-      )}
-
-      {/* Puristischer Startbutton: Diagramm + Ernährungsbericht am Ende des oberen Bereichs */}
-      {onOpenNutritionReport && (
-        <button
-          type="button"
-          onClick={onOpenNutritionReport}
-          className="w-full py-2.5 px-4 rounded-2xl bg-white hover:bg-stone-50 active:scale-[0.99] border border-stone-200/80 text-stone-800 text-xs font-bold transition-all flex items-center justify-between shadow-2xs group cursor-pointer"
-        >
-          <div className="flex items-center gap-2">
-            <span className="text-base">📊</span>
-            <span>Ernährungsbericht</span>
-          </div>
-          <div className="flex items-center gap-1 text-[11px] text-stone-400 font-medium">
-            <span>Analyse öffnen</span>
-            <ChevronRight className="w-3.5 h-3.5 text-stone-400 group-hover:text-stone-700 transition-colors" />
-          </div>
-        </button>
       )}
 
       {/* Jump-To: Rein der Titel & die 4 Rubriken */}
