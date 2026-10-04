@@ -32,6 +32,7 @@ interface AiMealModalProps {
   geminiApiKey?: string;
   onOpenSettings?: () => void;
   initialDescription?: string;
+  autoStartVoice?: boolean;
 }
 
 const mealLabels: Record<MealType, string> = {
@@ -90,6 +91,7 @@ export const AiMealModal = ({
   geminiApiKey,
   onOpenSettings,
   initialDescription,
+  autoStartVoice = false,
 }: AiMealModalProps) => {
   const [mealType, setMealType] = useState<MealType>(defaultMealType);
   const [description, setDescription] = useState(initialDescription || '');
@@ -108,6 +110,7 @@ export const AiMealModal = ({
     isListening: isRecording,
     isSupported: speechSupported,
     toggleListening,
+    startListening,
     stopListening,
   } = useSpeechRecognition({
     continuous: true,
@@ -117,12 +120,37 @@ export const AiMealModal = ({
     },
   });
 
+  // Automatically start voice recording if autoStartVoice is true on opening
+  useEffect(() => {
+    if (isOpen && autoStartVoice && speechSupported) {
+      const timer = setTimeout(() => {
+        startListening('', false);
+      }, 250);
+      return () => clearTimeout(timer);
+    }
+  }, [isOpen, autoStartVoice, speechSupported, startListening]);
+
   // Stop recording when modal is closed
   useEffect(() => {
     if (!isOpen && isRecording) {
       stopListening();
     }
   }, [isOpen, isRecording, stopListening]);
+
+  // Smart detection: adapt meal type if explicitly spoken in sentence
+  useEffect(() => {
+    if (!description) return;
+    const lower = description.toLowerCase();
+    if (/\b(frühstück|frühstücken|morgens|zum frühstück)\b/i.test(lower)) {
+      setMealType('breakfast');
+    } else if (/\b(mittag|mittagessen|mittags|zu mittag)\b/i.test(lower)) {
+      setMealType('lunch');
+    } else if (/\b(abend|abendessen|abends|abendbrot|zum abendessen)\b/i.test(lower)) {
+      setMealType('dinner');
+    } else if (/\b(snack|snacks|zwischendurch|nascherei|genascht|als snack)\b/i.test(lower)) {
+      setMealType('snack');
+    }
+  }, [description]);
 
   // Fetch custom recipes (e.g. homemade breads) for accurate recognition
   const customRecipes = useLiveQuery(() => db.recipes.toArray()) || [];

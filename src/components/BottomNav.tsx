@@ -1,18 +1,22 @@
-import { BookOpen, Timer, Scale, Settings, Plus } from 'lucide-react';
+import { BookOpen, Timer, Scale, Settings, Mic, Sparkles } from 'lucide-react';
 
 export type NavTab = 'diary' | 'fasting' | 'weight' | 'settings';
 
 interface BottomNavProps {
   currentTab: NavTab;
   onTabChange: (tab: NavTab) => void;
-  onQuickAddClick: () => void;
+  onVoiceMealClick?: () => void;
+  onQuickAddClick?: () => void;
 }
 
 export const BottomNav = ({
   currentTab,
   onTabChange,
+  onVoiceMealClick,
   onQuickAddClick,
 }: BottomNavProps) => {
+  const handleCentralClick = onVoiceMealClick || onQuickAddClick || (() => {});
+
   return (
     <div className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-surface-border px-4 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] shadow-lg">
       <div className="max-w-md mx-auto flex items-center justify-around relative">
@@ -47,13 +51,17 @@ export const BottomNav = ({
           <span className="text-[11px] mt-0.5">Fasten</span>
         </button>
 
-        {/* Floating Quick Add Button in the middle */}
+        {/* Floating AI Voice Meal Button in the middle */}
         <button
-          onClick={onQuickAddClick}
-          className="relative -top-5 w-12 h-12 rounded-full bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white flex items-center justify-center shadow-soft-lg border-4 border-white transition-all transform"
-          title="Schnelleintrag"
+          onClick={handleCentralClick}
+          className="group relative -top-5 w-13 h-13 rounded-full bg-gradient-to-tr from-emerald-600 via-teal-600 to-emerald-500 hover:from-emerald-700 hover:to-teal-700 active:scale-95 text-white flex items-center justify-center shadow-lg shadow-emerald-600/35 border-4 border-white transition-all transform hover:scale-105 cursor-pointer"
+          title="Mahlzeit direkt einsprechen (KI)"
+          aria-label="Mahlzeit direkt per Sprache einsprechen"
         >
-          <Plus className="w-6 h-6 stroke-[2.5]" />
+          <div className="relative flex items-center justify-center">
+            <Mic className="w-6 h-6 stroke-[2.2] transition-transform group-hover:scale-110" />
+            <Sparkles className="w-2.5 h-2.5 text-amber-300 absolute -top-1 -right-2 animate-pulse" />
+          </div>
         </button>
 
         {/* Gewicht */}

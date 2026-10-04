@@ -1361,6 +1361,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   </li>
                   <li className="flex items-start gap-1.5">
                     <span className="text-emerald-600 shrink-0 font-bold">✓</span>
+                    <span><strong>🎙️ Neuer KI-Diktier-Button in der Menüleiste:</strong> Das unstrukturierte „+“ in der unteren Leiste wurde durch ein ästhetisches Mikrofon mit sanftem Farbverlauf & Schimmer ersetzt. 1 Klick öffnet sofort das Diktat mit automatischer Mahlzeit-Erkennung (nach Uhrzeit oder Schlüsselwörtern wie „zum Frühstück“, „zu Mittag“, „Abendessen“).</span>
+                  </li>
+                  <li className="flex items-start gap-1.5">
+                    <span className="text-emerald-600 shrink-0 font-bold">✓</span>
                     <span><strong>🔢 Neue 2-Ziffern-Versionszählung:</strong> Übersichtliche Versionsstruktur ab Version 1.4.</span>
                   </li>
                 </ul>

@@ -132,11 +132,28 @@ export function App() {
   };
 
   const [aiMealInitialText, setAiMealInitialText] = useState<string>('');
+  const [aiMealAutoStartVoice, setAiMealAutoStartVoice] = useState(false);
 
-  const handleOpenAiMeal = (mealType: MealType = 'breakfast', initialText: string = '') => {
+  const handleOpenAiMeal = (
+    mealType: MealType = 'breakfast',
+    initialText: string = '',
+    autoStartVoice: boolean = false
+  ) => {
     setActiveMealType(mealType);
     setAiMealInitialText(initialText);
+    setAiMealAutoStartVoice(autoStartVoice);
     setIsAiMealModalOpen(true);
+  };
+
+  const handleVoiceMealFromNav = () => {
+    const currentHour = new Date().getHours();
+    let defaultMeal: MealType = 'lunch';
+    if (currentHour < 11) defaultMeal = 'breakfast';
+    else if (currentHour < 15) defaultMeal = 'lunch';
+    else if (currentHour < 21) defaultMeal = 'dinner';
+    else defaultMeal = 'snack';
+
+    handleOpenAiMeal(defaultMeal, '', true);
   };
 
   const handleProductSelected = (product: FoodProduct) => {
@@ -324,11 +341,11 @@ export function App() {
         )}
       </main>
 
-      {/* Floating Bottom Navigation */}
+      {/* Floating Bottom Navigation with Aesthetic AI Voice/Meal Button */}
       <BottomNav
         currentTab={currentTab}
         onTabChange={setCurrentTab}
-        onQuickAddClick={() => handleOpenSearch('lunch')}
+        onVoiceMealClick={handleVoiceMealFromNav}
       />
 
       {/* Food Search Modal (Supermarkt, Basics, Open Food Facts & Gemini KI) */}
@@ -451,12 +468,14 @@ export function App() {
         onClose={() => {
           setIsAiMealModalOpen(false);
           setAiMealInitialText('');
+          setAiMealAutoStartVoice(false);
         }}
         selectedDate={selectedDate}
         defaultMealType={activeMealType}
         geminiApiKey={profile.geminiApiKey}
         onOpenSettings={() => setShowSettings(true)}
         initialDescription={aiMealInitialText}
+        autoStartVoice={aiMealAutoStartVoice}
       />
 
       {/* Edit Existing Diary Entry Modal */}
