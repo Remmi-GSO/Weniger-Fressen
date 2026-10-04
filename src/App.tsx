@@ -21,6 +21,7 @@ import { SnackModal } from './components/SnackModal';
 import { AiMealModal } from './components/AiMealModal';
 import { EditEntryModal } from './components/EditEntryModal';
 import { NutritionReportModal } from './components/NutritionReportModal';
+import { MorningBriefingModal } from './components/MorningBriefingModal';
 import { Settings, Maximize, Minimize } from 'lucide-react';
 import { APP_VERSION } from './config/version';
 
@@ -38,6 +39,8 @@ export function App() {
   const [isSnackModalOpen, setIsSnackModalOpen] = useState(false);
   const [isAiMealModalOpen, setIsAiMealModalOpen] = useState(false);
   const [isNutritionReportOpen, setIsNutritionReportOpen] = useState(false);
+  const [isMorningBriefingOpen, setIsMorningBriefingOpen] = useState(false);
+  const [isMorningBriefingPreview, setIsMorningBriefingPreview] = useState(false);
   const [editingEntry, setEditingEntry] = useState<DiaryEntry | null>(null);
   const [receivedRecipe, setReceivedRecipe] = useState<Omit<CustomRecipe, 'id'> | null>(null);
   const [activeMealType, setActiveMealType] = useState<MealType>('lunch');
@@ -79,6 +82,35 @@ export function App() {
 
   // Fallback while loading
   const profile = userProfile || DEFAULT_USER_PROFILE;
+
+  // Auto-open morning briefing on first start of the day between 04:00 and 14:00
+  useEffect(() => {
+    if (!userProfile) return;
+    if (!userProfile.isOnboarded) return;
+    if (userProfile.showMorningBriefing === false) return;
+
+    const today = getTodayDateString();
+    if (userProfile.lastMorningBriefingDate === today) return;
+
+    const currentHour = new Date().getHours();
+    if (currentHour >= 4 && currentHour < 14) {
+      setIsMorningBriefingPreview(false);
+      setIsMorningBriefingOpen(true);
+    }
+  }, [userProfile?.isOnboarded, userProfile?.showMorningBriefing, userProfile?.lastMorningBriefingDate]);
+
+  const handleCloseMorningBriefing = async () => {
+    setIsMorningBriefingOpen(false);
+    if (!isMorningBriefingPreview) {
+      const today = getTodayDateString();
+      try {
+        await db.userProfile.update('current', { lastMorningBriefingDate: today });
+      } catch (err) {
+        console.error('Fehler beim Aktualisieren von lastMorningBriefingDate:', err);
+      }
+    }
+    setIsMorningBriefingPreview(false);
+  };
 
   const handleOpenSearch = (mealType: MealType = 'lunch') => {
     setActiveMealType(mealType);
@@ -448,6 +480,10 @@ export function App() {
           setShowSettings(false);
           setIsNutritionReportOpen(true);
         }}
+        onOpenMorningBriefingPreview={() => {
+          setIsMorningBriefingPreview(true);
+          setIsMorningBriefingOpen(true);
+        }}
       />
 
       {/* Multi-Day Nutrition Report Modal (3, 5, 10, 20 Tage mit UPF, Fetten, Ballaststoffen & WhatsApp) */}
@@ -457,6 +493,15 @@ export function App() {
         userProfile={profile}
         selectedDate={selectedDate}
         onOpenSettings={() => setShowSettings(true)}
+      />
+
+      {/* Automated Morning Motivation Briefing Modal */}
+      <MorningBriefingModal
+        isOpen={isMorningBriefingOpen}
+        onClose={handleCloseMorningBriefing}
+        userProfile={profile}
+        onOpenFullReport={() => setIsNutritionReportOpen(true)}
+        isPreview={isMorningBriefingPreview}
       />
 
       {/* Onboarding Modal for First Time Users or Re-calculation */}

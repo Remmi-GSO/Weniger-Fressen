@@ -63,6 +63,8 @@ export interface UserProfile {
   waterGoal: number; // in ml (e.g. 2500)
   nutrientBars?: DashboardNutrientBars;
   foodFocus?: FoodFocusSettings;
+  showMorningBriefing?: boolean; // Täglicher Motivations-Rückblick am Morgen (default: true)
+  lastMorningBriefingDate?: string; // Format: YYYY-MM-DD
   geminiApiKey?: string;
   isOnboarded: boolean;
   createdAt: string;
@@ -236,6 +238,8 @@ export const DEFAULT_USER_PROFILE: UserProfile = {
   targetFat: 55,
   waterGoal: 2500,
   foodFocus: DEFAULT_FOOD_FOCUS,
+  showMorningBriefing: true,
+  lastMorningBriefingDate: '',
   isOnboarded: false,
   createdAt: new Date().toISOString(),
 };

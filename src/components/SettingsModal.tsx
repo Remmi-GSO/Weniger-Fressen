@@ -13,6 +13,7 @@ interface SettingsModalProps {
   onReopenOnboarding: () => void;
   onOpenRecipeCreator?: () => void;
   onOpenNutritionReport?: () => void;
+  onOpenMorningBriefingPreview?: () => void;
 }
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({
@@ -22,11 +23,15 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onReopenOnboarding,
   onOpenRecipeCreator,
   onOpenNutritionReport,
+  onOpenMorningBriefingPreview,
 }) => {
   const [userName, setUserName] = useState(
     userProfile?.name && userProfile.name !== 'Du' ? userProfile.name : ''
   );
   const [apiKey, setApiKey] = useState(userProfile?.geminiApiKey || '');
+  const [showMorningBriefing, setShowMorningBriefing] = useState<boolean>(
+    userProfile?.showMorningBriefing !== false
+  );
   
   // Body metrics and goals
   const [gender, setGender] = useState<'female' | 'male'>(userProfile?.gender || 'female');
@@ -167,6 +172,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       if (userProfile.nutrientBars) {
         setNutrientBars({ ...DEFAULT_NUTRIENT_BARS, ...userProfile.nutrientBars });
       }
+      if (userProfile.showMorningBriefing !== undefined) {
+        setShowMorningBriefing(userProfile.showMorningBriefing);
+      }
     }
   }, [userProfile, isOpen]);
 
@@ -221,6 +229,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         targetSugar: Number(targetSugar) || 35,
         nutrientBars,
         foodFocus,
+        showMorningBriefing,
         isOnboarded: true,
       });
 
@@ -1104,6 +1113,49 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             />
           </div>
 
+          {/* Täglicher Morgen-Rückblick beim ersten Start */}
+          <div className="p-4 bg-gradient-to-r from-amber-500/10 via-orange-500/10 to-amber-500/10 rounded-2xl border border-amber-200/90 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <span className="p-2 bg-amber-100 text-amber-900 rounded-xl text-lg">🌅</span>
+                <div>
+                  <h4 className="text-xs font-bold text-stone-800">Täglicher Morgen-Rückblick</h4>
+                  <p className="text-[11px] text-stone-500">Motivierender Start beim ersten App-Start am Vormittag</p>
+                </div>
+              </div>
+            </div>
+
+            <label className="flex items-start gap-3 p-3 bg-white/90 rounded-xl border border-amber-200/70 hover:border-amber-300 cursor-pointer transition-all shadow-2xs">
+              <input
+                type="checkbox"
+                checked={showMorningBriefing}
+                onChange={(e) => setShowMorningBriefing(e.target.checked)}
+                className="mt-0.5 w-4 h-4 rounded text-amber-600 focus:ring-amber-500 border-stone-300 shrink-0 cursor-pointer"
+              />
+              <div className="text-xs leading-snug">
+                <div className="font-bold text-stone-800">
+                  Morgens automatisch motivierenden Rückblick von gestern anzeigen
+                </div>
+                <div className="text-[11px] text-stone-500 mt-0.5">
+                  Öffnet sich einmalig beim ersten Start am Vormittag (04:00 – 14:00 Uhr). Hebt dein gestriges Defizit, deine Schritte oder Aktivitäten positiv hervor und stimmt dich motiviert auf das heutige Kalorienbudget ein.
+                </div>
+              </div>
+            </label>
+
+            {onOpenMorningBriefingPreview && (
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  onOpenMorningBriefingPreview();
+                }}
+                className="w-full py-2.5 px-3 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 active:scale-[0.99] text-amber-900 border border-amber-300/80 text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer shadow-2xs"
+              >
+                <span>👁️ Morgen-Rückblick jetzt in Vorschau testen</span>
+              </button>
+            )}
+          </div>
+
           {/* Ernährungs-Bericht auf Abruf (3, 5, 10, 20 Tage) */}
           {onOpenNutritionReport && (
             <div className="p-4 bg-gradient-to-r from-emerald-500/10 via-teal-500/5 to-emerald-500/10 rounded-2xl border border-emerald-200/90 space-y-2.5">
@@ -1274,23 +1326,54 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 </span>
                 <div>
                   <h4 className="text-xs font-bold text-stone-900">Was ist neu? – Versionshistorie</h4>
-                  <p className="text-[11px] text-stone-500">Neuerungen der letzten 3 Updates</p>
+                  <p className="text-[11px] text-stone-500">Neuerungen der aktuellen Versionen</p>
                 </div>
               </div>
               <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
-                Letzte 3 Versionen
+                Highlights
               </span>
             </div>
 
             <div className="space-y-2.5 pt-1">
-              {/* Version 1.3.2 */}
+              {/* Version 1.4 */}
               <div className="p-3 bg-white rounded-xl border border-emerald-200/90 shadow-2xs space-y-1.5">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-1.5">
                     <span className="px-2 py-0.5 rounded-md bg-emerald-600 text-white text-[11px] font-black">
-                      v1.3.2
+                      v1.4
                     </span>
                     <span className="text-xs font-bold text-stone-800">Aktuelle Version</span>
+                  </div>
+                  <span className="text-[10px] text-stone-400 font-medium">04.10.2026</span>
+                </div>
+                <ul className="text-xs text-stone-600 space-y-1 pl-1">
+                  <li className="flex items-start gap-1.5">
+                    <span className="text-emerald-600 shrink-0 font-bold">✓</span>
+                    <span><strong>🌅 Täglicher Morgen-Rückblick:</strong> Beim ersten Start der App am Vormittag (04:00 – 14:00 Uhr) erscheint automatisch ein motivierender Rückblick auf den gestrigen Tag mit Lob für dein Kaloriendefizit, Bestätigung für Stoffwechseltage, Auswertung von Schritten/Sport und dem frischen Tagesbudget für heute.</span>
+                  </li>
+                  <li className="flex items-start gap-1.5">
+                    <span className="text-emerald-600 shrink-0 font-bold">✓</span>
+                    <span><strong>⚙️ Flexibel je Nutzer einstellbar:</strong> In den Einstellungen kann der Morgen-Rückblick jederzeit ein- oder ausgeschaltet werden. Mit dem Button <em>„Morgen-Rückblick jetzt in Vorschau testen“</em> lässt er sich jederzeit vorab ansehen.</span>
+                  </li>
+                  <li className="flex items-start gap-1.5">
+                    <span className="text-emerald-600 shrink-0 font-bold">✓</span>
+                    <span><strong>💡 Tägliche Morgen-Fokus-Tipps:</strong> Wechselnde, praxiserprobte Impulse für Wassertrinken (z. B. Owala), Proteine, Alltagsbewegung und Sättigung.</span>
+                  </li>
+                  <li className="flex items-start gap-1.5">
+                    <span className="text-emerald-600 shrink-0 font-bold">✓</span>
+                    <span><strong>🔢 Neue 2-Ziffern-Versionszählung:</strong> Übersichtliche Versionsstruktur ab Version 1.4.</span>
+                  </li>
+                </ul>
+              </div>
+
+              {/* Version 1.3.2 */}
+              <div className="p-3 bg-white rounded-xl border border-stone-200/80 shadow-2xs space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5">
+                    <span className="px-2 py-0.5 rounded-md bg-stone-100 text-stone-800 text-[11px] font-black border border-stone-200">
+                      v1.3.2
+                    </span>
+                    <span className="text-xs font-bold text-stone-700">Josies Workout & Buße</span>
                   </div>
                   <span className="text-[10px] text-stone-400 font-medium">04.10.2026</span>
                 </div>
