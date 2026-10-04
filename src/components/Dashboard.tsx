@@ -546,33 +546,33 @@ export const Dashboard = ({
         </div>
       )}
 
-      {/* Highlighted Jump-To Quick-Bar */}
-      <div className="bg-white rounded-3xl p-3.5 sm:p-4 shadow-card border border-emerald-100/90 space-y-2.5">
-        <div className="flex items-center justify-between px-0.5">
+      {/* Puristischer Startbutton: Diagramm + Ernährungsbericht am Ende des oberen Bereichs */}
+      {onOpenNutritionReport && (
+        <button
+          type="button"
+          onClick={onOpenNutritionReport}
+          className="w-full py-2.5 px-4 rounded-2xl bg-white hover:bg-stone-50 active:scale-[0.99] border border-stone-200/80 text-stone-800 text-xs font-bold transition-all flex items-center justify-between shadow-2xs group cursor-pointer"
+        >
           <div className="flex items-center gap-2">
-            <span className="w-6 h-6 rounded-lg bg-emerald-500 text-white flex items-center justify-center text-xs font-bold shadow-2xs">
-              ⚡
-            </span>
-            <h3 className="text-xs font-black uppercase tracking-wider text-stone-900">
-              Jump-To
-            </h3>
-            <span className="text-[10px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200/70 px-2 py-0.5 rounded-full">
-              Schnellzugriff
-            </span>
+            <span className="text-base">📊</span>
+            <span>Ernährungsbericht</span>
           </div>
+          <div className="flex items-center gap-1 text-[11px] text-stone-400 font-medium">
+            <span>Analyse öffnen</span>
+            <ChevronRight className="w-3.5 h-3.5 text-stone-400 group-hover:text-stone-700 transition-colors" />
+          </div>
+        </button>
+      )}
 
-          {/* Puristischer Startbutton: Diagramm + Ernährungsbericht */}
-          {onOpenNutritionReport && (
-            <button
-              type="button"
-              onClick={onOpenNutritionReport}
-              className="flex items-center gap-1.5 text-xs font-bold text-stone-700 hover:text-emerald-800 bg-stone-50 hover:bg-emerald-50/70 px-2.5 py-1.5 rounded-xl transition-all border border-stone-200/80 hover:border-emerald-200 shadow-2xs active:scale-95 cursor-pointer"
-              title="Ernährungsbericht über flexible Tage öffnen"
-            >
-              <span className="text-sm">📊</span>
-              <span>Ernährungsbericht</span>
-            </button>
-          )}
+      {/* Jump-To: Rein der Titel & die 4 Rubriken */}
+      <div className="bg-white rounded-3xl p-3.5 sm:p-4 shadow-card border border-stone-100 space-y-2.5">
+        <div className="flex items-center gap-2 px-0.5">
+          <span className="w-6 h-6 rounded-lg bg-emerald-500 text-white flex items-center justify-center text-xs font-bold shadow-2xs">
+            ⚡
+          </span>
+          <h3 className="text-xs font-black uppercase tracking-wider text-stone-900">
+            Jump-To
+          </h3>
         </div>
 
         {/* Quick Launchers: Einsprechen, Nascherei, Rezepte, Scannen */}
