@@ -39,6 +39,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   );
   const [goalDeficit, setGoalDeficit] = useState<number>(userProfile?.goalDeficit || 500);
   const [stepLevel, setStepLevel] = useState<DailyStepLevel>(userProfile?.stepLevel || 'moderate_walk');
+  const [trackWorkoutsDaily, setTrackWorkoutsDaily] = useState<boolean>(userProfile?.trackWorkoutsDaily ?? false);
   const [workoutSessions, setWorkoutSessions] = useState<number>(userProfile?.workoutSessionsPerWeek ?? 1);
   const [workoutIntensity, setWorkoutIntensity] = useState<WorkoutIntensity>(userProfile?.workoutIntensity || 'gentle');
 
@@ -70,11 +71,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       height: Number(height) || 170,
       weight: Number(weight) || 75,
       stepLevel,
-      workoutSessionsPerWeek: workoutSessions,
+      workoutSessionsPerWeek: trackWorkoutsDaily ? 0 : workoutSessions,
       workoutIntensity,
       deficit: effectiveDeficit,
+      trackWorkoutsDaily,
     });
-  }, [gender, age, height, weight, stepLevel, workoutSessions, workoutIntensity, effectiveDeficit]);
+  }, [gender, age, height, weight, stepLevel, workoutSessions, workoutIntensity, effectiveDeficit, trackWorkoutsDaily]);
 
   const isStandalone = typeof window !== 'undefined' && (
     window.matchMedia('(display-mode: standalone)').matches ||
@@ -137,6 +139,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       }
       if (userProfile.goalDeficit !== undefined) setGoalDeficit(userProfile.goalDeficit);
       if (userProfile.stepLevel) setStepLevel(userProfile.stepLevel);
+      if (userProfile.trackWorkoutsDaily !== undefined) setTrackWorkoutsDaily(userProfile.trackWorkoutsDaily);
       if (userProfile.workoutSessionsPerWeek !== undefined) setWorkoutSessions(userProfile.workoutSessionsPerWeek);
       if (userProfile.workoutIntensity) setWorkoutIntensity(userProfile.workoutIntensity);
       if (userProfile.foodFocus) {
@@ -205,7 +208,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         goalDeficit: effectiveDeficit,
         maintenanceCalories: calculation.tdee,
         stepLevel,
-        workoutSessionsPerWeek: workoutSessions,
+        trackWorkoutsDaily,
+        workoutSessionsPerWeek: trackWorkoutsDaily ? 0 : workoutSessions,
         workoutIntensity,
         activityLevel: calculation.effectivePAL,
         geminiApiKey: apiKey.trim(),
@@ -538,6 +542,55 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 <option value="active_standing">Viel auf den Beinen (Verkauf/Pflege/Handwerk)</option>
                 <option value="heavy_work">Schwere körperliche Arbeit (Bau/Landwirtschaft)</option>
               </select>
+            </div>
+
+            {/* Sport & Workouts */}
+            <div className="p-3 bg-white/90 rounded-xl border border-stone-200/80 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold text-stone-700">Sport & Training</span>
+                <label className="flex items-center gap-1.5 cursor-pointer text-[11px] font-semibold text-emerald-900 bg-emerald-50 px-2 py-0.5 rounded-lg border border-emerald-200 hover:bg-emerald-100 transition-colors">
+                  <input
+                    type="checkbox"
+                    checked={trackWorkoutsDaily}
+                    onChange={(e) => setTrackWorkoutsDaily(e.target.checked)}
+                    className="rounded text-emerald-600 focus:ring-emerald-500 w-3.5 h-3.5 cursor-pointer"
+                  />
+                  <span>Tagesgenau erfassen</span>
+                </label>
+              </div>
+
+              {trackWorkoutsDaily ? (
+                <p className="text-[11px] text-stone-500 leading-snug">
+                  ⚡ <strong>Tagesgenau aktiv:</strong> Kalorien für Workouts (z.B. Jumping Fit, Crosstrainer) werden an dem Tag live gutgeschrieben, an dem du Sport machst. Keine Doppelzählung!
+                </p>
+              ) : (
+                <div className="grid grid-cols-2 gap-2 pt-1">
+                  <div>
+                    <span className="text-[10px] text-stone-400 font-semibold block mb-1">Workouts / Woche</span>
+                    <select
+                      value={workoutSessions}
+                      onChange={(e) => setWorkoutSessions(Number(e.target.value))}
+                      className="w-full py-1.5 px-2 rounded-xl border border-stone-200 bg-white text-stone-800 font-medium text-xs"
+                    >
+                      <option value="0">0x (kein fester Sport)</option>
+                      <option value="1">1–2x pro Woche</option>
+                      <option value="3">3–4x pro Woche</option>
+                      <option value="5">5+ mal pro Woche</option>
+                    </select>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-stone-400 font-semibold block mb-1">Intensität</span>
+                    <select
+                      value={workoutIntensity}
+                      onChange={(e) => setWorkoutIntensity(e.target.value as WorkoutIntensity)}
+                      className="w-full py-1.5 px-2 rounded-xl border border-stone-200 bg-white text-stone-800 font-medium text-xs"
+                    >
+                      <option value="gentle">Sanft / Moderat (~200 kcal)</option>
+                      <option value="intense">Intensiv / Vollgas (~450 kcal)</option>
+                    </select>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Live-Berechnungs-Vorschau */}

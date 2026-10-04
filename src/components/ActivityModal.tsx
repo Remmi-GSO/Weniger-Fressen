@@ -118,6 +118,25 @@ export const ActivityModal = ({
       };
     }
 
+    if (isJumpingFit) {
+      let baseKcal = 600;
+      if (jumpingPreset === 'hiit') baseKcal = 450;
+      else if (jumpingPreset === 'tabata') baseKcal = 150;
+      else if (jumpingPreset === 'cooldown') baseKcal = 25;
+      else {
+        // Fallback: 600 kcal / 75 min = 8 kcal/min
+        baseKcal = Math.round((600 / 75) * durationMinutes);
+      }
+      const netKcal = Math.max(1, Math.round(baseKcal * (userWeight / 75) * intensityMultiplier));
+      const resting = Math.round(1.0 * userWeight * (durationMinutes / 60));
+      return {
+        netCalories: netKcal,
+        grossCalories: netKcal + resting,
+        restingCalories: resting,
+        netMet: Math.round((netKcal / Math.max(1, userWeight * (durationMinutes / 60))) * 10) / 10,
+      };
+    }
+
     if (selectedActivityId.startsWith('custom_')) {
       const ca = customActivities.find((c) => `custom_${c.id}` === selectedActivityId);
       const ratePerHour = ca?.caloriesPerHour || 250;
@@ -132,7 +151,7 @@ export const ActivityModal = ({
     }
 
     return calculateNetCaloriesBurned(effectiveMet, userWeight, durationMinutes, intensityMultiplier);
-  }, [hasValidManualKcal, parsedManualKcal, effectiveMet, intensityMultiplier, userWeight, durationMinutes, selectedActivityId, customActivities]);
+  }, [hasValidManualKcal, parsedManualKcal, isJumpingFit, jumpingPreset, effectiveMet, intensityMultiplier, userWeight, durationMinutes, selectedActivityId, customActivities]);
 
   const calculatedKcal = calorieBreakdown.netCalories;
 
@@ -247,6 +266,18 @@ export const ActivityModal = ({
 
         <div className="p-6 overflow-y-auto space-y-6 flex-1">
           
+          {/* Hinweis falls Sport bereits pauschal im Bedarfsrechner eingerechnet ist */}
+          {!userProfile.trackWorkoutsDaily && (userProfile.workoutSessionsPerWeek || 0) > 0 && (
+            <div className="p-3.5 bg-amber-50/90 border border-amber-200/90 rounded-2xl flex items-start gap-3 text-xs text-amber-900 animate-in fade-in shadow-2xs">
+              <span className="text-lg select-none shrink-0 mt-0.5">💡</span>
+              <div className="leading-relaxed">
+                <span className="font-bold text-amber-950 block mb-0.5">Bedarfsrechner-Hinweis:</span>
+                Du hast in deinem Profil bereits <strong className="font-bold">{userProfile.workoutSessionsPerWeek}x Sport pro Woche</strong> als pauschalen Kalorienbonus eingerechnet.
+                Wenn du Workouts hier zusätzlich tagesgenau einträgst, empfehlen wir im <strong>Bedarfsrechner</strong> die Option <em>„Sport tagesgenau erfassen“</em> zu aktivieren, um Doppelzählungen zu vermeiden!
+              </div>
+            </div>
+          )}
+
           {/* Quick Activity Selector Chips / Grid */}
           <div>
             <div className="flex items-center justify-between mb-2">
@@ -412,7 +443,8 @@ export const ActivityModal = ({
                     }`}
                   >
                     <span className="text-xs font-black block">⭐ Komplett: 75 Min</span>
-                    <span className="text-[10px] opacity-85 block">HIIT + Tabata + Dehnen</span>
+                    <span className="text-[10px] font-semibold opacity-95 block">ca. 600 Netto-kcal</span>
+                    <span className="text-[9px] opacity-75 block">HIIT + Tabata + Dehnen</span>
                   </button>
 
                   <button
@@ -428,7 +460,8 @@ export const ActivityModal = ({
                     }`}
                   >
                     <span className="text-xs font-black block">🔥 Nur 45 Min HIIT</span>
-                    <span className="text-[10px] opacity-85 block">High-Intensity Intervall</span>
+                    <span className="text-[10px] font-semibold opacity-95 block">ca. 450 Netto-kcal</span>
+                    <span className="text-[9px] opacity-75 block">High-Intensity Intervall</span>
                   </button>
 
                   <button
@@ -444,7 +477,8 @@ export const ActivityModal = ({
                     }`}
                   >
                     <span className="text-xs font-black block">⚡ Nur 20 Min Tabata</span>
-                    <span className="text-[10px] opacity-85 block">20s Vollgas / 10s Pause</span>
+                    <span className="text-[10px] font-semibold opacity-95 block">ca. 150 Netto-kcal</span>
+                    <span className="text-[9px] opacity-75 block">20s Vollgas / 10s Pause</span>
                   </button>
 
                   <button
@@ -462,36 +496,6 @@ export const ActivityModal = ({
                     <span className="text-xs font-black block">🧘 Nur 10 Min Dehnen</span>
                     <span className="text-[10px] opacity-85 block">Cool-Down & Mobilität</span>
                   </button>
-                </div>
-
-                {/* Feinanpassung der Dauer */}
-                <div className="pt-2 border-t border-stone-100 flex items-center justify-between text-xs">
-                  <span className="text-stone-500 font-medium">Dauer schrittweise anpassen:</span>
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setJumpingPreset('custom');
-                        setDurationMinutes(Math.max(5, durationMinutes - 5));
-                      }}
-                      className="w-7 h-7 rounded-lg bg-stone-100 hover:bg-stone-200 flex items-center justify-center font-bold text-stone-700 cursor-pointer"
-                    >
-                      -
-                    </button>
-                    <span className="font-bold text-stone-800 text-xs min-w-[3.5rem] text-center">
-                      {durationMinutes} min
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setJumpingPreset('custom');
-                        setDurationMinutes(durationMinutes + 5);
-                      }}
-                      className="w-7 h-7 rounded-lg bg-stone-100 hover:bg-stone-200 flex items-center justify-center font-bold text-stone-700 cursor-pointer"
-                    >
-                      +
-                    </button>
-                  </div>
                 </div>
               </div>
             ) : isCrosstrainer ? (

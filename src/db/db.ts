@@ -48,6 +48,7 @@ export interface UserProfile {
   targetWeight: number; // target weight in kg
   activityLevel: number; // PAL factor (1.2 to 1.9)
   stepLevel?: 'sedentary' | 'moderate_walk' | 'active_standing' | 'heavy_work';
+  trackWorkoutsDaily?: boolean; // Wenn true, wird Sport tagesgenau über Aktivitäten erfasst (verhindert Doppelzählung)
   workoutSessionsPerWeek?: number; // 0, 1, 2, 3, 4, 5+
   workoutIntensity?: 'gentle' | 'intense';
   goalType?: 'lose_weight' | 'maintain_weight';

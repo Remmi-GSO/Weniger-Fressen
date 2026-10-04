@@ -8,6 +8,7 @@ export interface BMRParams {
   age: number;
   activityLevel?: number; // legacy PAL factor fallback
   stepLevel?: DailyStepLevel;
+  trackWorkoutsDaily?: boolean; // Wenn true, wird Sport tagesgenau über Aktivitäten erfasst (Säule 2 = 0)
   workoutSessionsPerWeek?: number; // 0, 1, 2, 3, 4, 5+
   workoutIntensity?: WorkoutIntensity; // 'gentle' (Yoga/Rückenfit) vs. 'intense' (Vollgas/HIIT/Kraft)
   deficit: number; // in kcal, e.g. 250, 500, 750
@@ -88,8 +89,9 @@ export function calculateNutritionTargets(params: BMRParams): CalculationResult 
   }
 
   // Calculate purposeful workout calorie burn per week, averaged per day
+  // Wenn trackWorkoutsDaily aktiv ist, wird Sport tagesgenau eingetragen und keine Pauschale aufgeschlagen (verhindert Doppelzählung)
   let workoutDailyBonus = 0;
-  const sessions = params.workoutSessionsPerWeek || 0;
+  const sessions = params.trackWorkoutsDaily ? 0 : (params.workoutSessionsPerWeek || 0);
   if (sessions > 0) {
     // Gentle (Yoga, Rückenfit, Pilates, moderates Radeln): ~200 kcal/session
     // Intense (Kraftsport bis zum Limit, HIIT, schweißtreibendes Laufen, Spinning): ~450 kcal/session

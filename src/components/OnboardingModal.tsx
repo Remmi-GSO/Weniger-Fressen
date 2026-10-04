@@ -1,7 +1,7 @@
 import { useState, useMemo, type FormEvent } from 'react';
 import { db, type UserProfile } from '../db/db';
 import { calculateNutritionTargets, type DailyStepLevel, type WorkoutIntensity } from '../utils/nutrition';
-import { Sparkles, ArrowRight, ShieldCheck, Dumbbell, Footprints } from 'lucide-react';
+import { Sparkles, ArrowRight, ShieldCheck, Dumbbell, Footprints, X } from 'lucide-react';
 
 interface OnboardingModalProps {
   onComplete: () => void;
@@ -23,8 +23,9 @@ export const OnboardingModal = ({ onComplete, initialProfile }: OnboardingModalP
   
   // Fine-tuned daily movement states
   const [stepLevel, setStepLevel] = useState<DailyStepLevel>(initialProfile?.stepLevel || 'moderate_walk');
+  const [trackWorkoutsDaily, setTrackWorkoutsDaily] = useState<boolean>(initialProfile?.trackWorkoutsDaily ?? true);
   const [workoutSessions, setWorkoutSessions] = useState<number>(initialProfile?.workoutSessionsPerWeek ?? 1);
-  const [workoutIntensity, setWorkoutIntensity] = useState<WorkoutIntensity>(initialProfile?.workoutIntensity || 'gentle');
+  const [workoutIntensity, setWorkoutIntensity] = useState<WorkoutIntensity>(initialProfile?.workoutIntensity || 'intense');
 
   const [goalDeficit, setGoalDeficit] = useState<number>(initialProfile?.goalDeficit || 500);
 
@@ -38,11 +39,12 @@ export const OnboardingModal = ({ onComplete, initialProfile }: OnboardingModalP
       height: Number(height) || 170,
       weight: Number(weight) || 75,
       stepLevel,
-      workoutSessionsPerWeek: workoutSessions,
+      trackWorkoutsDaily,
+      workoutSessionsPerWeek: trackWorkoutsDaily ? 0 : workoutSessions,
       workoutIntensity,
       deficit: effectiveDeficit,
     });
-  }, [gender, age, height, weight, stepLevel, workoutSessions, workoutIntensity, effectiveDeficit]);
+  }, [gender, age, height, weight, stepLevel, trackWorkoutsDaily, workoutSessions, workoutIntensity, effectiveDeficit]);
 
   const handleSave = async (e: FormEvent) => {
     e.preventDefault();
@@ -56,7 +58,8 @@ export const OnboardingModal = ({ onComplete, initialProfile }: OnboardingModalP
       targetWeight: goalType === 'maintain_weight' ? Number(weight) : Number(targetWeight),
       activityLevel: calculation.effectivePAL,
       stepLevel,
-      workoutSessionsPerWeek: workoutSessions,
+      trackWorkoutsDaily,
+      workoutSessionsPerWeek: trackWorkoutsDaily ? 0 : workoutSessions,
       workoutIntensity,
       goalType,
       goalDeficit: effectiveDeficit,
@@ -87,21 +90,33 @@ export const OnboardingModal = ({ onComplete, initialProfile }: OnboardingModalP
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/40 backdrop-blur-sm overflow-y-auto">
-      <div className="w-full max-w-lg bg-surface-card rounded-3xl shadow-soft-lg border border-surface-border overflow-hidden my-6">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-stone-900/40 backdrop-blur-sm animate-in fade-in duration-200">
+      <div className="w-full max-w-lg bg-surface-card rounded-t-3xl sm:rounded-3xl shadow-soft-lg border border-surface-border overflow-hidden max-h-[92vh] flex flex-col">
         
-        {/* Header */}
-        <div className="bg-gradient-to-r from-emerald-50 via-teal-50 to-green-50 p-6 border-b border-surface-border text-center">
-          <div className="w-14 h-14 bg-white shadow-soft rounded-2xl flex items-center justify-center mx-auto mb-3 text-2xl border border-emerald-100">
-            🥗
+        {/* Header - Bleibt immer sichtbar oben fixiert, wird nie abgeschnitten */}
+        <div className="bg-gradient-to-r from-emerald-50 via-teal-50 to-emerald-50 p-4 px-6 border-b border-surface-border flex items-center justify-between shrink-0">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-white shadow-2xs rounded-2xl flex items-center justify-center text-xl border border-emerald-100 shrink-0">
+              🥗
+            </div>
+            <div>
+              <h2 className="text-base font-bold text-stone-800">Bedarfsberechnung</h2>
+              <p className="text-xs text-stone-500">
+                Mifflin-St. Jeor Formel & exakter Tagesbedarf
+              </p>
+            </div>
           </div>
-          <h2 className="text-2xl font-bold text-stone-800">Dein individueller Bedarfsplan</h2>
-          <p className="text-sm text-stone-500 mt-1 max-w-sm mx-auto">
-            Wissenschaftliche Kalorienberechnung mit <span className="font-semibold text-emerald-700">Mifflin-St. Jeor</span> und exakter Anpassung an deinen Alltag & Sport.
-          </p>
+          <button
+            type="button"
+            onClick={onComplete}
+            className="w-8 h-8 rounded-full bg-stone-100 hover:bg-stone-200 flex items-center justify-center text-stone-500 transition-colors cursor-pointer shrink-0"
+            title="Schließen"
+          >
+            <X className="w-4 h-4" />
+          </button>
         </div>
 
-        <form onSubmit={handleSave} className="p-6 space-y-6">
+        <form onSubmit={handleSave} className="p-6 overflow-y-auto space-y-6 flex-1">
           
           {/* Dein Vorname */}
           <div className="p-4 bg-emerald-50/60 rounded-2xl border border-emerald-100/90 space-y-2">
@@ -297,73 +312,100 @@ export const OnboardingModal = ({ onComplete, initialProfile }: OnboardingModalP
                 <Dumbbell className="w-3.5 h-3.5 text-purple-600" />
                 Säule 2: Gezielter Sport & Training
               </label>
-              <span className="text-[10px] text-stone-400">Pro Woche</span>
+              <span className="text-[10px] text-stone-400">Bedarfsrechner</span>
             </div>
 
-            {/* Frequenz */}
-            <div>
-              <span className="text-xs text-stone-500 block mb-1.5">Wie oft machst du Sport?</span>
-              <div className="grid grid-cols-4 gap-2">
-                {[
-                  { count: 0, label: '0x', desc: 'Kein Sport' },
-                  { count: 1, label: '1–2x', desc: 'Gelegentlich' },
-                  { count: 3, label: '3–4x', desc: 'Regelmäßig' },
-                  { count: 5, label: '5+x', desc: 'Ambitioniert' },
-                ].map((s) => (
-                  <button
-                    key={s.count}
-                    type="button"
-                    onClick={() => setWorkoutSessions(s.count)}
-                    className={`py-2 px-2 rounded-xl border text-center transition-all ${
-                      workoutSessions === s.count
-                        ? 'border-purple-500 bg-purple-50 text-purple-900 font-bold shadow-sm'
-                        : 'border-stone-200 bg-white text-stone-600 hover:bg-stone-50'
-                    }`}
-                  >
-                    <div className="text-sm font-bold">{s.label}</div>
-                    <div className="text-[10px] text-stone-400">{s.desc}</div>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Intensität (nur wenn Einheiten > 0) */}
-            {workoutSessions > 0 && (
-              <div className="pt-2 border-t border-stone-200/60 space-y-2">
-                <span className="text-xs text-stone-500 block">Welche Art von Training machst du vorwiegend?</span>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setWorkoutIntensity('gentle')}
-                    className={`p-3 rounded-2xl border text-left transition-all ${
-                      workoutIntensity === 'gentle'
-                        ? 'border-purple-500 bg-purple-50 text-purple-900 shadow-sm'
-                        : 'border-stone-200 bg-white text-stone-600 hover:bg-stone-50'
-                    }`}
-                  >
-                    <div className="text-lg">🧘</div>
-                    <div className="text-xs font-bold mt-1">Sanft & Moderat</div>
-                    <div className="text-[10px] text-stone-500 mt-0.5 leading-snug">
-                      Rückenfit, Yoga, Pilates, leichtes Radfahren (~200 kcal)
-                    </div>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setWorkoutIntensity('intense')}
-                    className={`p-3 rounded-2xl border text-left transition-all ${
-                      workoutIntensity === 'intense'
-                        ? 'border-purple-500 bg-purple-50 text-purple-900 shadow-sm'
-                        : 'border-stone-200 bg-white text-stone-600 hover:bg-stone-50'
-                    }`}
-                  >
-                    <div className="text-lg">🏋️</div>
-                    <div className="text-xs font-bold mt-1">Intensiv & Vollgas</div>
-                    <div className="text-[10px] text-stone-500 mt-0.5 leading-snug">
-                      Kraftsport, HIIT, schweißtreibendes Laufen, Spinning (~450 kcal)
-                    </div>
-                  </button>
+            {/* Checkbox: Tagesgenaue Erfassung (Empfohlen) */}
+            <label className="flex items-start gap-3 p-3 bg-white rounded-xl border border-emerald-200/80 hover:border-emerald-300 cursor-pointer transition-all shadow-2xs">
+              <input
+                type="checkbox"
+                checked={trackWorkoutsDaily}
+                onChange={(e) => setTrackWorkoutsDaily(e.target.checked)}
+                className="mt-0.5 w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 border-stone-300 shrink-0 cursor-pointer"
+              />
+              <div className="text-xs leading-snug">
+                <div className="font-bold text-stone-900 flex items-center gap-1.5">
+                  <span>⚡</span> Sport tagesgenau über Aktivitäten erfassen (Empfohlen)
                 </div>
+                <div className="text-[11px] text-stone-500 mt-0.5">
+                  Workouts (Jumping Fit, Crosstrainer, Quest 3) werden live an dem Tag gutgeschrieben, an dem du trainierst. Verhindert Doppelzählungen und schützt dein Defizit an Ruhetagen!
+                </div>
+              </div>
+            </label>
+
+            {/* Falls NICHT tagesgenau: Zeige Frequenz & Intensität für feste Pauschale */}
+            {!trackWorkoutsDaily && (
+              <div className="space-y-3 pt-2 border-t border-stone-200/60 animate-in fade-in">
+                <div className="p-2.5 rounded-xl bg-amber-50/70 border border-amber-200 text-[11px] text-amber-950">
+                  ℹ️ <strong>Feste Pauschale:</strong> Wenn du Sport nicht einzeln erfassen möchtest, wird hier ein gleichmäßiger Kalorienbonus auf alle 7 Wochentage verteilt.
+                </div>
+
+                {/* Frequenz */}
+                <div>
+                  <span className="text-xs text-stone-500 block mb-1.5">Wie oft machst du Sport?</span>
+                  <div className="grid grid-cols-4 gap-2">
+                    {[
+                      { count: 0, label: '0x', desc: 'Kein Sport' },
+                      { count: 1, label: '1–2x', desc: 'Gelegentlich' },
+                      { count: 3, label: '3–4x', desc: 'Regelmäßig' },
+                      { count: 5, label: '5+x', desc: 'Ambitioniert' },
+                    ].map((s) => (
+                      <button
+                        key={s.count}
+                        type="button"
+                        onClick={() => setWorkoutSessions(s.count)}
+                        className={`py-2 px-2 rounded-xl border text-center transition-all cursor-pointer ${
+                          workoutSessions === s.count
+                            ? 'border-purple-500 bg-purple-50 text-purple-900 font-bold shadow-sm'
+                            : 'border-stone-200 bg-white text-stone-600 hover:bg-stone-50'
+                        }`}
+                      >
+                        <div className="text-sm font-bold">{s.label}</div>
+                        <div className="text-[10px] text-stone-400">{s.desc}</div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Intensität (nur wenn Einheiten > 0) */}
+                {workoutSessions > 0 && (
+                  <div className="pt-2 border-t border-stone-200/60 space-y-2">
+                    <span className="text-xs text-stone-500 block">Welche Art von Training machst du vorwiegend?</span>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setWorkoutIntensity('gentle')}
+                        className={`p-3 rounded-2xl border text-left transition-all cursor-pointer ${
+                          workoutIntensity === 'gentle'
+                            ? 'border-purple-500 bg-purple-50 text-purple-900 shadow-sm'
+                            : 'border-stone-200 bg-white text-stone-600 hover:bg-stone-50'
+                        }`}
+                      >
+                        <div className="text-lg">🧘</div>
+                        <div className="text-xs font-bold mt-1">Sanft & Moderat</div>
+                        <div className="text-[10px] text-stone-500 mt-0.5 leading-snug">
+                          Rückenfit, Yoga, Pilates, leichtes Radfahren (~200 kcal)
+                        </div>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setWorkoutIntensity('intense')}
+                        className={`p-3 rounded-2xl border text-left transition-all cursor-pointer ${
+                          workoutIntensity === 'intense'
+                            ? 'border-purple-500 bg-purple-50 text-purple-900 shadow-sm'
+                            : 'border-stone-200 bg-white text-stone-600 hover:bg-stone-50'
+                        }`}
+                      >
+                        <div className="text-lg">🏋️</div>
+                        <div className="text-xs font-bold mt-1">Intensiv & Vollgas</div>
+                        <div className="text-[10px] text-stone-500 mt-0.5 leading-snug">
+                          Kraftsport, HIIT, schweißtreibendes Laufen, Spinning (~450 kcal)
+                        </div>
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
