@@ -130,7 +130,7 @@ export const ActivityModal = ({
       particleCount: 35,
       spread: 60,
       origin: { y: 0.7 },
-      colors: ['#F59E0B', '#EF4444', '#10B981'],
+      colors: ['#F97316', '#EF4444', '#10B981'],
     });
 
     onClose();
@@ -161,7 +161,7 @@ export const ActivityModal = ({
         {/* Header */}
         <div className="p-4 px-6 border-b border-stone-100 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className="p-2 bg-amber-50 text-amber-600 rounded-xl text-lg">🏃</span>
+            <span className="p-2 bg-orange-50 text-orange-600 rounded-xl text-lg">🏃</span>
             <div>
               <h3 className="font-bold text-stone-800 text-base">Aktivität & Bewegung</h3>
               <p className="text-xs text-stone-400">Verbrannte Kalorien zu deinem Tagesbudget addieren</p>
@@ -169,7 +169,7 @@ export const ActivityModal = ({
           </div>
           <button
             onClick={onClose}
-            className="w-8 h-8 rounded-full bg-stone-100 hover:bg-stone-200 flex items-center justify-center text-stone-500 transition-colors"
+            className="w-8 h-8 rounded-full bg-stone-100 hover:bg-stone-200 flex items-center justify-center text-stone-500 transition-colors cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>
@@ -186,7 +186,7 @@ export const ActivityModal = ({
               <button
                 type="button"
                 onClick={() => setIsCreatingCustom(!isCreatingCustom)}
-                className="text-xs font-bold text-amber-700 hover:text-amber-800 flex items-center gap-1"
+                className="text-xs font-bold text-orange-700 hover:text-orange-800 flex items-center gap-1 cursor-pointer"
               >
                 <Plus className="w-3.5 h-3.5" />
                 <span>Eigene Aktivität</span>
@@ -195,8 +195,8 @@ export const ActivityModal = ({
 
             {/* Custom activity creation sub-form */}
             {isCreatingCustom && (
-              <form onSubmit={handleCreateCustomActivity} className="p-3 mb-3 bg-amber-50/70 border border-amber-200 rounded-2xl space-y-2.5">
-                <span className="text-xs font-bold text-amber-950 block">Neue Aktivität hinterlegen</span>
+              <form onSubmit={handleCreateCustomActivity} className="p-3 mb-3 bg-orange-50/70 border border-orange-200 rounded-2xl space-y-2.5">
+                <span className="text-xs font-bold text-orange-950 block">Neue Aktivität hinterlegen</span>
                 <div className="flex gap-2">
                   <div className="flex-1 relative">
                     <input
@@ -205,7 +205,7 @@ export const ActivityModal = ({
                       placeholder="Name (z.B. Holz hacken, Tennis, Badminton)"
                       value={customName}
                       onChange={(e) => setCustomName(e.target.value)}
-                      className="w-full pl-3 pr-8 py-1.5 rounded-xl border border-amber-200 text-xs font-medium"
+                      className="w-full pl-3 pr-8 py-1.5 rounded-xl border border-orange-200 text-xs font-medium"
                     />
                     <div className="absolute right-1 top-1/2 -translate-y-1/2">
                       <VoiceInputButton
@@ -221,11 +221,11 @@ export const ActivityModal = ({
                     title="Emoji Icon"
                     value={customIcon}
                     onChange={(e) => setCustomIcon(e.target.value)}
-                    className="w-12 text-center px-2 py-1.5 rounded-xl border border-amber-200 text-sm"
+                    className="w-12 text-center px-2 py-1.5 rounded-xl border border-orange-200 text-sm"
                   />
                 </div>
                 <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-1.5 text-xs text-amber-900">
+                  <div className="flex items-center gap-1.5 text-xs text-orange-900">
                     <span>ca.</span>
                     <input
                       type="number"
@@ -234,13 +234,13 @@ export const ActivityModal = ({
                       max="1500"
                       value={customKcalPerHour}
                       onChange={(e) => setCustomKcalPerHour(e.target.value)}
-                      className="w-20 px-2 py-1 rounded-lg border border-amber-200 text-xs font-bold text-center"
+                      className="w-20 px-2 py-1 rounded-lg border border-orange-200 text-xs font-bold text-center"
                     />
                     <span>kcal / Stunde</span>
                   </div>
                   <button
                     type="submit"
-                    className="py-1 px-3 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs"
+                    className="py-1 px-3 rounded-xl bg-orange-600 hover:bg-orange-700 text-white font-bold text-xs cursor-pointer shadow-xs"
                   >
                     Speichern
                   </button>
@@ -257,9 +257,9 @@ export const ActivityModal = ({
                     key={act.id}
                     type="button"
                     onClick={() => handleSelectActivity(act)}
-                    className={`p-2.5 rounded-2xl border text-left transition-all flex items-center gap-2.5 ${
+                    className={`p-2.5 rounded-2xl border text-left transition-all flex items-center gap-2.5 cursor-pointer ${
                       isSelected
-                        ? 'border-amber-500 bg-amber-50/90 text-amber-950 shadow-sm ring-2 ring-amber-500/20'
+                        ? 'border-orange-500 bg-orange-50/90 text-orange-950 shadow-sm ring-2 ring-orange-500/20'
                         : 'border-stone-200 bg-white hover:bg-stone-50 text-stone-700'
                     }`}
                   >
@@ -295,10 +295,10 @@ export const ActivityModal = ({
               <div className="space-y-2 bg-white p-3 rounded-xl border border-stone-200/70">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold text-stone-700 flex items-center gap-1.5">
-                    <Clock className="w-3.5 h-3.5 text-amber-600" />
+                    <Clock className="w-3.5 h-3.5 text-orange-600" />
                     <span>Halbstündige Einheiten wählen:</span>
                   </span>
-                  <span className="text-xs font-extrabold text-amber-800 bg-amber-100 px-2 py-0.5 rounded-full">
+                  <span className="text-xs font-extrabold text-orange-950 bg-orange-100 px-2 py-0.5 rounded-full">
                     {halfHourUnits} {halfHourUnits === 1 ? 'Einheit' : 'Einheiten'} = {durationMinutes} Min ({durationMinutes / 60} Std)
                   </span>
                 </div>
@@ -313,9 +313,9 @@ export const ActivityModal = ({
                         key={unit}
                         type="button"
                         onClick={() => setDurationMinutes(mins)}
-                        className={`py-2 px-1 rounded-xl border text-center transition-all ${
+                        className={`py-2 px-1 rounded-xl border text-center transition-all cursor-pointer ${
                           isActive
-                            ? 'border-amber-600 bg-amber-600 text-white font-bold shadow-sm'
+                            ? 'border-orange-600 bg-orange-600 text-white font-bold shadow-sm'
                             : 'border-stone-200 bg-stone-50 hover:bg-stone-100 text-stone-700 font-semibold'
                         }`}
                       >
@@ -333,7 +333,7 @@ export const ActivityModal = ({
                     <button
                       type="button"
                       onClick={() => setDurationMinutes(Math.max(15, durationMinutes - 30))}
-                      className="w-7 h-7 rounded-lg bg-stone-100 hover:bg-stone-200 flex items-center justify-center font-bold text-stone-700"
+                      className="w-7 h-7 rounded-lg bg-stone-100 hover:bg-stone-200 flex items-center justify-center font-bold text-stone-700 cursor-pointer"
                     >
                       -
                     </button>
@@ -343,7 +343,7 @@ export const ActivityModal = ({
                     <button
                       type="button"
                       onClick={() => setDurationMinutes(durationMinutes + 30)}
-                      className="w-7 h-7 rounded-lg bg-stone-100 hover:bg-stone-200 flex items-center justify-center font-bold text-stone-700"
+                      className="w-7 h-7 rounded-lg bg-stone-100 hover:bg-stone-200 flex items-center justify-center font-bold text-stone-700 cursor-pointer"
                     >
                       +
                     </button>
@@ -355,10 +355,10 @@ export const ActivityModal = ({
               <div className="space-y-2 bg-white p-3 rounded-xl border border-stone-200/70">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold text-stone-700 flex items-center gap-1.5">
-                    <Clock className="w-3.5 h-3.5 text-amber-600" />
+                    <Clock className="w-3.5 h-3.5 text-orange-600" />
                     <span>Dauer festlegen:</span>
                   </span>
-                  <span className="text-xs font-extrabold text-amber-800 bg-amber-100 px-2 py-0.5 rounded-full">
+                  <span className="text-xs font-extrabold text-orange-950 bg-orange-100 px-2 py-0.5 rounded-full">
                     {durationMinutes} Minuten ({Math.round((durationMinutes / 60) * 10) / 10} Std)
                   </span>
                 </div>
@@ -372,9 +372,9 @@ export const ActivityModal = ({
                         key={mins}
                         type="button"
                         onClick={() => setDurationMinutes(mins)}
-                        className={`py-1.5 rounded-xl border text-center transition-all ${
+                        className={`py-1.5 rounded-xl border text-center transition-all cursor-pointer ${
                           isActive
-                            ? 'border-amber-600 bg-amber-600 text-white font-bold shadow-sm'
+                            ? 'border-orange-600 bg-orange-600 text-white font-bold shadow-sm'
                             : 'border-stone-200 bg-stone-50 hover:bg-stone-100 text-stone-700 text-xs font-medium'
                         }`}
                       >
@@ -393,7 +393,7 @@ export const ActivityModal = ({
                     step="5"
                     value={durationMinutes}
                     onChange={(e) => setDurationMinutes(Number(e.target.value))}
-                    className="flex-1 accent-amber-600 cursor-pointer"
+                    className="flex-1 accent-orange-600 cursor-pointer"
                   />
                   <div className="flex items-center gap-1">
                     <input
@@ -420,9 +420,9 @@ export const ActivityModal = ({
                     key={lvl}
                     type="button"
                     onClick={() => setIntensity(lvl)}
-                    className={`py-1 px-2.5 rounded-lg border text-[11px] font-semibold transition-all ${
+                    className={`py-1 px-2.5 rounded-lg border text-[11px] font-semibold transition-all cursor-pointer ${
                       intensity === lvl
-                        ? 'border-amber-600 bg-amber-600 text-white shadow-xs'
+                        ? 'border-orange-600 bg-orange-600 text-white shadow-xs'
                         : 'border-stone-200 bg-white text-stone-600 hover:bg-stone-50'
                     }`}
                   >
@@ -443,40 +443,40 @@ export const ActivityModal = ({
             </div>
 
             {/* LIVE CALORIE RESULT HERO BANNER */}
-            <div className="p-3.5 bg-gradient-to-br from-amber-500/15 via-orange-500/10 to-amber-500/5 rounded-2xl border border-amber-200/90 space-y-2.5">
+            <div className="p-3.5 bg-gradient-to-br from-orange-500/15 via-amber-500/10 to-orange-500/5 rounded-2xl border border-orange-200/90 space-y-2.5">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2.5">
-                  <div className="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center text-xl shadow-sm">
+                  <div className="w-10 h-10 rounded-xl bg-orange-500 text-white flex items-center justify-center text-xl shadow-sm">
                     <Flame className="w-5 h-5" />
                   </div>
                   <div>
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-amber-800 block">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-orange-800 block">
                       Netto-Mehrverbrauch
                     </span>
-                    <span className="text-xs text-amber-950 font-medium">
+                    <span className="text-xs text-orange-950 font-medium">
                       Für dein Profil ({userWeight} kg • {durationMinutes} Min)
                     </span>
                   </div>
                 </div>
 
                 <div className="text-right">
-                  <span className="text-2xl font-black text-amber-900 leading-none block">
+                  <span className="text-2xl font-black text-orange-950 leading-none block">
                     +{calculatedKcal} <span className="text-xs font-bold">kcal</span>
                   </span>
-                  <span className="text-[10px] text-amber-700 font-medium">
+                  <span className="text-[10px] text-orange-700 font-medium">
                     echtes Zusatzbudget
                   </span>
                 </div>
               </div>
 
               {/* TRANSPARENTE NETTO-VERBRAUCHS-ERKLÄRUNG */}
-              <div className="pt-2 border-t border-amber-200/70 text-[10px] space-y-1.5 text-stone-600">
+              <div className="pt-2 border-t border-orange-200/70 text-[10px] space-y-1.5 text-stone-600">
                 <div className="flex items-center justify-between text-stone-500 font-medium">
                   <span>Körper-Gesamtumsatz (Brutto): ~{calorieBreakdown.grossCalories} kcal</span>
                   <span>Ruhe-Grundumsatz: ~{calorieBreakdown.restingCalories} kcal</span>
                 </div>
-                <div className="bg-white/80 p-2 rounded-xl border border-amber-100 flex items-start gap-1.5 leading-relaxed text-stone-600">
-                  <Info className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5" />
+                <div className="bg-white/80 p-2 rounded-xl border border-orange-100 flex items-start gap-1.5 leading-relaxed text-stone-600">
+                  <Info className="w-3.5 h-3.5 text-orange-600 shrink-0 mt-0.5" />
                   <span>
                     <strong>Echte Netto-Berechnung:</strong> Dein Ruhe-Grundumsatz (~{calorieBreakdown.restingCalories} kcal in {durationMinutes} Min) ist bereits in deinem Tagesziel enthalten. Wir schreiben dir nur den echten Bewegungs-Mehrverbrauch (+{calculatedKcal} kcal) gut – damit dein Kaloriendefizit realistisch bleibt.
                   </span>
@@ -490,7 +490,7 @@ export const ActivityModal = ({
             type="button"
             onClick={handleSaveActivity}
             disabled={durationMinutes <= 0}
-            className="w-full py-4 rounded-2xl bg-amber-600 hover:bg-amber-700 active:scale-[0.99] text-white font-bold text-sm shadow-soft transition-all flex items-center justify-center gap-2"
+            className="w-full py-4 rounded-2xl bg-orange-600 hover:bg-orange-700 active:scale-[0.99] text-white font-bold text-sm shadow-soft transition-all flex items-center justify-center gap-2 cursor-pointer"
           >
             <Check className="w-5 h-5" />
             <span>Aktivität eintragen (+{calculatedKcal} kcal Budget)</span>

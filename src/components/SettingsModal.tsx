@@ -1264,6 +1264,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   </li>
                   <li className="flex items-start gap-1.5">
                     <span className="text-emerald-600 shrink-0 font-bold">✓</span>
+                    <span><strong>🔥 Neues Farbkonzept für Bewegung & Sport:</strong> Bewegung erstrahlt jetzt appweit in dynamischem Sport-Orange (Jump-To Kachel, verbrannte Kalorien & Aktivitäts-Erfassung), klar und harmonisch getrennt vom warmen Goldbraun der Rezepte.</span>
+                  </li>
+                  <li className="flex items-start gap-1.5">
+                    <span className="text-emerald-600 shrink-0 font-bold">✓</span>
                     <span><strong>Versionshistorie:</strong> Diese neue Übersicht zeigt die Änderungen der letzten 3 Versionen transparent auf.</span>
                   </li>
                 </ul>

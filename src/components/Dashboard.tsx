@@ -227,10 +227,10 @@ export const Dashboard = ({
               </span>
             </div>
 
-            <div className="p-2 rounded-2xl bg-amber-50/70 border border-amber-100 text-center flex flex-col justify-center">
-              <span className="text-[9px] font-bold text-amber-700 block uppercase truncate">Verbrannt</span>
-              <span className="text-xs sm:text-sm font-extrabold text-amber-900 leading-tight">
-                +{totalBurnedKcal} <span className="text-[9px] font-normal text-amber-700/80">kcal</span>
+            <div className="p-2 rounded-2xl bg-orange-50/70 border border-orange-100 text-center flex flex-col justify-center">
+              <span className="text-[9px] font-bold text-orange-700 block uppercase truncate">Verbrannt</span>
+              <span className="text-xs sm:text-sm font-extrabold text-orange-950 leading-tight">
+                +{totalBurnedKcal} <span className="text-[9px] font-normal text-orange-700/80">kcal</span>
               </span>
             </div>
 
@@ -636,10 +636,10 @@ export const Dashboard = ({
             <button
               type="button"
               onClick={onOpenActivityModal}
-              className="py-2.5 px-1 rounded-2xl bg-stone-50/90 hover:bg-amber-50/80 active:scale-95 border border-stone-100 hover:border-amber-200 text-stone-800 hover:text-amber-900 text-[11px] font-bold transition-all flex flex-col items-center justify-center gap-1 shadow-2xs cursor-pointer"
+              className="py-2.5 px-1 rounded-2xl bg-stone-50/90 hover:bg-orange-50/80 active:scale-95 border border-stone-100 hover:border-orange-200 text-stone-800 hover:text-orange-950 text-[11px] font-bold transition-all flex flex-col items-center justify-center gap-1 shadow-2xs cursor-pointer"
               title="Aktivität & Bewegung erfassen (Gassi, Yoga, Sport, Garten)"
             >
-              <div className="w-7 h-7 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center text-sm shadow-2xs">
+              <div className="w-7 h-7 rounded-xl bg-orange-100 text-orange-600 flex items-center justify-center text-sm shadow-2xs">
                 🏃
               </div>
               <span className="truncate">Bewegung</span>
@@ -718,14 +718,14 @@ export const Dashboard = ({
       <div className="bg-white rounded-3xl p-5 shadow-card border border-surface-border space-y-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <div className="w-10 h-10 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center text-xl shadow-xs border border-amber-100">
+            <div className="w-10 h-10 rounded-2xl bg-orange-50 text-orange-600 flex items-center justify-center text-xl shadow-xs border border-orange-100">
               🏃
             </div>
             <div>
               <div className="flex items-center gap-2">
                 <h4 className="font-extrabold text-stone-900 text-sm">Aktivitäten & Bewegung</h4>
                 {totalBurnedKcal > 0 && (
-                  <span className="text-[10px] bg-amber-100 text-amber-900 font-bold px-2 py-0.5 rounded-full">
+                  <span className="text-[10px] bg-orange-100 text-orange-950 font-bold px-2 py-0.5 rounded-full">
                     +{totalBurnedKcal} kcal Budget
                   </span>
                 )}
@@ -739,7 +739,7 @@ export const Dashboard = ({
           {onOpenActivityModal && (
             <button
               onClick={onOpenActivityModal}
-              className="flex items-center gap-1 text-xs font-bold text-amber-800 bg-amber-50 hover:bg-amber-100 px-3 py-1.5 rounded-2xl transition-all border border-amber-200/70 shrink-0"
+              className="flex items-center gap-1 text-xs font-bold text-orange-950 bg-orange-50 hover:bg-orange-100 px-3 py-1.5 rounded-2xl transition-all border border-orange-200/70 shrink-0 cursor-pointer"
             >
               <Plus className="w-3.5 h-3.5" />
               <span>Aktivität</span>
@@ -766,14 +766,14 @@ export const Dashboard = ({
                   </div>
 
                   <div className="flex items-center gap-2.5">
-                    <span className="font-black text-amber-700 bg-amber-50 px-2 py-0.5 rounded-lg border border-amber-200/50">
-                      -{act.caloriesBurned} kcal
+                    <span className="font-black text-orange-700 bg-orange-50 px-2 py-0.5 rounded-lg border border-orange-200/50">
+                      +{act.caloriesBurned} kcal
                     </span>
                     <button
                       onClick={async () => {
                         if (act.id) await db.activityLogs.delete(act.id);
                       }}
-                      className="opacity-0 group-hover:opacity-100 text-stone-300 hover:text-rose-500 p-1 transition-all"
+                      className="opacity-0 group-hover:opacity-100 text-stone-300 hover:text-rose-500 p-1 transition-all cursor-pointer"
                       title="Aktivität löschen"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
@@ -786,12 +786,12 @@ export const Dashboard = ({
         ) : (
           <div
             onClick={onOpenActivityModal}
-            className="p-3 bg-stone-50/80 hover:bg-amber-50/50 rounded-2xl border border-stone-200/60 cursor-pointer transition-colors text-center space-y-0.5"
+            className="p-3 bg-stone-50/80 hover:bg-orange-50/50 rounded-2xl border border-stone-200/60 cursor-pointer transition-colors text-center space-y-0.5"
           >
             <span className="text-xs font-semibold text-stone-600 block">
               🐕 Gassi mit Snoopy, 🧘 Rückenfit/Yoga oder 🪴 Gartenarbeit gemacht?
             </span>
-            <span className="text-[11px] text-amber-700 font-bold block">
+            <span className="text-[11px] text-orange-700 font-bold block">
               + Jetzt Aktivität erfassen & extra Kalorien gutschreiben lassen
             </span>
           </div>
