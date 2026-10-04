@@ -1252,6 +1252,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   </li>
                   <li className="flex items-start gap-1.5">
                     <span className="text-emerald-600 shrink-0 font-bold">✓</span>
+                    <span><strong>💧 Wasserhaushalt mit Owala-Flasche (710 ml):</strong> Neuer Schnellbutton für die beliebte 710 ml Owala-Trinkflasche neben Glas (250 ml) und Flasche (500 ml).</span>
+                  </li>
+                  <li className="flex items-start gap-1.5">
+                    <span className="text-emerald-600 shrink-0 font-bold">✓</span>
                     <span><strong>Versionshistorie:</strong> Diese neue Übersicht zeigt die Änderungen der letzten 3 Versionen transparent auf.</span>
                   </li>
                 </ul>

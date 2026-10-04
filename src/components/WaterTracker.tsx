@@ -64,30 +64,56 @@ export const WaterTracker = ({
       </div>
 
       {/* Quick Buttons */}
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-1.5 sm:gap-2">
         <button
+          type="button"
           onClick={() => addWater(250)}
-          className="flex-1 py-2 px-3 rounded-2xl bg-blue-50/80 hover:bg-blue-100/80 border border-blue-100 text-blue-700 text-xs font-bold transition-all flex items-center justify-center gap-1.5 active:scale-95"
+          className="flex-1 py-2 px-1 sm:px-2 rounded-2xl bg-blue-50/80 hover:bg-blue-100/80 border border-blue-100 text-blue-700 text-[11px] sm:text-xs font-bold transition-all flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-1 active:scale-95"
+          title="250 ml (Glas)"
         >
-          <Plus className="w-3.5 h-3.5" />
-          <span>+250 ml (Glas)</span>
+          <div className="flex items-center gap-0.5">
+            <Plus className="w-3 h-3 shrink-0" />
+            <span>250 ml</span>
+          </div>
+          <span className="text-[9px] text-blue-500/80 font-normal">Glas</span>
         </button>
 
         <button
+          type="button"
           onClick={() => addWater(500)}
-          className="flex-1 py-2 px-3 rounded-2xl bg-blue-50/80 hover:bg-blue-100/80 border border-blue-100 text-blue-700 text-xs font-bold transition-all flex items-center justify-center gap-1.5 active:scale-95"
+          className="flex-1 py-2 px-1 sm:px-2 rounded-2xl bg-blue-50/80 hover:bg-blue-100/80 border border-blue-100 text-blue-700 text-[11px] sm:text-xs font-bold transition-all flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-1 active:scale-95"
+          title="500 ml (Flasche)"
         >
-          <Plus className="w-3.5 h-3.5" />
-          <span>+500 ml (Flasche)</span>
+          <div className="flex items-center gap-0.5">
+            <Plus className="w-3 h-3 shrink-0" />
+            <span>500 ml</span>
+          </div>
+          <span className="text-[9px] text-blue-500/80 font-normal">Flasche</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => addWater(710)}
+          className="flex-1 py-2 px-1 sm:px-2 rounded-2xl bg-gradient-to-tr from-cyan-50 to-teal-50 hover:from-cyan-100 hover:to-teal-100 border border-teal-200/90 text-teal-800 text-[11px] sm:text-xs font-bold transition-all flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-1 active:scale-95 shadow-2xs"
+          title="710 ml (Owala Flasche)"
+        >
+          <div className="flex items-center gap-0.5 font-extrabold text-teal-900">
+            <Plus className="w-3 h-3 shrink-0 text-teal-600" />
+            <span>710 ml</span>
+          </div>
+          <span className="text-[9px] bg-teal-100 text-teal-800 font-extrabold px-1 py-0.2 rounded leading-tight">
+            Owala
+          </span>
         </button>
 
         {logs.length > 0 && (
           <button
+            type="button"
             onClick={removeLast}
-            className="p-2 rounded-2xl bg-stone-100 hover:bg-stone-200 text-stone-500 transition-colors"
+            className="p-2 sm:p-2.5 rounded-2xl bg-stone-100 hover:bg-stone-200 text-stone-500 transition-colors shrink-0"
             title="Letzten Eintrag rückgängig machen"
           >
-            <RotateCcw className="w-4 h-4" />
+            <RotateCcw className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
           </button>
         )}
       </div>
