@@ -171,20 +171,21 @@ export const Dashboard = ({
       </div>
 
       {/* Hero Calorie Ring Card */}
-      <div className="bg-white rounded-3xl p-6 shadow-card border border-surface-border">
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-6">
+      <div className="bg-white rounded-3xl p-4 sm:p-5 shadow-card border border-surface-border">
+        {/* Top Row: Calorie Ring & 4 Stat Cards side-by-side auf einer Höhe */}
+        <div className="flex items-center gap-3 sm:gap-4">
           
           {/* Main Calorie Ring */}
           <div className="flex-shrink-0">
             <CircularProgress
               percentage={kcalPercent}
-              size={175}
-              strokeWidth={14}
+              size={126}
+              strokeWidth={10}
               colorClass={ringColorClass}
               bgColorClass={ringBgClass}
             >
               <div className="space-y-0.5 text-center px-1">
-                <span className={`text-[10px] font-bold uppercase tracking-wider block ${
+                <span className={`text-[9px] font-bold uppercase tracking-wider block leading-tight ${
                   inMaintenanceZone ? 'text-amber-700' : 'text-stone-400'
                 }`}>
                   {inDeficitZone
@@ -193,7 +194,7 @@ export const Dashboard = ({
                     ? '⚖️ Halten'
                     : 'Überschritten'}
                 </span>
-                <span className={`text-3xl font-black tracking-tight ${
+                <span className={`text-2xl sm:text-3xl font-black tracking-tight block leading-none my-0.5 ${
                   inDeficitZone
                     ? 'text-stone-800'
                     : inMaintenanceZone
@@ -206,46 +207,57 @@ export const Dashboard = ({
                     ? effectiveMaintenance - totalKcal
                     : Math.abs(totalKcal - effectiveMaintenance)}
                 </span>
-                <span className="text-[10px] text-stone-400 font-medium block">
+                <span className="text-[9px] text-stone-400 font-medium block leading-tight truncate max-w-[95px]">
                   {inDeficitZone
-                    ? `Ziel: ${effectiveBudget} kcal`
+                    ? `Ziel: ${effectiveBudget}`
                     : inMaintenanceZone
-                    ? `Puffer bis Erhalt`
-                    : `über Erhalt (${effectiveMaintenance})`}
+                    ? `Puffer Erhalt`
+                    : `über Erhalt`}
                 </span>
               </div>
             </CircularProgress>
           </div>
 
-          {/* Calorie Stats & Macros Breakdown */}
-          <div className="w-full space-y-4">
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 text-center">
-              <div className="p-2 rounded-2xl bg-stone-50 border border-stone-100">
-                <span className="text-[9px] font-semibold text-stone-400 block uppercase">Gegessen</span>
-                <span className="text-sm font-extrabold text-stone-800">{totalKcal} <span className="text-[10px] font-normal">kcal</span></span>
-              </div>
-              <div className="p-2 rounded-2xl bg-amber-50/70 border border-amber-100">
-                <span className="text-[9px] font-bold text-amber-700 block uppercase">Verbrannt</span>
-                <span className="text-sm font-extrabold text-amber-900">+{totalBurnedKcal} <span className="text-[10px] font-normal">kcal</span></span>
-              </div>
-              <div className="p-2 rounded-2xl bg-stone-50 border border-stone-100">
-                <span className="text-[9px] font-semibold text-stone-400 block uppercase">
-                  {isMaintainGoal ? 'Ziel (Halten)' : 'Defizit-Ziel'}
-                </span>
-                <span className="text-sm font-extrabold text-stone-800">{effectiveBudget} <span className="text-[10px] font-normal">kcal</span></span>
-              </div>
-              <div className={`p-2 rounded-2xl border ${
-                inMaintenanceZone ? 'bg-amber-100/80 border-amber-300 text-amber-950 font-bold' : 'bg-emerald-50/60 border-emerald-100 text-emerald-950'
-              }`}>
-                <span className="text-[9px] font-bold block uppercase">
-                  {inMaintenanceZone ? '⚖️ Erhaltung' : 'Gewicht halten'}
-                </span>
-                <span className="text-sm font-extrabold">{effectiveMaintenance} <span className="text-[10px] font-normal">kcal</span></span>
-              </div>
+          {/* 4 Stat-Kästchen auf gleicher Höhe (2x2 Raster) */}
+          <div className="grid grid-cols-2 gap-1.5 flex-1 min-w-0">
+            <div className="p-2 rounded-2xl bg-stone-50 border border-stone-100/90 text-center flex flex-col justify-center">
+              <span className="text-[9px] font-semibold text-stone-400 block uppercase truncate">Gegessen</span>
+              <span className="text-xs sm:text-sm font-extrabold text-stone-800 leading-tight">
+                {totalKcal} <span className="text-[9px] font-normal text-stone-500">kcal</span>
+              </span>
             </div>
 
-            {/* Customizable Nutrient Bars */}
-            <div className="space-y-2 pt-1">
+            <div className="p-2 rounded-2xl bg-amber-50/70 border border-amber-100 text-center flex flex-col justify-center">
+              <span className="text-[9px] font-bold text-amber-700 block uppercase truncate">Verbrannt</span>
+              <span className="text-xs sm:text-sm font-extrabold text-amber-900 leading-tight">
+                +{totalBurnedKcal} <span className="text-[9px] font-normal text-amber-700/80">kcal</span>
+              </span>
+            </div>
+
+            <div className="p-2 rounded-2xl bg-stone-50 border border-stone-100/90 text-center flex flex-col justify-center">
+              <span className="text-[9px] font-semibold text-stone-400 block uppercase truncate">
+                {isMaintainGoal ? 'Ziel (Halten)' : 'Defizit-Ziel'}
+              </span>
+              <span className="text-xs sm:text-sm font-extrabold text-stone-800 leading-tight">
+                {effectiveBudget} <span className="text-[9px] font-normal text-stone-500">kcal</span>
+              </span>
+            </div>
+
+            <div className={`p-2 rounded-2xl border text-center flex flex-col justify-center ${
+              inMaintenanceZone ? 'bg-amber-100/80 border-amber-300 text-amber-950 font-bold' : 'bg-emerald-50/60 border-emerald-100 text-emerald-950'
+            }`}>
+              <span className="text-[9px] font-bold block uppercase truncate">
+                {inMaintenanceZone ? '⚖️ Erhaltung' : 'Gewicht halten'}
+              </span>
+              <span className="text-xs sm:text-sm font-extrabold leading-tight">
+                {effectiveMaintenance} <span className="text-[9px] font-normal opacity-70">kcal</span>
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Customizable Nutrient Bars */}
+        <div className="space-y-2 pt-3 mt-3 border-t border-stone-100/80">
               
               {/* Protein */}
               {nutrientBars.protein && (
@@ -370,45 +382,41 @@ export const Dashboard = ({
                   Keine Nährstoff-Balken aktiv.
                 </div>
               )}
-
             </div>
-          </div>
-
-        </div>
 
         {/* Wertschätzendes Feedback-Banner */}
         {inMaintenanceZone && (
-          <div className="mt-4 p-3.5 bg-gradient-to-r from-amber-50 via-orange-50/60 to-amber-50 border border-amber-200/90 rounded-2xl flex items-center gap-3 text-amber-950 animate-in fade-in">
-            <div className="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center text-xl shrink-0 shadow-xs">
+          <div className="mt-3 p-2.5 bg-gradient-to-r from-amber-50 via-orange-50/60 to-amber-50 border border-amber-200/90 rounded-2xl flex items-center gap-2.5 text-amber-950 animate-in fade-in">
+            <div className="w-8 h-8 rounded-xl bg-amber-500 text-white flex items-center justify-center text-base shrink-0 shadow-2xs">
               ⚖️
             </div>
-            <div className="text-xs leading-relaxed">
-              <span className="font-extrabold text-amber-950 block text-xs uppercase tracking-wide">
-                Gewicht halten – Alles im grünen Bereich!
+            <div className="text-[11px] leading-snug">
+              <span className="font-extrabold text-amber-950 block text-[11px] uppercase tracking-wide">
+                Gewicht halten – Im grünen Bereich!
               </span>
               <span className="text-stone-700">
-                Du nimmst heute nicht ab, aber du nimmst eben auch nicht zu! Du liegst voll im Erhaltungsbereich (max. <strong>{effectiveMaintenance} kcal</strong>). Alles ist super!
+                Du nimmst heute nicht ab, aber auch nicht zu (max. <strong>{effectiveMaintenance} kcal</strong>). Alles super!
               </span>
             </div>
           </div>
         )}
 
         {inDeficitZone && totalKcal > 0 && (
-          <div className="mt-4 p-3 bg-emerald-50/80 border border-emerald-200/80 rounded-2xl flex items-center gap-2.5 text-xs text-emerald-950 animate-in fade-in">
-            <span className="text-lg">🎯</span>
+          <div className="mt-3 p-2.5 bg-emerald-50/80 border border-emerald-200/80 rounded-2xl flex items-center gap-2 text-[11px] text-emerald-950 animate-in fade-in">
+            <span className="text-base shrink-0">🎯</span>
             <span className="leading-snug">
               {isMaintainGoal
-                ? `Super! Du liegst genau in deinem Erhaltungsbereich (${effectiveBudget} kcal). Dein Gewicht bleibt stabil.`
-                : `Klasse! Du bist im Kaloriendefizit (${remainingKcal} kcal Puffer). Heute nimmst du ab!`}
+                ? `Super! Du liegst in deinem Erhaltungsbereich (${effectiveBudget} kcal). Gewicht bleibt stabil.`
+                : `Klasse! Du bist im Defizit (${remainingKcal} kcal Puffer). Heute nimmst du ab!`}
             </span>
           </div>
         )}
 
         {inSurplusZone && (
-          <div className="mt-4 p-3 bg-rose-50/80 border border-rose-200/80 rounded-2xl flex items-center gap-2.5 text-xs text-rose-950 animate-in fade-in">
-            <span className="text-lg">🌱</span>
+          <div className="mt-3 p-2.5 bg-rose-50/80 border border-rose-200/80 rounded-2xl flex items-center gap-2 text-[11px] text-rose-950 animate-in fade-in">
+            <span className="text-base shrink-0">🌱</span>
             <span className="leading-snug">
-              Heute liegst du etwas über deinem Erhaltungsbedarf ({effectiveMaintenance} kcal). Kein Grund zur Sorge – morgen geht es entspannt weiter!
+              Heute liegst du etwas über dem Erhaltungsbedarf ({effectiveMaintenance} kcal). Morgen geht es entspannt weiter!
             </span>
           </div>
         )}

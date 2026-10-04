@@ -336,11 +336,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               type="button"
               onClick={handleCheckForUpdates}
               disabled={isCheckingUpdate}
-              className="py-1 px-2.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 active:scale-95 border border-emerald-200/90 text-emerald-800 text-[11px] font-bold transition-all flex items-center gap-1.5 shadow-2xs cursor-pointer"
+              className="py-1.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-xs font-bold transition-all flex items-center gap-1.5 shadow-xs cursor-pointer disabled:opacity-50"
               title="Auf neueste Version aktualisieren & Cache leeren"
             >
-              <RefreshCw className={`w-3 h-3 ${isCheckingUpdate ? 'animate-spin text-emerald-600' : 'text-emerald-700'}`} />
-              <span>{isCheckingUpdate ? 'Update...' : 'App updaten'}</span>
+              <RefreshCw className={`w-3.5 h-3.5 ${isCheckingUpdate ? 'animate-spin' : ''}`} />
+              <span>{isCheckingUpdate ? 'Aktualisiere...' : 'App updaten'}</span>
             </button>
 
             <button
@@ -1210,6 +1210,111 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             <p className="text-[10px] text-stone-400 leading-tight">
               💡 Lädt die neueste App-Version von GitHub Pages und leert den Browser-App-Cache. Deine Tagebucheinträge, Brotrezepte und Einstellungen bleiben zu 100 % erhalten.
             </p>
+          </div>
+
+          {/* Versionshistorie & Neuerungen (Letzte 3 Versionen) */}
+          <div className="p-4 bg-gradient-to-br from-emerald-50/70 via-stone-50/50 to-white rounded-2xl border border-emerald-200/80 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="w-8 h-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center text-sm shadow-2xs">
+                  ✨
+                </span>
+                <div>
+                  <h4 className="text-xs font-bold text-stone-900">Was ist neu? – Versionshistorie</h4>
+                  <p className="text-[11px] text-stone-500">Neuerungen der letzten 3 Updates</p>
+                </div>
+              </div>
+              <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
+                Letzte 3 Versionen
+              </span>
+            </div>
+
+            <div className="space-y-2.5 pt-1">
+              {/* Version 1.3.1 */}
+              <div className="p-3 bg-white rounded-xl border border-emerald-200/90 shadow-2xs space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5">
+                    <span className="px-2 py-0.5 rounded-md bg-emerald-600 text-white text-[11px] font-black">
+                      v1.3.1
+                    </span>
+                    <span className="text-xs font-bold text-stone-800">Aktuelle Version</span>
+                  </div>
+                  <span className="text-[10px] text-stone-400 font-medium">04.10.2026</span>
+                </div>
+                <ul className="text-xs text-stone-600 space-y-1 pl-1">
+                  <li className="flex items-start gap-1.5">
+                    <span className="text-emerald-600 shrink-0 font-bold">✓</span>
+                    <span><strong>Kompaktes Dashboard auf einer Höhe:</strong> Kalorienkreis und die 4 Tageswerte (Gegessen, Verbrannt, Defizit-Ziel, Erhalt) liegen jetzt ästhetisch nebeneinander auf einer Höhe – spart viel Scrollen bis zu den Mahlzeiten!</span>
+                  </li>
+                  <li className="flex items-start gap-1.5">
+                    <span className="text-emerald-600 shrink-0 font-bold">✓</span>
+                    <span><strong>App-Update nur in den Einstellungen:</strong> Der Update-Button sitzt jetzt exklusiv und aufgeräumt oben rechts in den Eigenschaften.</span>
+                  </li>
+                  <li className="flex items-start gap-1.5">
+                    <span className="text-emerald-600 shrink-0 font-bold">✓</span>
+                    <span><strong>Versionshistorie:</strong> Diese neue Übersicht zeigt die Änderungen der letzten 3 Versionen transparent auf.</span>
+                  </li>
+                </ul>
+              </div>
+
+              {/* Version 1.3.0 */}
+              <div className="p-3 bg-white rounded-xl border border-stone-200/80 shadow-2xs space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5">
+                    <span className="px-2 py-0.5 rounded-md bg-stone-100 text-stone-800 text-[11px] font-black border border-stone-200">
+                      v1.3.0
+                    </span>
+                    <span className="text-xs font-bold text-stone-700">Rezept-Revolution & Getränke</span>
+                  </div>
+                  <span className="text-[10px] text-stone-400 font-medium">04.10.2026</span>
+                </div>
+                <ul className="text-xs text-stone-600 space-y-1 pl-1">
+                  <li className="flex items-start gap-1.5">
+                    <span className="text-stone-400 shrink-0 font-bold">•</span>
+                    <span><strong>Rezepte direkt bearbeiten:</strong> Unter „Meine Rezepte“ können bestehende Rezepte jetzt jederzeit editiert und mit geänderten Zutaten/Mengen gespeichert werden.</span>
+                  </li>
+                  <li className="flex items-start gap-1.5">
+                    <span className="text-stone-400 shrink-0 font-bold">•</span>
+                    <span><strong>Aufklappbare Rubriken (Akkordeon):</strong> Platzsparende Kategorien mit Schnellfilter und Suche für 100+ Rezepte. Klick öffnet Details, Zutaten, Teilen & Portionierung.</span>
+                  </li>
+                  <li className="flex items-start gap-1.5">
+                    <span className="text-stone-400 shrink-0 font-bold">•</span>
+                    <span><strong>Neue Rubrik „Getränke“:</strong> Eigene Kategorie für Shakes, Smoothies & Infused Water ohne Backverlust (0 %) und Portionierung in Gläsern.</span>
+                  </li>
+                  <li className="flex items-start gap-1.5">
+                    <span className="text-stone-400 shrink-0 font-bold">•</span>
+                    <span><strong>Transparente Zutatensuche:</strong> Klare 4-Stufen-Reihenfolge (Basics ➔ Marken ➔ Favoriten ➔ KI nur auf Knopfdruck per ✨).</span>
+                  </li>
+                </ul>
+              </div>
+
+              {/* Version 1.2.9 */}
+              <div className="p-3 bg-white rounded-xl border border-stone-200/80 shadow-2xs space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5">
+                    <span className="px-2 py-0.5 rounded-md bg-stone-100 text-stone-800 text-[11px] font-black border border-stone-200">
+                      v1.2.9
+                    </span>
+                    <span className="text-xs font-bold text-stone-700">Ernährungsbericht & Nährstoff-Filter</span>
+                  </div>
+                  <span className="text-[10px] text-stone-400 font-medium">03.10.2026</span>
+                </div>
+                <ul className="text-xs text-stone-600 space-y-1 pl-1">
+                  <li className="flex items-start gap-1.5">
+                    <span className="text-stone-400 shrink-0 font-bold">•</span>
+                    <span><strong>3 / 5 / 10 / 20-Tage Ernährungsbericht:</strong> Auswertung über hochverarbeitete Lebensmittel (UPF), ungesunde Fette, Cholesterin, Ballaststoffe und Makros inkl. WhatsApp-Teilen.</span>
+                  </li>
+                  <li className="flex items-start gap-1.5">
+                    <span className="text-stone-400 shrink-0 font-bold">•</span>
+                    <span><strong>Individuelle Nährstoff-Balken:</strong> Frei wählbar, welche Balken (Protein, Carbs, Fett, Ballaststoffe, Zucker, Netto-Carbs) auf dem Dashboard aktiv sind.</span>
+                  </li>
+                  <li className="flex items-start gap-1.5">
+                    <span className="text-stone-400 shrink-0 font-bold">•</span>
+                    <span><strong>Wissenschaftliche Korrektur:</strong> Eier & Garnelen werden nicht mehr fälschlich als ungesundes Cholesterin eingestuft; Blumenkohl-Ballaststoffe & Mengenangaben präzisiert.</span>
+                  </li>
+                </ul>
+              </div>
+            </div>
           </div>
 
           {/* Besucher-Statistiken (Nur für Admin / Dich) */}
