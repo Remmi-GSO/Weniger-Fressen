@@ -1252,7 +1252,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   </li>
                   <li className="flex items-start gap-1.5">
                     <span className="text-emerald-600 shrink-0 font-bold">✓</span>
-                    <span><strong>⚡ Neuer „Jump-To“-Schnellzugriff:</strong> Bereich mit Einsprechen, Nascherei, Rezepte und Scannen (im puristischen Weiß-Schwarz-Design) hervorgehoben.</span>
+                    <span><strong>⚡ Neuer „Jump-To“-Schnellzugriff:</strong> Symmetrische 6er-Auswahl für alle Tagesaktionen: Einsprechen, Nascherei, Rezepte, Scannen (im puristischen Weiß-Schwarz-Look), Bewegung/Sport und direkter Sprung zum Wasserhaushalt.</span>
                   </li>
                   <li className="flex items-start gap-1.5">
                     <span className="text-emerald-600 shrink-0 font-bold">✓</span>

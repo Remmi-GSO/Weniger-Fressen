@@ -6,7 +6,7 @@ import { WaterTracker } from './WaterTracker';
 import { formatDisplayDate, getTodayDateString } from '../utils/nutrition';
 import { assessFoodQuality } from '../utils/foodQuality';
 import { estimateFiber, estimateSugar } from '../utils/nutrientEstimator';
-import { ChevronLeft, ChevronRight, Calendar, Sparkles, Timer, Barcode, Plus, Trash2, Leaf, Mic } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar, Sparkles, Timer, Barcode, Plus, Trash2, Leaf, Mic, Droplet } from 'lucide-react';
 
 interface DashboardProps {
   selectedDate: string;
@@ -576,8 +576,8 @@ export const Dashboard = ({
           </h3>
         </div>
 
-        {/* Quick Launchers: Einsprechen, Nascherei, Rezepte, Scannen */}
-        <div className="grid grid-cols-4 gap-1.5 sm:gap-2">
+        {/* Quick Launchers: 6 Kacheln (3x2 auf Smartphone, 6x1 auf Tablet/Desktop) */}
+        <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5 sm:gap-2">
           {onOpenAiMeal && (
             <button
               type="button"
@@ -630,6 +630,37 @@ export const Dashboard = ({
               <Barcode className="w-3.5 h-3.5 text-stone-900" />
             </div>
             <span className="truncate text-stone-900">Scannen</span>
+          </button>
+
+          {onOpenActivityModal && (
+            <button
+              type="button"
+              onClick={onOpenActivityModal}
+              className="py-2.5 px-1 rounded-2xl bg-stone-50/90 hover:bg-amber-50/80 active:scale-95 border border-stone-100 hover:border-amber-200 text-stone-800 hover:text-amber-900 text-[11px] font-bold transition-all flex flex-col items-center justify-center gap-1 shadow-2xs cursor-pointer"
+              title="Aktivität & Bewegung erfassen (Gassi, Yoga, Sport, Garten)"
+            >
+              <div className="w-7 h-7 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center text-sm shadow-2xs">
+                🏃
+              </div>
+              <span className="truncate">Bewegung</span>
+            </button>
+          )}
+
+          <button
+            type="button"
+            onClick={() => {
+              const el = document.getElementById('water-tracker-section');
+              if (el) {
+                el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              }
+            }}
+            className="py-2.5 px-1 rounded-2xl bg-stone-50/90 hover:bg-blue-50/80 active:scale-95 border border-stone-100 hover:border-blue-200 text-stone-800 hover:text-blue-900 text-[11px] font-bold transition-all flex flex-col items-center justify-center gap-1 shadow-2xs cursor-pointer"
+            title="Direkt zum Wasserhaushalt springen (Owala, Flasche, Glas)"
+          >
+            <div className="w-7 h-7 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center shadow-2xs">
+              <Droplet className="w-3.5 h-3.5 fill-blue-500 text-blue-500" />
+            </div>
+            <span className="truncate">Wasser</span>
           </button>
         </div>
       </div>
@@ -768,7 +799,7 @@ export const Dashboard = ({
       </div>
 
       {/* Water Tracker Section */}
-      <div className="pt-2">
+      <div id="water-tracker-section" className="pt-2">
         <WaterTracker
           selectedDate={selectedDate}
           waterGoal={userProfile.waterGoal || 2500}
