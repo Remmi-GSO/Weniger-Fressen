@@ -167,6 +167,8 @@ export interface ActivityLog {
   caloriesBurned: number; // calculated from MET * weight * duration
   intensity?: 'light' | 'moderate' | 'intense';
   notes?: string;
+  isPenance?: boolean; // True if "Buße" (Kalorien werden geloggt, aber nicht im Essensbudget gutgeschrieben)
+  stepsCount?: number; // Optional steps for pedometer
   timestamp: number;
 }
 

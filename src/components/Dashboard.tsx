@@ -72,15 +72,17 @@ export const Dashboard = ({
   ) / 10;
 
   const totalBurnedKcal = (activityLogs || []).reduce((sum, a) => sum + (a.caloriesBurned || 0), 0);
+  const budgetCreditedBurnedKcal = (activityLogs || []).reduce((sum, a) => sum + (a.isPenance ? 0 : (a.caloriesBurned || 0)), 0);
+  const penanceBurnedKcal = totalBurnedKcal - budgetCreditedBurnedKcal;
 
   const baseTargetKcal = userProfile.targetCalories || 1800;
-  const effectiveBudget = baseTargetKcal + totalBurnedKcal;
+  const effectiveBudget = baseTargetKcal + budgetCreditedBurnedKcal;
   const remainingKcal = effectiveBudget - totalKcal;
 
   // Maintenance energy calculation (Gewicht halten)
   const isMaintainGoal = userProfile.goalType === 'maintain_weight' || userProfile.goalDeficit === 0;
   const maintenanceBase = userProfile.maintenanceCalories || (baseTargetKcal + (userProfile.goalDeficit || (isMaintainGoal ? 0 : 500)));
-  const effectiveMaintenance = maintenanceBase + totalBurnedKcal;
+  const effectiveMaintenance = maintenanceBase + budgetCreditedBurnedKcal;
 
   // 3-Zone evaluation:
   // 1. Deficit zone (Zielbereich / Abnehmen): totalKcal <= effectiveBudget
@@ -232,6 +234,11 @@ export const Dashboard = ({
               <span className="text-xs sm:text-sm font-extrabold text-orange-950 leading-tight">
                 +{totalBurnedKcal} <span className="text-[9px] font-normal text-orange-700/80">kcal</span>
               </span>
+              {penanceBurnedKcal > 0 && (
+                <span className="text-[8px] text-purple-700 font-bold block truncate">
+                  (davon {penanceBurnedKcal} kcal Buße 🙏)
+                </span>
+              )}
             </div>
 
             <div className="p-2 rounded-2xl bg-stone-50 border border-stone-100/90 text-center flex flex-col justify-center">
@@ -722,16 +729,21 @@ export const Dashboard = ({
               🏃
             </div>
             <div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <h4 className="font-extrabold text-stone-900 text-sm">Aktivitäten & Bewegung</h4>
-                {totalBurnedKcal > 0 && (
+                {budgetCreditedBurnedKcal > 0 && (
                   <span className="text-[10px] bg-orange-100 text-orange-950 font-bold px-2 py-0.5 rounded-full">
-                    +{totalBurnedKcal} kcal Budget
+                    +{budgetCreditedBurnedKcal} kcal Budget
+                  </span>
+                )}
+                {penanceBurnedKcal > 0 && (
+                  <span className="text-[10px] bg-purple-100 text-purple-900 font-bold px-2 py-0.5 rounded-full border border-purple-200/70">
+                    🙏 {penanceBurnedKcal} kcal Buße
                   </span>
                 )}
               </div>
               <p className="text-[11px] text-stone-400">
-                Jumping Fit, Crosstrainer, Quest 3 Sport, Gassi mit Snoopy & Yoga
+                Joses Workout, Jumping Fit, Crosstrainer, Schritte & Gassi
               </p>
             </div>
           </div>
@@ -766,9 +778,20 @@ export const Dashboard = ({
                   </div>
 
                   <div className="flex items-center gap-2.5">
-                    <span className="font-black text-orange-700 bg-orange-50 px-2 py-0.5 rounded-lg border border-orange-200/50">
-                      +{act.caloriesBurned} kcal
-                    </span>
+                    {act.isPenance ? (
+                      <div className="text-right">
+                        <span className="font-bold text-purple-800 bg-purple-50 px-2 py-0.5 rounded-lg border border-purple-200/80 text-[11px] block">
+                          +{act.caloriesBurned} kcal (Buße 🙏)
+                        </span>
+                        <span className="text-[9px] text-stone-400 block mt-0.5">
+                          nicht im Essensbudget
+                        </span>
+                      </div>
+                    ) : (
+                      <span className="font-black text-orange-700 bg-orange-50 px-2 py-0.5 rounded-lg border border-orange-200/50">
+                        +{act.caloriesBurned} kcal
+                      </span>
+                    )}
                     <button
                       onClick={async () => {
                         if (act.id) await db.activityLogs.delete(act.id);
