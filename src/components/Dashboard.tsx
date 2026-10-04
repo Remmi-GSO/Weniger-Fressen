@@ -459,33 +459,6 @@ export const Dashboard = ({
         </div>
       )}
 
-      {/* On-Demand Nutrition Report Banner (3, 5, 10, 20 Tage) */}
-      {onOpenNutritionReport && (
-        <div className="bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 text-white rounded-3xl p-4 shadow-soft flex items-center justify-between gap-3 animate-in fade-in">
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="w-10 h-10 rounded-2xl bg-white/20 backdrop-blur-xs flex items-center justify-center text-xl shrink-0 shadow-2xs">
-              📊
-            </div>
-            <div className="min-w-0">
-              <span className="text-xs font-black uppercase tracking-wider block text-white/95">
-                Ernährungs-Bericht auf Abruf
-              </span>
-              <p className="text-[11px] text-white/80 truncate">
-                3, 5, 10 oder 20 Tage (UPF, Fette, Eiweiß & Ballaststoffe)
-              </p>
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={onOpenNutritionReport}
-            className="py-2 px-3.5 rounded-xl bg-white text-emerald-900 hover:bg-emerald-50 active:scale-95 text-xs font-bold transition-all shadow-sm shrink-0 flex items-center gap-1.5 cursor-pointer"
-          >
-            <span>Bericht ansehen</span>
-            <ChevronRight className="w-3.5 h-3.5" />
-          </button>
-        </div>
-      )}
-
       {/* Ernährungs-Qualität & Tages-Tipps (Intelligentes Coaching) */}
       {diaryEntries.length > 0 && (qualityAssessment.activeWarnings.length > 0 || qualityAssessment.praises.length > 0 || qualityAssessment.overallTip) && (
         <div className="bg-white rounded-3xl p-4 sm:p-5 shadow-card border border-teal-100/90 space-y-3 animate-in fade-in">
@@ -573,52 +546,95 @@ export const Dashboard = ({
         </div>
       )}
 
-      {/* Meals Section with Quick Launchers */}
-      <div className="space-y-3">
-        <div className="flex items-center justify-between px-1">
-          <h3 className="text-xs font-bold uppercase tracking-wider text-stone-400">
-            Mahlzeiten
-          </h3>
-          <div className="flex items-center gap-1.5 flex-wrap justify-end">
-            {onOpenAiMeal && (
-              <button
-                onClick={() => onOpenAiMeal()}
-                className="flex items-center gap-1.5 text-xs font-bold text-teal-800 bg-gradient-to-r from-emerald-50 to-teal-50 hover:from-emerald-100 hover:to-teal-100 px-2.5 py-1 rounded-full transition-all border border-emerald-200/80 shadow-2xs"
-                title="Mahlzeit per Mikrofon einsprechen oder Foto machen"
-              >
-                <Mic className="w-3.5 h-3.5 text-emerald-600" />
-                <span>🎙️ Einsprechen</span>
-              </button>
-            )}
-            {onOpenSnackModal && (
-              <button
-                onClick={onOpenSnackModal}
-                className="flex items-center gap-1 text-xs font-bold text-pink-900 bg-pink-50 hover:bg-pink-100 px-2.5 py-1 rounded-full transition-all border border-pink-200/80"
-                title="Nascherei (Schokolade, Käse...) schnell erfassen"
-              >
-                <span>🍫</span>
-                <span>Nascherei</span>
-              </button>
-            )}
-            {onOpenRecipeCreator && (
-              <button
-                onClick={onOpenRecipeCreator}
-                className="flex items-center gap-1 text-xs font-bold text-amber-800 bg-amber-50 hover:bg-amber-100 px-2.5 py-1 rounded-full transition-all border border-amber-200/60"
-                title="Eigene Rezepte für Brot, Mahlzeiten & Getränke ansehen und berechnen"
-              >
-                <span>🍲</span>
-                <span>Rezepte</span>
-              </button>
-            )}
-            <button
-              onClick={onOpenScanner}
-              className="flex items-center gap-1.5 text-xs font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-3 py-1 rounded-full transition-all border border-emerald-200/50"
-            >
-              <Barcode className="w-3.5 h-3.5" />
-              <span>Scannen</span>
-            </button>
+      {/* Highlighted Jump-To Quick-Bar */}
+      <div className="bg-white rounded-3xl p-3.5 sm:p-4 shadow-card border border-emerald-100/90 space-y-2.5">
+        <div className="flex items-center justify-between px-0.5">
+          <div className="flex items-center gap-2">
+            <span className="w-6 h-6 rounded-lg bg-emerald-500 text-white flex items-center justify-center text-xs font-bold shadow-2xs">
+              ⚡
+            </span>
+            <h3 className="text-xs font-black uppercase tracking-wider text-stone-900">
+              Jump-To
+            </h3>
+            <span className="text-[10px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200/70 px-2 py-0.5 rounded-full">
+              Schnellzugriff
+            </span>
           </div>
+
+          {/* Puristischer Startbutton: Diagramm + Ernährungsbericht */}
+          {onOpenNutritionReport && (
+            <button
+              type="button"
+              onClick={onOpenNutritionReport}
+              className="flex items-center gap-1.5 text-xs font-bold text-stone-700 hover:text-emerald-800 bg-stone-50 hover:bg-emerald-50/70 px-2.5 py-1.5 rounded-xl transition-all border border-stone-200/80 hover:border-emerald-200 shadow-2xs active:scale-95 cursor-pointer"
+              title="Ernährungsbericht über flexible Tage öffnen"
+            >
+              <span className="text-sm">📊</span>
+              <span>Ernährungsbericht</span>
+            </button>
+          )}
         </div>
+
+        {/* Quick Launchers: Einsprechen, Nascherei, Rezepte, Scannen */}
+        <div className="grid grid-cols-4 gap-1.5 sm:gap-2">
+          {onOpenAiMeal && (
+            <button
+              type="button"
+              onClick={() => onOpenAiMeal()}
+              className="py-2.5 px-1 rounded-2xl bg-stone-50/90 hover:bg-teal-50/80 active:scale-95 border border-stone-100 hover:border-teal-200 text-stone-800 hover:text-teal-900 text-[11px] font-bold transition-all flex flex-col items-center justify-center gap-1 shadow-2xs cursor-pointer"
+              title="Mahlzeit per Mikrofon einsprechen oder Foto machen"
+            >
+              <div className="w-7 h-7 rounded-xl bg-teal-100 text-teal-700 flex items-center justify-center shadow-2xs">
+                <Mic className="w-3.5 h-3.5" />
+              </div>
+              <span className="truncate">Einsprechen</span>
+            </button>
+          )}
+
+          {onOpenSnackModal && (
+            <button
+              type="button"
+              onClick={onOpenSnackModal}
+              className="py-2.5 px-1 rounded-2xl bg-stone-50/90 hover:bg-pink-50/80 active:scale-95 border border-stone-100 hover:border-pink-200 text-stone-800 hover:text-pink-900 text-[11px] font-bold transition-all flex flex-col items-center justify-center gap-1 shadow-2xs cursor-pointer"
+              title="Nascherei schnell erfassen"
+            >
+              <div className="w-7 h-7 rounded-xl bg-pink-100 text-pink-700 flex items-center justify-center text-sm shadow-2xs">
+                🍫
+              </div>
+              <span className="truncate">Nascherei</span>
+            </button>
+          )}
+
+          {onOpenRecipeCreator && (
+            <button
+              type="button"
+              onClick={onOpenRecipeCreator}
+              className="py-2.5 px-1 rounded-2xl bg-stone-50/90 hover:bg-amber-50/80 active:scale-95 border border-stone-100 hover:border-amber-200 text-stone-800 hover:text-amber-900 text-[11px] font-bold transition-all flex flex-col items-center justify-center gap-1 shadow-2xs cursor-pointer"
+              title="Rezepte ansehen & berechnen"
+            >
+              <div className="w-7 h-7 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center text-sm shadow-2xs">
+                🍲
+              </div>
+              <span className="truncate">Rezepte</span>
+            </button>
+          )}
+
+          <button
+            type="button"
+            onClick={onOpenScanner}
+            className="py-2.5 px-1 rounded-2xl bg-white hover:bg-stone-100 active:scale-95 border border-stone-200/90 text-stone-900 text-[11px] font-black transition-all flex flex-col items-center justify-center gap-1 shadow-2xs cursor-pointer"
+            title="Barcode scannen"
+          >
+            <div className="w-7 h-7 rounded-xl bg-stone-100 text-stone-900 border border-stone-200/70 flex items-center justify-center shadow-2xs">
+              <Barcode className="w-3.5 h-3.5 text-stone-900" />
+            </div>
+            <span className="truncate text-stone-900">Scannen</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Meal Cards Section */}
+      <div className="space-y-3">
 
         <MealCard
           mealType="breakfast"

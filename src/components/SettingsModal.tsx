@@ -1252,6 +1252,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   </li>
                   <li className="flex items-start gap-1.5">
                     <span className="text-emerald-600 shrink-0 font-bold">✓</span>
+                    <span><strong>⚡ Neuer „Jump-To“-Schnellzugriff:</strong> Bereich mit Einsprechen, Nascherei, Rezepte und Scannen (im puristischen Weiß-Schwarz-Design) hervorgehoben.</span>
+                  </li>
+                  <li className="flex items-start gap-1.5">
+                    <span className="text-emerald-600 shrink-0 font-bold">✓</span>
+                    <span><strong>📊 Puristischer Ernährungsbericht:</strong> Schlanker Startbutton `📊 Ernährungsbericht` statt riesigem Banner; flexible Zeiträume von 1–90 Tagen frei wählbar (inkl. 7, 14, 30 Tage Schnellfilter & Stepper).</span>
+                  </li>
+                  <li className="flex items-start gap-1.5">
+                    <span className="text-emerald-600 shrink-0 font-bold">✓</span>
                     <span><strong>💧 Wasserhaushalt mit Owala-Flasche (710 ml):</strong> Neuer Schnellbutton für die beliebte 710 ml Owala-Trinkflasche neben Glas (250 ml) und Flasche (500 ml).</span>
                   </li>
                   <li className="flex items-start gap-1.5">

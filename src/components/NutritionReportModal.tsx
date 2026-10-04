@@ -29,12 +29,20 @@ export const NutritionReportModal = ({
   selectedDate,
   onOpenSettings,
 }: NutritionReportModalProps) => {
-  // Days timeframe options: 3, 5, 10, or 20 days
-  const [selectedDays, setSelectedDays] = useState<3 | 5 | 10 | 20>(5);
+  // Days timeframe: flexible number of days (default: 7)
+  const [selectedDays, setSelectedDays] = useState<number>(7);
+  const [customInput, setCustomInput] = useState<string>('7');
   const [copied, setCopied] = useState(false);
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [aiReviewText, setAiReviewText] = useState<string | null>(null);
   const [aiError, setAiError] = useState<string | null>(null);
+
+  const handleSelectDays = (days: number) => {
+    const clamped = Math.max(1, Math.min(90, Math.round(days)));
+    setSelectedDays(clamped);
+    setCustomInput(String(clamped));
+    setAiReviewText(null);
+  };
 
   // Fetch all diary entries from local database
   const allEntries = useLiveQuery(() => db.diaryEntries.toArray()) || [];
@@ -111,62 +119,90 @@ export const NutritionReportModal = ({
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-stone-900/50 backdrop-blur-sm animate-in fade-in duration-200">
       <div className="w-full max-w-lg bg-white rounded-t-3xl sm:rounded-3xl shadow-soft-lg border border-stone-100 overflow-hidden max-h-[92vh] flex flex-col">
         
-        {/* Header */}
-        <div className="p-4 px-6 border-b border-stone-100 flex items-center justify-between bg-stone-50/70">
+        {/* Puristischer Header */}
+        <div className="p-4 px-6 border-b border-stone-100 flex items-center justify-between bg-white">
           <div className="flex items-center gap-2.5 min-w-0">
-            <div className="w-9 h-9 rounded-2xl bg-gradient-to-tr from-emerald-500 to-teal-500 text-white flex items-center justify-center text-lg shrink-0 shadow-xs">
-              📊
-            </div>
+            <span className="text-xl">📊</span>
             <div className="min-w-0">
-              <h3 className="font-extrabold text-stone-900 text-sm truncate">
-                Ernährungs-Bericht auf Abruf
+              <h3 className="font-extrabold text-stone-900 text-sm tracking-tight truncate">
+                Ernährungsbericht
               </h3>
-              <p className="text-[11px] text-stone-500 truncate">
-                Auswertung für {userProfile.name && userProfile.name.trim() !== 'Du' ? userProfile.name.trim() : 'die Mädels'}
+              <p className="text-[11px] text-stone-400 truncate">
+                {userProfile.name && userProfile.name.trim() !== 'Du' ? userProfile.name.trim() : 'Mädels'} • {report.daysCount} Tage Analyse
               </p>
             </div>
           </div>
 
           <button
             onClick={onClose}
-            className="w-8 h-8 rounded-full bg-white hover:bg-stone-200/80 border border-stone-200/60 flex items-center justify-center text-stone-500 transition-colors shrink-0"
+            className="w-8 h-8 rounded-full bg-stone-100 hover:bg-stone-200/80 flex items-center justify-center text-stone-500 transition-colors shrink-0"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
-        {/* Timeframe Selector Pills: 3, 5, 10, 20 Days */}
-        <div className="px-5 pt-3.5 pb-2.5 border-b border-stone-100 bg-white">
-          <div className="flex items-center justify-between mb-1.5">
+        {/* Flexible Timeframe Selector (Pills + Stepper) */}
+        <div className="px-5 py-3 border-b border-stone-100 bg-stone-50/60">
+          <div className="flex items-center justify-between mb-2">
             <span className="text-[10px] font-bold uppercase tracking-wider text-stone-400">
-              Zeitraum wählen:
+              Zeitraum: {report.daysCount} Tage ({report.trackedDaysCount} erfasst)
             </span>
-            <span className="text-[11px] font-medium text-stone-500">
-              {report.trackedDaysCount} von {report.daysCount} Tagen erfasst
-            </span>
+            
+            {/* Minimalist Stepper & Number Input */}
+            <div className="flex items-center gap-1 bg-white border border-stone-200 rounded-xl px-2 py-0.5 shadow-2xs">
+              <button
+                type="button"
+                onClick={() => handleSelectDays(selectedDays - 1)}
+                disabled={selectedDays <= 1}
+                className="w-5 h-5 flex items-center justify-center text-stone-500 hover:text-stone-900 font-bold disabled:opacity-30 cursor-pointer"
+                title="1 Tag weniger"
+              >
+                −
+              </button>
+              <input
+                type="number"
+                min={1}
+                max={90}
+                value={customInput}
+                onChange={(e) => {
+                  setCustomInput(e.target.value);
+                  const n = parseInt(e.target.value, 10);
+                  if (!isNaN(n) && n >= 1 && n <= 90) {
+                    setSelectedDays(n);
+                    setAiReviewText(null);
+                  }
+                }}
+                className="w-9 text-center text-xs font-black text-stone-900 bg-transparent focus:outline-none"
+              />
+              <span className="text-[10px] text-stone-400 font-medium">Tage</span>
+              <button
+                type="button"
+                onClick={() => handleSelectDays(selectedDays + 1)}
+                disabled={selectedDays >= 90}
+                className="w-5 h-5 flex items-center justify-center text-stone-500 hover:text-stone-900 font-bold disabled:opacity-30 cursor-pointer"
+                title="1 Tag mehr"
+              >
+                +
+              </button>
+            </div>
           </div>
 
-          <div className="grid grid-cols-4 gap-1.5 p-1 bg-stone-100 rounded-2xl">
-            {([3, 5, 10, 20] as const).map((days) => {
-              const isActive = selectedDays === days;
-              return (
-                <button
-                  key={days}
-                  onClick={() => {
-                    setSelectedDays(days);
-                    setAiReviewText(null);
-                  }}
-                  className={`py-2 px-1 text-xs font-bold rounded-xl transition-all flex flex-col items-center ${
-                    isActive
-                      ? 'bg-emerald-600 text-white shadow-2xs'
-                      : 'text-stone-600 hover:text-stone-900 hover:bg-stone-200/60'
-                  }`}
-                >
-                  <span className="text-sm font-extrabold leading-none">{days}</span>
-                  <span className="text-[10px] font-medium opacity-90 mt-0.5">Tage</span>
-                </button>
-              );
-            })}
+          {/* Quick preset pills */}
+          <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5">
+            {[3, 5, 7, 10, 14, 20, 30].map((d) => (
+              <button
+                key={d}
+                type="button"
+                onClick={() => handleSelectDays(d)}
+                className={`py-1 px-2.5 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer ${
+                  selectedDays === d
+                    ? 'bg-stone-900 text-white shadow-2xs'
+                    : 'bg-white text-stone-600 border border-stone-200 hover:bg-stone-100 hover:text-stone-900'
+                }`}
+              >
+                {d} Tage
+              </button>
+            ))}
           </div>
         </div>
 
@@ -179,24 +215,24 @@ export const NutritionReportModal = ({
               <span className="text-3xl block">📝</span>
               <h4 className="font-bold text-stone-700 text-sm">Noch keine Einträge im Zeitraum</h4>
               <p className="text-xs text-stone-400 max-w-xs mx-auto">
-                Erfasse Mahlzeiten im Tagebuch, um hier den ausführlichen Bericht über 3, 5, 10 oder 20 Tage zu sehen.
+                Erfasse Mahlzeiten im Tagebuch, um hier den ausführlichen Ernährungsbericht zu sehen.
               </p>
             </div>
           )}
 
           {report.trackedDaysCount > 0 && (
             <>
-              {/* Headline Scorecards: Calories, Protein, Fiber, Sugar */}
+              {/* Puristic Scorecards: Calories, Protein, Fiber, Sugar */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                 
-                {/* 1. Kalorien-Schnitt */}
-                <div className="p-3 bg-stone-50/80 rounded-2xl border border-stone-200/70">
-                  <div className="flex items-center justify-between text-[10px] font-bold text-stone-500 uppercase tracking-wider">
+                {/* 1. Kalorien */}
+                <div className="p-3 bg-white rounded-2xl border border-stone-200/80 shadow-2xs">
+                  <div className="flex items-center justify-between text-[10px] font-bold text-stone-400 uppercase tracking-wider">
                     <span>Kalorien Ø</span>
                     <span>{report.calorieStatus === 'deficit' ? '🟢' : report.calorieStatus === 'maintenance' ? '🟡' : '🔴'}</span>
                   </div>
                   <div className="mt-1 flex items-baseline gap-1">
-                    <span className="text-lg font-black text-stone-900">{report.avgCalories}</span>
+                    <span className="text-xl font-black text-stone-900">{report.avgCalories}</span>
                     <span className="text-[10px] text-stone-400">kcal/Tag</span>
                   </div>
                   <div className="text-[10px] text-stone-500 mt-0.5 font-medium truncate">
@@ -204,48 +240,52 @@ export const NutritionReportModal = ({
                   </div>
                 </div>
 
-                {/* 2. Protein-Schnitt */}
-                <div className="p-3 bg-violet-50/60 rounded-2xl border border-violet-100">
-                  <div className="flex items-center justify-between text-[10px] font-bold text-violet-700 uppercase tracking-wider">
+                {/* 2. Protein */}
+                <div className="p-3 bg-white rounded-2xl border border-stone-200/80 shadow-2xs">
+                  <div className="flex items-center justify-between text-[10px] font-bold text-stone-400 uppercase tracking-wider">
                     <span>Eiweiß Ø</span>
-                    <span>{report.proteinStatus === 'good' ? '✓' : report.proteinStatus === 'low' ? '⚠️' : '💪'}</span>
+                    <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded-full ${
+                      report.proteinStatus === 'good' ? 'bg-emerald-50 text-emerald-800' : report.proteinStatus === 'low' ? 'bg-amber-50 text-amber-800' : 'bg-purple-50 text-purple-800'
+                    }`}>
+                      {report.proteinPercent}%
+                    </span>
                   </div>
                   <div className="mt-1 flex items-baseline gap-1">
-                    <span className="text-lg font-black text-violet-950">{report.avgProtein}g</span>
-                    <span className="text-[10px] text-violet-600">({report.proteinPercent}%)</span>
+                    <span className="text-xl font-black text-stone-900">{report.avgProtein}g</span>
+                    <span className="text-[10px] text-stone-400">/ Tag</span>
                   </div>
-                  <div className="text-[10px] text-violet-700 mt-0.5 font-medium truncate">
-                    Ziel: {report.targetProtein}g • {report.proteinStatus === 'good' ? 'Optimal' : report.proteinStatus === 'low' ? 'Zu wenig' : 'Sehr hoch'}
+                  <div className="text-[10px] text-stone-500 mt-0.5 font-medium truncate">
+                    Ziel: {report.targetProtein}g ({report.proteinStatus === 'good' ? 'Optimal' : report.proteinStatus === 'low' ? 'Zu wenig' : 'Sehr hoch'})
                   </div>
                 </div>
 
-                {/* 3. Ballaststoffe-Schnitt */}
-                <div className="p-3 bg-emerald-50/60 rounded-2xl border border-emerald-100">
-                  <div className="flex items-center justify-between text-[10px] font-bold text-emerald-800 uppercase tracking-wider">
-                    <span>🌾 Ballastst. Ø</span>
+                {/* 3. Ballaststoffe */}
+                <div className="p-3 bg-white rounded-2xl border border-stone-200/80 shadow-2xs">
+                  <div className="flex items-center justify-between text-[10px] font-bold text-stone-400 uppercase tracking-wider">
+                    <span>Ballaststoffe Ø</span>
                     <span>{report.fiberStatus === 'good' || report.fiberStatus === 'optimal' ? '✓' : '⚠️'}</span>
                   </div>
                   <div className="mt-1 flex items-baseline gap-1">
-                    <span className="text-lg font-black text-emerald-950">{report.avgFiber}g</span>
-                    <span className="text-[10px] text-emerald-600">/ Tag</span>
+                    <span className="text-xl font-black text-stone-900">{report.avgFiber}g</span>
+                    <span className="text-[10px] text-stone-400">/ Tag</span>
                   </div>
-                  <div className="text-[10px] text-emerald-700 mt-0.5 font-medium truncate">
+                  <div className="text-[10px] text-stone-500 mt-0.5 font-medium truncate">
                     Ziel: {report.targetFiber}g ({report.fiberStatus === 'low' ? `-${Math.round(report.targetFiber - report.avgFiber)}g Defizit` : 'Vorbildlich'})
                   </div>
                 </div>
 
-                {/* 4. Zucker-Schnitt */}
-                <div className="p-3 bg-rose-50/60 rounded-2xl border border-rose-100">
-                  <div className="flex items-center justify-between text-[10px] font-bold text-rose-700 uppercase tracking-wider">
-                    <span>🍬 Zucker Ø</span>
+                {/* 4. Zucker */}
+                <div className="p-3 bg-white rounded-2xl border border-stone-200/80 shadow-2xs">
+                  <div className="flex items-center justify-between text-[10px] font-bold text-stone-400 uppercase tracking-wider">
+                    <span>Zucker Ø</span>
                     <span>{report.sugarStatus === 'good' ? '🟢' : '⚠️'}</span>
                   </div>
                   <div className="mt-1 flex items-baseline gap-1">
-                    <span className="text-lg font-black text-rose-950">{report.avgSugar}g</span>
-                    <span className="text-[10px] text-rose-600">/ Tag</span>
+                    <span className="text-xl font-black text-stone-900">{report.avgSugar}g</span>
+                    <span className="text-[10px] text-stone-400">/ Tag</span>
                   </div>
-                  <div className="text-[10px] text-rose-700 mt-0.5 font-medium truncate">
-                    Limit: {report.targetSugar}g • {report.sugarStatus === 'good' ? 'Im Rahmen' : 'Erhöht'}
+                  <div className="text-[10px] text-stone-500 mt-0.5 font-medium truncate">
+                    Limit: {report.targetSugar}g ({report.sugarStatus === 'good' ? 'Im Rahmen' : 'Erhöht'})
                   </div>
                 </div>
 
