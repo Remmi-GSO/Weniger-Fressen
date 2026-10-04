@@ -246,16 +246,28 @@ export async function analyzeMealWithGemini({
   apiKey: string;
   userRecipes?: Array<{
     name: string;
+    category?: string;
+    servingName?: string;
+    servingWeightGrams?: number;
     calories100g: number;
     protein100g: number;
     carbs100g: number;
     fat100g: number;
-    servingWeightGrams?: number;
+    fiber100g?: number;
+    sugar100g?: number;
   }>;
 }): Promise<AiMealAnalysisResult> {
   const recipesContext = userRecipes && userRecipes.length > 0
-    ? `\nBekannte Rezepte des Nutzers in der App:\n${userRecipes.map(r => `- ${r.name}: ${r.calories100g} kcal/100g, Protein: ${r.protein100g}g, KH: ${r.carbs100g}g, Fett: ${r.fat100g}g${r.servingWeightGrams ? ` (Portion ca. ${r.servingWeightGrams}g)` : ''}`).join('\n')}\nWenn der Nutzer eines dieser Rezepte erwähnt (z. B. "selbstgebackenes Brot" oder einen ähnlichen Namen), verwende bevorzugt dessen genaue Nährwerte.\n`
-    : '';
+    ? `\nGespeicherte Rezepte des Nutzers in der App (aus der lokalen Rezept-Datenbank):\n${userRecipes.map(r => 
+        `- [Kategorie: ${r.category || 'allgemein'}] "${r.name}": ${r.calories100g} kcal/100g (Protein: ${r.protein100g}g, KH: ${r.carbs100g}g, Fett: ${r.fat100g}g${r.fiber100g ? `, Ballaststoffe: ${r.fiber100g}g` : ''})${r.servingWeightGrams ? `, Portion/Scheibe "${r.servingName || 'Scheibe'}" ca. ${r.servingWeightGrams}g (= ${Math.round((r.calories100g * r.servingWeightGrams) / 100)} kcal)` : ''}`
+      ).join('\n')}
+
+WICHTIGE VORRANG-REGEL FÜR SELBSTGEMACHTES / SELBSTGEBACKENES (INSBESONDERE BROT):
+- Wenn der Nutzer "selbstgebackenes Brot", "selbstgemachtes Brot", "unser Brot", "mein Brot" oder "eine Scheibe Brot" erwähnt und oben in den Rezepten ein Brotrezept (Kategorie 'bread' oder mit 'Brot' im Namen) hinterlegt ist, MUSST DU ZWINGEND UND AUSNAHMSLOS dieses gespeicherte Brotrezept verwenden!
+- Verwende als Portionsgröße genau das Scheibengewicht aus dem Rezept (z. B. ca. 50g pro Scheibe) und übernimm exakt dessen Nährwerte pro 100g.
+- Verwende in diesem Fall NIEMALS generische Supermarkt-Brotwerte, denn der Nutzer backt sein eigenes Brot und hat es eigens dafür in der App berechnet und abgespeichert!
+- Dasselbe gilt für selbstgekochte Mahlzeiten, Aufläufe oder Smoothies aus der Liste oben: Bevorzuge immer die gespeicherten Rezeptwerte des Nutzers vor Pauschalschätzungen.\n`
+    : `\nHinweis zu selbstgebackenem Brot: Falls der Nutzer "selbstgebackenes Brot" erwähnt, gehe von vollwertigem, nahrhaftem Dinkel-/Sauerteigbrot aus (ca. 225 kcal/100g, ca. 50g pro Scheibe), nicht von einfachem Toastbrot.\n`;
 
   const prompt = `Du bist ein hochentwickelter, feinfühliger deutscher Ernährungs- und Lebensmittelexperte.
 Analysiere die folgende Mahlzeit (anhand des Fotos und/oder der Beschreibung bzw. des Diktats des Nutzers).

@@ -24,15 +24,15 @@ export const DEFAULT_ACTIVITIES: ActivityDefinition[] = [
     description: 'Spaziergang mit Snoopy in 30-Min-Einheiten (Schnüffeln, Stehenbleiben & Gehen)',
   },
   {
-    id: 'joses_workout',
-    name: 'Joses Workout',
+    id: 'josies_workout',
+    name: 'Josies Workout',
     category: 'fitness',
     icon: '💪',
     met: 6.5, // Basis-Schätzung: ~6.5 MET (anpassbar über Intensitätsstufen & Crosstrainer)
     defaultDurationMinutes: 45,
     unitStepMinutes: 15,
     unitLabel: 'Minuten',
-    description: 'Allgemeines Workout oder Crosstrainer mit Display-Vergleich und Buß-Funktion.',
+    description: 'Allgemeines Workout oder Crosstrainer mit Intensitätsstufen, Display-Vergleich und Buß-Funktion.',
     allowManualCalories: true,
   },
   {

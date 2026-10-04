@@ -22,6 +22,7 @@ import {
 import confetti from 'canvas-confetti';
 
 import { estimateFiber, estimateSugar } from '../utils/nutrientEstimator';
+import { useSpeechRecognition } from '../hooks/useSpeechRecognition';
 
 interface AiMealModalProps {
   isOpen: boolean;
@@ -47,63 +48,6 @@ const reasonOptions: Array<{ id: EatingReason; label: string; icon: string }> = 
   { id: 'social', label: 'Feier', icon: '🟣' },
 ];
 
-/**
- * Processes Web Speech API results and cleans repetitions caused by Android Chrome.
- * On Android, event.results emits cumulative snapshots where each item contains
- * the entire spoken phrase up to that point. Blind concatenation results in
- * exponential phrase repetition.
- */
-function cleanSpeechRecognitionResults(results: any): string {
-  if (!results || results.length === 0) return '';
-  const phrases: string[] = [];
-
-  for (let i = 0; i < results.length; i++) {
-    const item = results[i];
-    const text = item[0]?.transcript?.trim();
-    if (!text) continue;
-
-    if (phrases.length === 0) {
-      phrases.push(text);
-      continue;
-    }
-
-    const last = phrases[phrases.length - 1];
-    const normLast = last.toLowerCase().replace(/[.,!?;:]/g, '').replace(/\s+/g, ' ').trim();
-    const normCurr = text.toLowerCase().replace(/[.,!?;:]/g, '').replace(/\s+/g, ' ').trim();
-
-    // 1. Exact match / identical repetition
-    if (normCurr === normLast) {
-      phrases[phrases.length - 1] = text;
-    }
-    // 2. Current text is a cumulative extension of the previous phrase (Android Chrome snapshot)
-    else if (normCurr.startsWith(normLast)) {
-      phrases[phrases.length - 1] = text;
-    }
-    // 3. Current text is shorter than previous (e.g. flickering interim result)
-    else if (normLast.startsWith(normCurr)) {
-      // Keep the longer previous text
-    }
-    // 4. Truly a new distinct phrase/sentence
-    else {
-      phrases.push(text);
-    }
-  }
-
-  let merged = phrases.join(' ').trim();
-
-  // Additional safety pass: collapse any immediate consecutive duplicate phrases
-  const phrasePattern = /\b(.{4,60}?)\s+\1\b/gi;
-  let prev = '';
-  let count = 0;
-  while (phrasePattern.test(merged) && count < 10) {
-    prev = merged;
-    merged = merged.replace(phrasePattern, '$1');
-    if (merged === prev) break;
-    count++;
-  }
-
-  return merged;
-}
 
 /**
  * Automatically cleans texts that suffered from speech recognition stutter or duplicate snapshots.
@@ -159,11 +103,26 @@ export const AiMealModal = ({
   const [imageBase64, setImageBase64] = useState<string | null>(null);
   const [imageMimeType, setImageMimeType] = useState<string>('image/jpeg');
 
-  // Voice recording state
-  const [isRecording, setIsRecording] = useState(false);
-  const [speechSupported, setSpeechSupported] = useState(false);
-  const recognitionRef = useRef<any>(null);
-  const prefixTextRef = useRef('');
+  // Persistent voice recording state via useSpeechRecognition hook
+  const {
+    isListening: isRecording,
+    isSupported: speechSupported,
+    toggleListening,
+    stopListening,
+  } = useSpeechRecognition({
+    continuous: true,
+    lang: 'de-DE',
+    onTranscript: (text) => {
+      setDescription(text);
+    },
+  });
+
+  // Stop recording when modal is closed
+  useEffect(() => {
+    if (!isOpen && isRecording) {
+      stopListening();
+    }
+  }, [isOpen, isRecording, stopListening]);
 
   // Fetch custom recipes (e.g. homemade breads) for accurate recognition
   const customRecipes = useLiveQuery(() => db.recipes.toArray()) || [];
@@ -186,40 +145,6 @@ export const AiMealModal = ({
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Initialize SpeechRecognition on mount
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const SpeechRecognition =
-        (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-      if (SpeechRecognition) {
-        setSpeechSupported(true);
-        const recognition = new SpeechRecognition();
-        recognition.lang = 'de-DE';
-        recognition.continuous = true;
-        recognition.interimResults = true;
-
-        recognition.onresult = (event: any) => {
-          const cleaned = cleanSpeechRecognitionResults(event.results);
-          const base = prefixTextRef.current;
-          setDescription(base ? `${base} ${cleaned}`.trim() : cleaned.trim());
-        };
-
-        recognition.onerror = (e: any) => {
-          console.log('Speech recognition error', e);
-          setIsRecording(false);
-          prefixTextRef.current = '';
-        };
-
-        recognition.onend = () => {
-          setIsRecording(false);
-          prefixTextRef.current = '';
-        };
-
-        recognitionRef.current = recognition;
-      }
-    }
-  }, []);
-
   // Sync defaultMealType when opened
   useEffect(() => {
     if (isOpen) {
@@ -232,31 +157,17 @@ export const AiMealModal = ({
   if (!isOpen) return null;
 
   const handleToggleVoice = () => {
-    if (!speechSupported || !recognitionRef.current) {
-      alert('Spracherkennung wird von diesem Browser nicht unterstützt. Du kannst den Text einfach eintippen.');
+    if (!speechSupported) {
+      alert('Spracherkennung wird von diesem Browser leider nicht unterstützt. Du kannst den Text einfach eintippen.');
       return;
     }
 
     if (isRecording) {
-      try {
-        recognitionRef.current.stop();
-      } catch (e) {
-        // ignore
-      }
-      setIsRecording(false);
-      prefixTextRef.current = '';
+      stopListening();
     } else {
-      try {
-        const currentClean = recoverCleanSentence(description);
-        setDescription(currentClean);
-        prefixTextRef.current = currentClean.trim();
-        recognitionRef.current.start();
-        setIsRecording(true);
-      } catch (err) {
-        console.error('Failed to start speech recognition', err);
-        setIsRecording(false);
-        prefixTextRef.current = '';
-      }
+      const currentClean = recoverCleanSentence(description);
+      setDescription(currentClean);
+      toggleListening(currentClean, true);
     }
   };
 
@@ -332,9 +243,8 @@ export const AiMealModal = ({
     }
 
     // Stop voice if recording
-    if (isRecording && recognitionRef.current) {
-      recognitionRef.current.stop();
-      setIsRecording(false);
+    if (isRecording) {
+      stopListening();
     }
 
     setIsAnalyzing(true);
@@ -351,11 +261,15 @@ export const AiMealModal = ({
         apiKey: activeKey,
         userRecipes: customRecipes.map((r) => ({
           name: r.name,
+          category: r.category,
+          servingName: r.servingName,
+          servingWeightGrams: r.servingWeightGrams,
           calories100g: r.calories100g,
           protein100g: r.protein100g,
           carbs100g: r.carbs100g,
           fat100g: r.fat100g,
-          servingWeightGrams: r.servingWeightGrams,
+          fiber100g: r.fiber100g,
+          sugar100g: r.sugar100g,
         })),
       });
 
@@ -682,9 +596,18 @@ export const AiMealModal = ({
 
                 {/* Recording Live Status Badge */}
                 {isRecording && (
-                  <div className="p-2.5 bg-rose-100/90 border border-rose-300/80 rounded-2xl flex items-center gap-2.5 text-xs text-rose-950 font-semibold animate-pulse">
-                    <span className="w-2.5 h-2.5 rounded-full bg-rose-600 animate-ping shrink-0" />
-                    <span>Höre zu... Sprich jetzt frei heraus, was du gegessen hast.</span>
+                  <div className="p-2.5 bg-rose-100/90 border border-rose-300/80 rounded-2xl flex items-center justify-between gap-2 text-xs text-rose-950 font-semibold animate-pulse">
+                    <div className="flex items-center gap-2">
+                      <span className="w-2.5 h-2.5 rounded-full bg-rose-600 animate-ping shrink-0" />
+                      <span>Dauer-Aufnahme aktiv: Sprich frei heraus – kurze Pausen brechen nicht ab.</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => stopListening()}
+                      className="px-2.5 py-1 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-[11px] font-bold shrink-0 cursor-pointer shadow-2xs"
+                    >
+                      Fertig ⏹️
+                    </button>
                   </div>
                 )}
 
@@ -714,7 +637,7 @@ export const AiMealModal = ({
                 )}
 
                 <p className="text-[11px] text-stone-400">
-                  💡 Du kannst ein Foto machen, sprechen oder beides kombinieren (z. B. Foto + Sprachzusatz „ohne Butter“).
+                  💡 Du kannst sprechen oder tippen. Wenn du „selbstgebackenes Brot“ sagst, übernimmt die KI automatisch dein unter „Rezepte“ gespeichertes Brotrezept!
                 </p>
               </div>
 

@@ -57,11 +57,11 @@ export const ActivityModal = ({
   const [questMode, setQuestMode] = useState<'estimate_racket' | 'manual_move'>('estimate_racket');
   const [manualCalories, setManualCalories] = useState<string>('');
 
-  // Joses Workout State (Allgemein vs. Crosstrainer, Intensitäten, Buße)
-  const [josesType, setJosesType] = useState<'general' | 'crosstrainer'>('general');
-  const [josesIntensity, setJosesIntensity] = useState<'gentle' | 'moderate' | 'intense' | 'extreme'>('moderate');
-  const [josesCrosstrainerMode, setJosesCrosstrainerMode] = useState<'manual' | 'estimate'>('manual');
-  const [josesManualCalories, setJosesManualCalories] = useState<string>('');
+  // Josies Workout State (Allgemein vs. Crosstrainer, Intensitäten, Buße)
+  const [josiesType, setJosiesType] = useState<'general' | 'crosstrainer'>('general');
+  const [josiesIntensity, setJosiesIntensity] = useState<'gentle' | 'moderate' | 'intense' | 'extreme'>('moderate');
+  const [josiesCrosstrainerMode, setJosiesCrosstrainerMode] = useState<'manual' | 'estimate'>('manual');
+  const [josiesManualCalories, setJosiesManualCalories] = useState<string>('');
   const [isPenance, setIsPenance] = useState<boolean>(false);
 
   // Pedometer / Samsung Health Steps State
@@ -81,19 +81,19 @@ export const ActivityModal = ({
   const isJumpingFit = currentActivity.id === 'jumping_fit';
   const isCrosstrainer = currentActivity.id === 'crosstrainer';
   const isQuest3 = currentActivity.id === 'quest3_sport';
-  const isJosesWorkout = currentActivity.id === 'joses_workout';
+  const isJosiesWorkout = currentActivity.id === 'josies_workout' || currentActivity.id === 'joses_workout';
   const isPedometer = currentActivity.id === 'pedometer_steps';
 
   const isManualMode =
     (isCrosstrainer && crosstrainerMode === 'manual') ||
     (isQuest3 && questMode === 'manual_move') ||
-    (isJosesWorkout && josesType === 'crosstrainer' && josesCrosstrainerMode === 'manual');
+    (isJosiesWorkout && josiesType === 'crosstrainer' && josiesCrosstrainerMode === 'manual');
 
   const parsedManualKcal = parseInt(manualCalories, 10);
-  const parsedJosesManualKcal = parseInt(josesManualCalories, 10);
+  const parsedJosiesManualKcal = parseInt(josiesManualCalories, 10);
   const hasValidManualKcal =
-    (isManualMode && !isJosesWorkout && !isNaN(parsedManualKcal) && parsedManualKcal > 0) ||
-    (isJosesWorkout && josesType === 'crosstrainer' && josesCrosstrainerMode === 'manual' && !isNaN(parsedJosesManualKcal) && parsedJosesManualKcal > 0);
+    (isManualMode && !isJosiesWorkout && !isNaN(parsedManualKcal) && parsedManualKcal > 0) ||
+    (isJosiesWorkout && josiesType === 'crosstrainer' && josiesCrosstrainerMode === 'manual' && !isNaN(parsedJosiesManualKcal) && parsedJosiesManualKcal > 0);
 
   // Intensity multiplier adjusted for activity type
   const intensityMultiplier = useMemo(() => {
@@ -132,20 +132,21 @@ export const ActivityModal = ({
   const parsedPedometerSteps = parseInt(pedometerSteps, 10) || 0;
   const pedometerNetSteps = Math.max(0, parsedPedometerSteps - baselineSteps);
 
-  const josesCrosstrainerEstimatedKcal = useMemo(() => {
-    let met = 6.5;
-    if (josesIntensity === 'gentle') met = 5.0;
-    else if (josesIntensity === 'intense') met = 8.0;
-    else if (josesIntensity === 'extreme') met = 9.5;
-    return Math.max(1, Math.round(met * (userProfile.weight || 75) * (durationMinutes / 60)));
-  }, [josesIntensity, userProfile.weight, durationMinutes]);
+  const josiesCrosstrainerEstimatedKcal = useMemo(() => {
+    let netMet = 5.5;
+    if (josiesIntensity === 'gentle') netMet = 4.0;
+    else if (josiesIntensity === 'intense') netMet = 7.0;
+    else if (josiesIntensity === 'extreme') netMet = 8.5;
+    return Math.max(1, Math.round(netMet * (userProfile.weight || 75) * (durationMinutes / 60)));
+  }, [josiesIntensity, userProfile.weight, durationMinutes]);
+
 
   // Calculated burned calories (Net additional energy above resting metabolic rate)
   const userWeight = userProfile.weight || 75;
   const calorieBreakdown: CalorieBurnCalculation = useMemo(() => {
-    // Manuelle Eingabe (vom Crosstrainer-Display oder Quest Move Tracker oder Joses Crosstrainer)
+    // Manuelle Eingabe (vom Crosstrainer-Display oder Quest Move Tracker oder Josies Crosstrainer)
     if (hasValidManualKcal) {
-      const activeKcal = isJosesWorkout ? parsedJosesManualKcal : parsedManualKcal;
+      const activeKcal = isJosiesWorkout ? parsedJosiesManualKcal : parsedManualKcal;
       const resting = Math.round(1.0 * userWeight * (durationMinutes / 60));
       return {
         netCalories: activeKcal,
@@ -155,12 +156,12 @@ export const ActivityModal = ({
       };
     }
 
-    if (isJosesWorkout) {
+    if (isJosiesWorkout) {
       let netMet = 5.5;
-      if (josesType === 'crosstrainer') {
-        netMet = josesIntensity === 'gentle' ? 5.0 : josesIntensity === 'intense' ? 8.0 : josesIntensity === 'extreme' ? 9.5 : 6.5;
+      if (josiesType === 'crosstrainer') {
+        netMet = josiesIntensity === 'gentle' ? 4.0 : josiesIntensity === 'intense' ? 7.0 : josiesIntensity === 'extreme' ? 8.5 : 5.5;
       } else {
-        netMet = josesIntensity === 'gentle' ? 3.0 : josesIntensity === 'intense' ? 7.5 : josesIntensity === 'extreme' ? 9.5 : 5.5;
+        netMet = josiesIntensity === 'gentle' ? 3.0 : josiesIntensity === 'intense' ? 7.5 : josiesIntensity === 'extreme' ? 9.5 : 5.5;
       }
 
       const netKcal = Math.max(1, Math.round(netMet * userWeight * (durationMinutes / 60)));
@@ -220,11 +221,11 @@ export const ActivityModal = ({
   }, [
     hasValidManualKcal,
     parsedManualKcal,
-    parsedJosesManualKcal,
-    isJosesWorkout,
-    josesType,
-    josesIntensity,
-    josesCrosstrainerMode,
+    parsedJosiesManualKcal,
+    isJosiesWorkout,
+    josiesType,
+    josiesIntensity,
+    josiesCrosstrainerMode,
     isPedometer,
     pedometerNetSteps,
     isJumpingFit,
@@ -248,12 +249,12 @@ export const ActivityModal = ({
     setSelectedActivityId(act.id);
     if (act.id === 'dog_walk') {
       setDurationMinutes(30);
-    } else if (act.id === 'joses_workout') {
+    } else if (act.id === 'josies_workout' || act.id === 'joses_workout') {
       setDurationMinutes(45);
-      setJosesType('general');
-      setJosesIntensity('moderate');
-      setJosesCrosstrainerMode('manual');
-      setJosesManualCalories('');
+      setJosiesType('general');
+      setJosiesIntensity('moderate');
+      setJosiesCrosstrainerMode('manual');
+      setJosiesManualCalories('');
       setIsPenance(false);
     } else if (act.id === 'pedometer_steps') {
       setDurationMinutes(60);
@@ -280,17 +281,18 @@ export const ActivityModal = ({
     if (durationMinutes <= 0 || (calculatedKcal <= 0 && !isPedometer)) return;
 
     let displayName = currentActivity.name;
-    if (isJosesWorkout) {
-      if (josesType === 'crosstrainer') {
-        displayName = josesCrosstrainerMode === 'manual'
-          ? 'Joses Workout (Crosstrainer Display)'
-          : `Joses Workout (Crosstrainer ${durationMinutes} Min)`;
+    if (isJosiesWorkout) {
+      const intLabel =
+        josiesIntensity === 'gentle' ? 'Sanft' :
+        josiesIntensity === 'intense' ? 'Intensiv' :
+        josiesIntensity === 'extreme' ? 'Vollgas' : 'Moderat';
+
+      if (josiesType === 'crosstrainer') {
+        displayName = josiesCrosstrainerMode === 'manual'
+          ? `Josies Workout (Crosstrainer Display, ${intLabel})`
+          : `Josies Workout (Crosstrainer ${durationMinutes} Min, ${intLabel})`;
       } else {
-        const intLabel =
-          josesIntensity === 'gentle' ? 'Sanft' :
-          josesIntensity === 'intense' ? 'Intensiv' :
-          josesIntensity === 'extreme' ? 'Vollgas' : 'Moderat';
-        displayName = `Joses Workout (${durationMinutes} Min, ${intLabel})`;
+        displayName = `Josies Workout (${durationMinutes} Min, ${intLabel})`;
       }
       if (isPenance) {
         displayName += ' (Buße 🙏)';
@@ -321,7 +323,7 @@ export const ActivityModal = ({
       durationMinutes,
       caloriesBurned: calculatedKcal,
       intensity: isManualMode ? 'moderate' : intensity,
-      isPenance: isJosesWorkout ? isPenance : false,
+      isPenance: isJosiesWorkout ? isPenance : false,
       stepsCount: isPedometer ? parsedPedometerSteps : undefined,
       timestamp: Date.now(),
     };
@@ -483,7 +485,7 @@ export const ActivityModal = ({
                       <span className="text-[10px] text-stone-400 block truncate">
                         {act.id === 'dog_walk'
                           ? 'Halbe Std.'
-                          : act.id === 'joses_workout'
+                          : act.id === 'josies_workout' || act.id === 'joses_workout'
                           ? 'Workout / Buße'
                           : act.id === 'pedometer_steps'
                           ? 'Samsung / Pedometer'
@@ -516,13 +518,13 @@ export const ActivityModal = ({
               </div>
             </div>
 
-            {/* SPEZIAL 0A: JOSES WORKOUT */}
-            {isJosesWorkout ? (
+            {/* SPEZIAL 0A: JOSIES WORKOUT */}
+            {isJosiesWorkout ? (
               <div className="space-y-4 bg-white p-3.5 rounded-2xl border border-orange-200/90 shadow-2xs">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-1.5">
                     <span className="text-base">💪</span>
-                    <span className="text-xs font-extrabold text-stone-800">Joses Workout Konfiguration</span>
+                    <span className="text-xs font-extrabold text-stone-800">Josies Workout Konfiguration</span>
                   </div>
                   <span className="text-[10px] font-black uppercase tracking-wider bg-orange-100 text-orange-950 px-2 py-0.5 rounded-full">
                     Individuell
@@ -534,11 +536,11 @@ export const ActivityModal = ({
                   <button
                     type="button"
                     onClick={() => {
-                      setJosesType('general');
+                      setJosiesType('general');
                       setDurationMinutes(45);
                     }}
                     className={`py-2 px-2 rounded-lg text-xs font-bold transition-all cursor-pointer text-center ${
-                      josesType === 'general'
+                      josiesType === 'general'
                         ? 'bg-white text-orange-950 shadow-2xs'
                         : 'text-stone-500 hover:text-stone-800'
                     }`}
@@ -548,11 +550,11 @@ export const ActivityModal = ({
                   <button
                     type="button"
                     onClick={() => {
-                      setJosesType('crosstrainer');
+                      setJosiesType('crosstrainer');
                       setDurationMinutes(30);
                     }}
                     className={`py-2 px-2 rounded-lg text-xs font-bold transition-all cursor-pointer text-center ${
-                      josesType === 'crosstrainer'
+                      josiesType === 'crosstrainer'
                         ? 'bg-white text-orange-950 shadow-2xs'
                         : 'text-stone-500 hover:text-stone-800'
                     }`}
@@ -562,7 +564,7 @@ export const ActivityModal = ({
                 </div>
 
                 {/* Wenn Typ === 'general' */}
-                {josesType === 'general' ? (
+                {josiesType === 'general' ? (
                   <div className="space-y-3 pt-1">
                     {/* Intensitätsstufen */}
                     <div>
@@ -579,9 +581,9 @@ export const ActivityModal = ({
                           <button
                             key={lvl.id}
                             type="button"
-                            onClick={() => setJosesIntensity(lvl.id as any)}
+                            onClick={() => setJosiesIntensity(lvl.id as any)}
                             className={`p-2 rounded-xl border text-left transition-all cursor-pointer ${
-                              josesIntensity === lvl.id
+                              josiesIntensity === lvl.id
                                 ? 'border-orange-600 bg-orange-600 text-white font-bold shadow-xs'
                                 : 'border-stone-200 bg-stone-50 hover:bg-stone-100 text-stone-700'
                             }`}
@@ -622,103 +624,162 @@ export const ActivityModal = ({
                 ) : (
                   /* Wenn Typ === 'crosstrainer' */
                   <div className="space-y-3 pt-1">
-                    {/* Modus: Display vs. Schätzung */}
-                    <div className="grid grid-cols-2 gap-1 p-1 bg-stone-50 rounded-xl border border-stone-200/60">
-                      <button
-                        type="button"
-                        onClick={() => setJosesCrosstrainerMode('manual')}
-                        className={`py-1.5 px-2 rounded-lg text-[11px] font-bold transition-all cursor-pointer text-center ${
-                          josesCrosstrainerMode === 'manual'
-                            ? 'bg-white text-orange-950 shadow-2xs border border-orange-200'
-                            : 'text-stone-500 hover:text-stone-800'
-                        }`}
-                      >
-                        🔢 Display-Kalorien eingeben
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setJosesCrosstrainerMode('estimate')}
-                        className={`py-1.5 px-2 rounded-lg text-[11px] font-bold transition-all cursor-pointer text-center ${
-                          josesCrosstrainerMode === 'estimate'
-                            ? 'bg-white text-orange-950 shadow-2xs border border-orange-200'
-                            : 'text-stone-500 hover:text-stone-800'
-                        }`}
-                      >
-                        ⏱️ App-Schätzwert nutzen
-                      </button>
-                    </div>
-
-                    {/* Dauer & Eingabe */}
-                    <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <label className="text-[11px] font-bold text-stone-700 block mb-1">
-                          Trainingszeit:
-                        </label>
-                        <div className="relative">
-                          <input
-                            type="number"
-                            min="5"
-                            max="240"
-                            step="5"
-                            value={durationMinutes}
-                            onChange={(e) => setDurationMinutes(Math.max(1, Number(e.target.value)))}
-                            className="w-full py-2 pl-3 pr-10 rounded-xl border border-stone-200 font-extrabold text-stone-900 text-sm"
-                          />
-                          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-stone-400">
-                            Min
-                          </span>
-                        </div>
-                      </div>
-
-                      <div>
-                        <label className="text-[11px] font-bold text-stone-700 block mb-1">
-                          {josesCrosstrainerMode === 'manual' ? 'Display-Kalorien:' : 'Intensität:'}
-                        </label>
-                        {josesCrosstrainerMode === 'manual' ? (
-                          <div className="relative">
-                            <input
-                              type="number"
-                              min="10"
-                              max="3000"
-                              step="5"
-                              placeholder="z.B. 320"
-                              value={josesManualCalories}
-                              onChange={(e) => setJosesManualCalories(e.target.value)}
-                              className="w-full py-2 pl-3 pr-10 rounded-xl border border-orange-300 font-extrabold text-stone-900 text-sm focus:ring-2 focus:ring-orange-500"
-                            />
-                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-stone-400">
-                              kcal
-                            </span>
-                          </div>
-                        ) : (
-                          <select
-                            value={josesIntensity}
-                            onChange={(e) => setJosesIntensity(e.target.value as any)}
-                            className="w-full py-2 px-2 rounded-xl border border-stone-200 font-bold text-stone-800 text-xs bg-white"
+                    {/* Crosstrainer Intensitätsstufen */}
+                    <div>
+                      <label className="text-[11px] font-bold text-stone-700 block mb-1.5">
+                        Crosstrainer-Intensität wählen:
+                      </label>
+                      <div className="grid grid-cols-2 gap-1.5">
+                        {[
+                          { id: 'gentle', label: '🌱 Sanft / Gemütlich', sub: 'Niedriger Widerstand (~300 kcal/h)' },
+                          { id: 'moderate', label: '⚡ Moderat / Standard', sub: 'Stetiges Cardio-Tempo (~400 kcal/h)' },
+                          { id: 'intense', label: '🔥 Zügig / Intensiv', sub: 'Hoher Widerstand, schweißtreibend (~500 kcal/h)' },
+                          { id: 'extreme', label: '💥 Vollgas / Intervall', sub: 'Sprint-Intervalle, maximaler Widerstand (~600 kcal/h)' },
+                        ].map((lvl) => (
+                          <button
+                            key={lvl.id}
+                            type="button"
+                            onClick={() => setJosiesIntensity(lvl.id as any)}
+                            className={`p-2 rounded-xl border text-left transition-all cursor-pointer ${
+                              josiesIntensity === lvl.id
+                                ? 'border-orange-600 bg-orange-600 text-white font-bold shadow-xs'
+                                : 'border-stone-200 bg-stone-50 hover:bg-stone-100 text-stone-700'
+                            }`}
                           >
-                            <option value="gentle">Leicht / Gemütlich</option>
-                            <option value="moderate">Moderat / Standard</option>
-                            <option value="intense">Zügig / Intensiv</option>
-                            <option value="extreme">Vollgas / Intervall</option>
-                          </select>
-                        )}
+                            <span className="text-xs font-black block">{lvl.label}</span>
+                            <span className="text-[10px] opacity-85 block leading-snug">{lvl.sub}</span>
+                          </button>
+                        ))}
                       </div>
                     </div>
 
-                    {/* Vergleichende Anzeige */}
-                    <div className="p-2.5 rounded-xl bg-orange-50/70 border border-orange-200/80 text-xs text-orange-950 flex items-center justify-between gap-2">
-                      <div className="leading-snug">
-                        <span className="font-bold block">💡 Schätzungs-Vergleich:</span>
-                        <span>App schätzt für {durationMinutes} Min: <strong>ca. {josesCrosstrainerEstimatedKcal} kcal</strong></span>
+                    {/* Trainingszeit */}
+                    <div>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <label className="text-[11px] font-bold text-stone-700">Trainingsdauer auf dem Crosstrainer:</label>
+                        <span className="text-xs font-black text-orange-950 bg-orange-100 px-2 py-0.5 rounded-full">
+                          {durationMinutes} Minuten
+                        </span>
                       </div>
-                      {josesCrosstrainerMode === 'manual' && (
+                      <div className="grid grid-cols-5 gap-1.5 mb-2">
+                        {[15, 20, 30, 45, 60].map((mins) => (
+                          <button
+                            key={mins}
+                            type="button"
+                            onClick={() => setDurationMinutes(mins)}
+                            className={`py-1.5 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
+                              durationMinutes === mins
+                                ? 'border-orange-600 bg-orange-50 text-orange-950 font-black'
+                                : 'border-stone-200 bg-white text-stone-600 hover:bg-stone-50'
+                            }`}
+                          >
+                            {mins} Min
+                          </button>
+                        ))}
+                      </div>
+                      <div className="relative">
+                        <input
+                          type="number"
+                          min="5"
+                          max="240"
+                          step="5"
+                          value={durationMinutes}
+                          onChange={(e) => setDurationMinutes(Math.max(1, Number(e.target.value)))}
+                          className="w-full py-1.5 pl-3 pr-10 rounded-xl border border-stone-200 font-extrabold text-stone-900 text-xs bg-white"
+                        />
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-stone-400">
+                          Minuten frei
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Modus: Display vs. Schätzung */}
+                    <div className="p-3 bg-orange-50/60 rounded-2xl border border-orange-200/80 space-y-2.5">
+                      <div className="flex items-center justify-between">
+                        <label className="text-[11px] font-extrabold text-orange-950">
+                          Kalorienberechnung & Display-Vergleich:
+                        </label>
+                        <span className="text-[10px] text-orange-800 bg-orange-100 px-2 py-0.5 rounded-full font-bold">
+                          Netto-Verbrauch
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-1 p-1 bg-white rounded-xl border border-stone-200">
                         <button
                           type="button"
-                          onClick={() => setJosesManualCalories(String(josesCrosstrainerEstimatedKcal))}
-                          className="px-2.5 py-1 rounded-lg bg-orange-200 hover:bg-orange-300 font-bold text-[11px] text-orange-900 transition-colors shrink-0 cursor-pointer"
+                          onClick={() => setJosiesCrosstrainerMode('manual')}
+                          className={`py-2 px-2 rounded-lg text-[11px] font-bold transition-all cursor-pointer text-center ${
+                            josiesCrosstrainerMode === 'manual'
+                              ? 'bg-orange-600 text-white shadow-2xs font-extrabold'
+                              : 'text-stone-600 hover:text-stone-900'
+                          }`}
                         >
-                          Übernehmen
+                          🔢 Display-Wert eingeben
                         </button>
+                        <button
+                          type="button"
+                          onClick={() => setJosiesCrosstrainerMode('estimate')}
+                          className={`py-2 px-2 rounded-lg text-[11px] font-bold transition-all cursor-pointer text-center ${
+                            josiesCrosstrainerMode === 'estimate'
+                              ? 'bg-orange-600 text-white shadow-2xs font-extrabold'
+                              : 'text-stone-600 hover:text-stone-900'
+                          }`}
+                        >
+                          ⏱️ App-Schätzwert nutzen
+                        </button>
+                      </div>
+
+                      {josiesCrosstrainerMode === 'manual' ? (
+                        <div className="space-y-2 pt-1">
+                          <div>
+                            <label className="text-[11px] font-bold text-stone-700 block mb-1">
+                              Vom Crosstrainer angezeigte Kalorien:
+                            </label>
+                            <div className="relative">
+                              <input
+                                type="number"
+                                min="10"
+                                max="3000"
+                                step="5"
+                                placeholder="z. B. 320"
+                                value={josiesManualCalories}
+                                onChange={(e) => setJosiesManualCalories(e.target.value)}
+                                className="w-full py-2 pl-3 pr-12 rounded-xl border border-orange-300 font-extrabold text-stone-900 text-sm focus:ring-2 focus:ring-orange-500 bg-white"
+                              />
+                              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-stone-400">
+                                kcal
+                              </span>
+                            </div>
+                          </div>
+
+                          <div className="p-2.5 rounded-xl bg-white border border-orange-200 text-xs text-orange-950 flex items-center justify-between gap-2 shadow-2xs">
+                            <div className="leading-snug">
+                              <span className="font-bold block">💡 Netto-Schätzung für deine Intensität:</span>
+                              <span>
+                                {durationMinutes} Min {josiesIntensity === 'gentle' ? 'Sanft' : josiesIntensity === 'intense' ? 'Zügig' : josiesIntensity === 'extreme' ? 'Vollgas' : 'Moderat'}: <strong>ca. {josiesCrosstrainerEstimatedKcal} Netto-kcal</strong>
+                                <span className="text-[10px] text-stone-500 block">(Crosstrainer-Displays zeigen oft Brutto inkl. Grundumsatz an)</span>
+                              </span>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => setJosiesManualCalories(String(josiesCrosstrainerEstimatedKcal))}
+                              className="px-2.5 py-1.5 rounded-xl bg-orange-100 hover:bg-orange-200 font-extrabold text-[11px] text-orange-900 transition-colors shrink-0 cursor-pointer border border-orange-200"
+                              title="Wissenschaftlichen Schätzwert als Kalorien übernehmen"
+                            >
+                              Übernehmen
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="p-3 rounded-xl bg-white border border-orange-200 text-xs text-orange-950 space-y-1 shadow-2xs">
+                          <div className="flex items-center justify-between">
+                            <span className="font-bold">Berechneter Netto-Verbrauch:</span>
+                            <span className="text-sm font-black text-orange-600">~{josiesCrosstrainerEstimatedKcal} kcal</span>
+                          </div>
+                          <p className="text-[11px] text-stone-500 leading-snug">
+                            Basiert exakt auf deinen {userProfile.weight || 75} kg Körpergewicht, {durationMinutes} Minuten und Stufe <strong>{josiesIntensity === 'gentle' ? 'Sanft' : josiesIntensity === 'intense' ? 'Zügig' : josiesIntensity === 'extreme' ? 'Vollgas' : 'Moderat'}</strong>.
+                          </p>
+                        </div>
                       )}
                     </div>
                   </div>
@@ -735,7 +796,7 @@ export const ActivityModal = ({
                       <span className="text-2xl select-none shrink-0">🙏</span>
                       <div>
                         <div className="flex items-center gap-1.5">
-                          <span className="text-xs font-black text-stone-900">Buße-Modus</span>
+                          <span className="text-xs font-black text-stone-900">Buße / Defizit-Schutz</span>
                           {isPenance ? (
                             <span className="text-[10px] font-black uppercase tracking-wider bg-purple-600 text-white px-2 py-0.5 rounded-full">
                               Aktiv
@@ -747,7 +808,7 @@ export const ActivityModal = ({
                           )}
                         </div>
                         <p className="text-[11px] text-stone-500 mt-0.5 leading-snug">
-                          Ausrutscher kompensieren – Kalorien werden protokolliert, aber <strong>nicht</strong> dem Essensbudget gutgeschrieben!
+                          Puffer für optimistische Mahlzeiten-Einträge: Schützt dein Kaloriendefizit, falls Portionen zuvor etwas zu vorsichtig geschätzt wurden. Kalorien werden protokolliert, aber <strong>nicht</strong> dem Essensbudget gutgeschrieben!
                         </p>
                       </div>
                     </div>
@@ -761,13 +822,13 @@ export const ActivityModal = ({
                           : 'bg-white hover:bg-stone-100 text-stone-700 border border-stone-300'
                       }`}
                     >
-                      {isPenance ? '✓ Buße' : 'Buße'}
+                      {isPenance ? '✓ Buße aktiv' : 'Buße'}
                     </button>
                   </div>
 
                   {isPenance && (
-                    <div className="mt-2.5 pt-2.5 border-t border-purple-200 text-xs text-purple-950 leading-relaxed animate-in fade-in bg-purple-100/60 p-2 rounded-xl">
-                      ⚡ <strong>Sünden-Ausgleich aktiv:</strong> Du verbrennst <strong>{calculatedKcal} kcal</strong> für dein gutes Gewissen. Da du irgendwo „drüber gelatscht“ bist, bleibt dein heutiges Essensbudget unangetastet, damit das Defizit erhalten bleibt!
+                    <div className="mt-2.5 pt-2.5 border-t border-purple-200 text-xs text-purple-950 leading-relaxed animate-in fade-in bg-purple-100/60 p-2.5 rounded-xl">
+                      🛡️ <strong>Defizit-Schutz aktiv:</strong> Du verbrennst <strong>{calculatedKcal} kcal</strong> als Sicherheitspuffer. Falls Mahlzeiten heute etwas zu optimistisch verbucht wurden, gleicht dieses Workout das zuverlässig aus – ohne dein heutiges Essensbudget künstlich aufzublähen!
                     </div>
                   )}
                 </div>
@@ -1304,8 +1365,8 @@ export const ActivityModal = ({
               </div>
             )}
 
-            {/* INTENSITY LEVEL (Nur bei automatischer Berechnung und nicht bei Joses Workout / Pedometer) */}
-            {!isManualMode && !isJosesWorkout && !isPedometer ? (
+            {/* INTENSITY LEVEL (Nur bei automatischer Berechnung und nicht bei Josies Workout / Pedometer) */}
+            {!isManualMode && !isJosiesWorkout && !isPedometer ? (
               <div className="flex items-center justify-between text-xs">
                 <span className="text-stone-500 font-medium">Intensität:</span>
                 <div className="flex gap-1">

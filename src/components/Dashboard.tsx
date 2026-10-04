@@ -743,7 +743,7 @@ export const Dashboard = ({
                 )}
               </div>
               <p className="text-[11px] text-stone-400">
-                Joses Workout, Jumping Fit, Crosstrainer, Schritte & Gassi
+                Josies Workout, Jumping Fit, Crosstrainer, Schritte & Gassi
               </p>
             </div>
           </div>
