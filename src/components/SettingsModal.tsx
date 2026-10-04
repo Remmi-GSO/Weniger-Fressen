@@ -4,6 +4,7 @@ import { VoiceInputButton } from './VoiceInputButton';
 import { X, Key, Download, Upload, Trash2, Sliders, Check, RefreshCw, CheckCircle, Maximize, Minimize, BarChart3, Scale, Sparkles, Leaf } from 'lucide-react';
 import { APP_VERSION, APP_BUILD_DATE, APP_DB_VERSION, APP_CACHE_VERSION } from '../config/version';
 import { calculateNutritionTargets, type DailyStepLevel, type WorkoutIntensity } from '../utils/nutrition';
+import { triggerAppUpdate } from '../utils/appUpdate';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -170,20 +171,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     setIsCheckingUpdate(true);
     setUpdateMessage(null);
     try {
-      if ('serviceWorker' in navigator) {
-        const registrations = await navigator.serviceWorker.getRegistrations();
-        for (const reg of registrations) {
-          await reg.update();
-        }
-      }
-      if ('caches' in window) {
-        const cacheNames = await caches.keys();
-        await Promise.all(cacheNames.map((name) => caches.delete(name)));
-      }
       setUpdateMessage('Cache geleert! App wird mit neuester Version neu geladen...');
-      setTimeout(() => {
-        window.location.reload();
-      }, 1000);
+      await triggerAppUpdate();
     } catch (err) {
       console.error('Update check failed', err);
       setUpdateMessage('Aktualisierung fehlgeschlagen.');
@@ -342,12 +331,25 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               <p className="text-xs text-stone-400">Passe deine Ziele, Keys und App-Eigenschaften an</p>
             </div>
           </div>
-          <button
-            onClick={onClose}
-            className="w-8 h-8 rounded-full bg-stone-100 hover:bg-stone-200 flex items-center justify-center text-stone-500 transition-colors"
-          >
-            <X className="w-4 h-4" />
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleCheckForUpdates}
+              disabled={isCheckingUpdate}
+              className="py-1 px-2.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 active:scale-95 border border-emerald-200/90 text-emerald-800 text-[11px] font-bold transition-all flex items-center gap-1.5 shadow-2xs cursor-pointer"
+              title="Auf neueste Version aktualisieren & Cache leeren"
+            >
+              <RefreshCw className={`w-3 h-3 ${isCheckingUpdate ? 'animate-spin text-emerald-600' : 'text-emerald-700'}`} />
+              <span>{isCheckingUpdate ? 'Update...' : 'App updaten'}</span>
+            </button>
+
+            <button
+              onClick={onClose}
+              className="w-8 h-8 rounded-full bg-stone-100 hover:bg-stone-200 flex items-center justify-center text-stone-500 transition-colors"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
         </div>
 
         <form onSubmit={handleSave} className="p-6 overflow-y-auto space-y-6">
@@ -1074,15 +1076,15 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             </div>
           )}
 
-          {/* Rezepte & Brot verwalten & per WhatsApp/QR teilen */}
+          {/* Rezepte verwalten & per WhatsApp/QR teilen */}
           {onOpenRecipeCreator && (
             <div className="p-4 bg-gradient-to-r from-amber-500/10 via-orange-500/5 to-amber-500/10 rounded-2xl border border-amber-200/90 space-y-2.5">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2.5">
-                  <span className="p-2 bg-amber-100 text-amber-900 rounded-xl text-lg">🍞</span>
+                  <span className="p-2 bg-amber-100 text-amber-900 rounded-xl text-lg">🍲</span>
                   <div>
-                    <h4 className="text-xs font-bold text-stone-800">Rezepte & selbstgebackenes Brot</h4>
-                    <p className="text-[11px] text-stone-500">Eigene Rezepte ansehen, verwalten & per WhatsApp oder QR-Code teilen</p>
+                    <h4 className="text-xs font-bold text-stone-800">Rezepte verwalten</h4>
+                    <p className="text-[11px] text-stone-500">Eigene Rezepte für Brot, Mahlzeiten & Getränke ansehen, bearbeiten & teilen</p>
                   </div>
                 </div>
               </div>
@@ -1092,9 +1094,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   onClose();
                   onOpenRecipeCreator();
                 }}
-                className="w-full py-2.5 px-3 rounded-xl bg-amber-600 hover:bg-amber-700 active:scale-[0.99] text-white text-xs font-bold transition-all flex items-center justify-center gap-2 shadow-xs"
+                className="w-full py-2.5 px-3 rounded-xl bg-amber-600 hover:bg-amber-700 active:scale-[0.99] text-white text-xs font-bold transition-all flex items-center justify-center gap-2 shadow-xs cursor-pointer"
               >
-                <span>📲 Rezepte öffnen & per WhatsApp / QR teilen</span>
+                <span>📲 Rezepte verwalten & per WhatsApp / QR teilen</span>
               </button>
             </div>
           )}

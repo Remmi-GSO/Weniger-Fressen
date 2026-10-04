@@ -1,13 +1,31 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { db, type RecipeIngredient, type CustomRecipe, type MealType } from '../db/db';
+import { db, type RecipeIngredient, type CustomRecipe, type RecipeCategory, type MealType } from '../db/db';
 import { ALL_LOCAL_FOODS, searchFoodProducts, normalizeGermanSearch, type FoodProduct } from '../services/foodApi';
 import { getPortionPresets } from '../utils/portionPresets';
 import { queryFoodWithGemini, parseRecipeWithGemini } from '../services/geminiApi';
 import { VoiceInputButton } from './VoiceInputButton';
 import { BarcodeScannerModal } from './BarcodeScannerModal';
 import { RecipeShareModal } from './RecipeShareModal';
-import { X, Trash2, Plus, Minus, Loader2, Star, Barcode, Check, QrCode, BookOpen, Utensils, Sparkles, AlertCircle } from 'lucide-react';
+import {
+  X,
+  Trash2,
+  Plus,
+  Minus,
+  Loader2,
+  Star,
+  Barcode,
+  Check,
+  QrCode,
+  BookOpen,
+  Utensils,
+  Sparkles,
+  AlertCircle,
+  ChevronDown,
+  ChevronUp,
+  Edit3,
+  Search,
+} from 'lucide-react';
 import confetti from 'canvas-confetti';
 
 interface RecipeCreatorModalProps {
@@ -15,10 +33,26 @@ interface RecipeCreatorModalProps {
   onClose: () => void;
   onRecipeSaved?: (recipe: CustomRecipe) => void;
   defaultMealType?: MealType;
-  initialCategory?: 'bread' | 'meal' | 'snack';
+  initialCategory?: RecipeCategory;
   geminiApiKey?: string;
   onOpenSettings?: () => void;
 }
+
+const DRINK_STAPLES: Array<{ name: string; grams: number; icon: string }> = [
+  { name: 'Wasser (Leitungswasser)', grams: 250, icon: '💧' },
+  { name: 'Milch (1,5% Fett)', grams: 250, icon: '🥛' },
+  { name: 'Hafermilch (Barista Edition)', grams: 250, icon: '🌾' },
+  { name: 'Reine Buttermilch', grams: 250, icon: '🥛' },
+  { name: 'Kefir mild (1,5% Fett)', grams: 250, icon: '🥛' },
+  { name: 'Magerquark / Speisequark Magerstufe', grams: 100, icon: '🥣' },
+  { name: 'Whey Proteinpulver (Vanille / Schoko)', grams: 30, icon: '💪' },
+  { name: 'Banane (mittelgroß)', grams: 110, icon: '🍌' },
+  { name: 'Beeren-Mix (TK)', grams: 100, icon: '🫐' },
+  { name: 'Erdbeeren (frisch)', grams: 150, icon: '🍓' },
+  { name: 'Zitronensaft (frisch gepresst)', grams: 20, icon: '🍋' },
+  { name: 'Blütenhonig / Imkerhonig', grams: 15, icon: '🍯' },
+  { name: 'Chiasamen', grams: 15, icon: '🌱' },
+];
 
 const BREAD_STAPLES: Array<{ name: string; grams: number; icon: string }> = [
   { name: 'Dinkelmehl Type 630', grams: 500, icon: '🌾' },
@@ -59,12 +93,62 @@ export const RecipeCreatorModal = ({
   geminiApiKey,
   onOpenSettings,
 }: RecipeCreatorModalProps) => {
-  const [name, setName] = useState(initialCategory === 'meal' ? 'Mein Gericht' : 'Unser selbstgebackenes Brot');
-  const [category, setCategory] = useState<'bread' | 'meal' | 'snack'>(initialCategory);
+  const [name, setName] = useState(
+    initialCategory === 'meal'
+      ? 'Mein Gericht'
+      : initialCategory === 'drink'
+      ? 'Mein Getränk / Smoothie'
+      : 'Unser selbstgebackenes Brot'
+  );
+  const [category, setCategory] = useState<RecipeCategory>(initialCategory);
+  
+  // Edit mode state
+  const [editingRecipeId, setEditingRecipeId] = useState<number | null>(null);
+
+  // List view UI state: Accordion & Expand
+  const [expandedRecipeId, setExpandedRecipeId] = useState<number | null>(null);
+  const [listCategoryFilter, setListCategoryFilter] = useState<'all' | RecipeCategory>('all');
+  const [recipeSearchQuery, setRecipeSearchQuery] = useState('');
+  const [openCategories, setOpenCategories] = useState<Record<string, boolean>>({
+    bread: true,
+    meal: true,
+    drink: true,
+    snack: true,
+  });
+
+  const toggleCategory = (cat: string) => {
+    setOpenCategories((prev) => ({ ...prev, [cat]: !prev[cat] }));
+  };
+
+  const handleStartEdit = (r: CustomRecipe) => {
+    setEditingRecipeId(r.id || null);
+    setName(r.name);
+    setCategory(r.category || 'bread');
+    setIngredients(r.ingredients ? [...r.ingredients] : []);
+    setSliceWeight(String(r.servingWeightGrams || (r.category === 'bread' ? 50 : 250)));
+    setCustomBakedWeight(r.cookedWeight ? String(r.cookedWeight) : '');
+    setActiveTab('create');
+  };
+
+  const handleCancelEdit = () => {
+    setEditingRecipeId(null);
+    setName(
+      category === 'meal'
+        ? 'Mein Gericht'
+        : category === 'drink'
+        ? 'Mein Getränk / Smoothie'
+        : 'Unser selbstgebackenes Brot'
+    );
+    setIngredients([]);
+    setCustomBakedWeight('');
+    setSliceWeight(category === 'bread' ? '50' : '250');
+  };
   
   // Ingredients list
   const [ingredients, setIngredients] = useState<RecipeIngredient[]>(
     initialCategory === 'meal'
+      ? []
+      : initialCategory === 'drink'
       ? []
       : [
           { name: 'Dinkelmehl Type 630', amountGrams: 500, calories: 1725, protein: 65, carbs: 345, fat: 6.5 },
@@ -97,7 +181,9 @@ export const RecipeCreatorModal = ({
 
   // Loaf / Dish weights & Portions
   const [customBakedWeight, setCustomBakedWeight] = useState<string>('');
-  const [sliceWeight, setSliceWeight] = useState<string>(initialCategory === 'meal' ? '250' : '50');
+  const [sliceWeight, setSliceWeight] = useState<string>(
+    initialCategory === 'bread' ? '50' : '250'
+  );
 
   // Custom recipes list & sharing
   const customRecipes = useLiveQuery(() => db.recipes.reverse().toArray()) || [];
@@ -109,6 +195,8 @@ export const RecipeCreatorModal = ({
     if (!recipeId) return;
     if (window.confirm('Möchtest du dieses Rezept wirklich dauerhaft löschen?')) {
       await db.recipes.delete(recipeId);
+      if (expandedRecipeId === recipeId) setExpandedRecipeId(null);
+      if (editingRecipeId === recipeId) handleCancelEdit();
     }
   };
 
@@ -241,10 +329,11 @@ export const RecipeCreatorModal = ({
     return ingredients.reduce((sum, item) => sum + item.fat, 0);
   }, [ingredients]);
 
-  // Baked/Cooked weight: if not manually specified, bread loses ~12%, cooked meals lose ~5% to steam
+  // Baked/Cooked weight: if not manually specified, bread loses ~12%, cooked meals lose ~5% to steam, drinks lose 0%
   const effectiveBakedWeight = useMemo(() => {
     const manual = parseFloat(customBakedWeight);
     if (manual && manual > 0) return manual;
+    if (category === 'drink') return totalRawWeight;
     return Math.round(totalRawWeight * (category === 'bread' ? 0.88 : 0.95));
   }, [customBakedWeight, totalRawWeight, category]);
 
@@ -270,7 +359,7 @@ export const RecipeCreatorModal = ({
   }, [totalRawFat, effectiveBakedWeight]);
 
   // Nutritional values per single slice/portion
-  const numSliceWeight = parseFloat(sliceWeight) || (category === 'bread' ? 50 : 250);
+  const numSliceWeight = parseFloat(sliceWeight) || (category === 'bread' ? 50 : category === 'drink' ? 250 : 250);
   const sliceMultiplier = numSliceWeight / 100;
   const caloriesPerSlice = Math.round(caloriesPer100g * sliceMultiplier);
   const proteinPerSlice = Math.round(proteinPer100g * sliceMultiplier * 10) / 10;
@@ -307,8 +396,18 @@ export const RecipeCreatorModal = ({
     const found = ALL_LOCAL_FOODS.find((f) => f.name.toLowerCase() === staple.name.toLowerCase()) || {
       id: `staple_${Date.now()}`,
       name: staple.name,
-      calories100g: staple.name.includes('öl') ? 884 : staple.name.includes('mehl') ? 345 : 0,
-      protein100g: 0,
+      calories100g: staple.name.includes('öl')
+        ? 884
+        : staple.name.includes('mehl')
+        ? 345
+        : staple.name.includes('milch') || staple.name.includes('Kefir')
+        ? 47
+        : staple.name.includes('honig')
+        ? 304
+        : staple.name.includes('banane')
+        ? 89
+        : 50,
+      protein100g: staple.name.includes('protein') ? 75 : 0,
       carbs100g: 0,
       fat100g: 0,
       source: 'local' as const,
@@ -397,7 +496,7 @@ export const RecipeCreatorModal = ({
       ingredients,
       totalRawWeight,
       cookedWeight: effectiveBakedWeight,
-      servingName: category === 'bread' ? '1 Scheibe' : '1 Portion',
+      servingName: category === 'bread' ? '1 Scheibe' : category === 'drink' ? '1 Glas' : '1 Portion',
       servingWeightGrams: numSliceWeight,
       calories100g: caloriesPer100g,
       protein100g: proteinPer100g,
@@ -406,8 +505,16 @@ export const RecipeCreatorModal = ({
       createdAt: Date.now(),
     };
 
-    const id = await db.recipes.add(recipe);
-    recipe.id = id;
+    let targetId = editingRecipeId;
+    if (editingRecipeId) {
+      await db.recipes.put({ ...recipe, id: editingRecipeId });
+      recipe.id = editingRecipeId;
+      setEditingRecipeId(null);
+    } else {
+      const id = await db.recipes.add(recipe);
+      recipe.id = id;
+      targetId = id;
+    }
 
     // Also add to favoriteItems so it's directly accessible in diary search
     await db.favoriteItems.add({
@@ -428,10 +535,13 @@ export const RecipeCreatorModal = ({
       colors: ['#10B981', '#F59E0B', '#8B5CF6'],
     });
 
-    if (onRecipeSaved) {
+    if (onRecipeSaved && !editingRecipeId) {
       onRecipeSaved(recipe);
     }
-    onClose();
+
+    // Switch to list tab & expand the updated recipe!
+    setActiveTab('list');
+    setExpandedRecipeId(targetId || null);
   };
 
   return (
@@ -441,17 +551,23 @@ export const RecipeCreatorModal = ({
         {/* Header */}
         <div className="p-4 px-6 border-b border-stone-100 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className={`p-2 rounded-xl text-lg ${category === 'bread' ? 'bg-amber-50 text-amber-600' : 'bg-emerald-50 text-emerald-600'}`}>
-              {category === 'bread' ? '🍞' : '🍲'}
+            <span className={`p-2 rounded-xl text-lg ${
+              category === 'drink'
+                ? 'bg-blue-50 text-blue-600'
+                : category === 'bread'
+                ? 'bg-amber-50 text-amber-600'
+                : 'bg-emerald-50 text-emerald-600'
+            }`}>
+              {category === 'drink' ? '🥤' : category === 'bread' ? '🍞' : '🍲'}
             </span>
             <div>
               <h3 className="font-bold text-stone-800 text-base">
-                {category === 'bread' ? 'Eigenes Brot berechnen' : 'Eigenes Gericht / Rezept berechnen'}
+                {editingRecipeId ? 'Rezept bearbeiten' : 'Rezepte'}
               </h3>
               <p className="text-xs text-stone-400">
-                {category === 'bread'
-                  ? 'Exakte Scheiben- & 100g-Werte aus Zutaten ermitteln'
-                  : 'Exakte Portions- & 100g-Werte aus Zutaten ermitteln'}
+                {editingRecipeId
+                  ? 'Passe Zutaten, Mengen oder Portionen an'
+                  : 'Brot & Kuchen, Mahlzeiten und Getränke berechnen'}
               </p>
             </div>
           </div>
@@ -463,7 +579,7 @@ export const RecipeCreatorModal = ({
           </button>
         </div>
 
-        {/* Navigation Tabs: Neues Rezept vs. Meine Rezepte & Teilen */}
+        {/* Navigation Tabs: Neues Rezept / Bearbeiten vs. Meine Rezepte */}
         <div className="flex border-b border-stone-100 bg-stone-50/70 px-4 pt-1.5 shrink-0">
           <button
             type="button"
@@ -474,8 +590,8 @@ export const RecipeCreatorModal = ({
                 : 'border-transparent text-stone-400 hover:text-stone-700'
             }`}
           >
-            <Plus className="w-3.5 h-3.5" />
-            <span>Neues Brot / Rezept</span>
+            {editingRecipeId ? <Edit3 className="w-3.5 h-3.5 text-amber-600" /> : <Plus className="w-3.5 h-3.5" />}
+            <span>{editingRecipeId ? 'Rezept bearbeiten' : 'Neues Rezept'}</span>
           </button>
 
           <button
@@ -488,13 +604,33 @@ export const RecipeCreatorModal = ({
             }`}
           >
             <BookOpen className="w-3.5 h-3.5" />
-            <span>Meine Rezepte & Teilen ({customRecipes.length})</span>
+            <span>Meine Rezepte ({customRecipes.length})</span>
           </button>
         </div>
 
         {activeTab === 'create' && (
           <form onSubmit={handleSaveRecipe} className="p-5 sm:p-6 overflow-y-auto space-y-5 flex-1">
           
+          {/* Edit Mode Notice Banner */}
+          {editingRecipeId && (
+            <div className="p-3 bg-amber-50 border border-amber-200/90 rounded-2xl flex items-center justify-between text-xs text-amber-950 shadow-2xs animate-in fade-in">
+              <div className="flex items-center gap-2">
+                <span className="text-base">✏️</span>
+                <div>
+                  <span className="font-bold block">Du bearbeitest dieses Rezept</span>
+                  <span className="text-[11px] text-amber-800">Änderungen werden direkt im Rezept aktualisiert.</span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={handleCancelEdit}
+                className="py-1 px-2.5 rounded-xl bg-white border border-amber-300 text-amber-900 font-bold hover:bg-amber-100 transition-colors shrink-0 text-[11px] cursor-pointer"
+              >
+                Abbrechen
+              </button>
+            </div>
+          )}
+
           {/* Recipe Name & Category */}
           <div className="space-y-2.5">
             <div>
@@ -505,7 +641,13 @@ export const RecipeCreatorModal = ({
                 <input
                   type="text"
                   required
-                  placeholder={category === 'bread' ? 'z. B. Unser Dinkel-Sauerteigbrot' : 'z. B. Kürbissuppe, Rindergulasch, Gemüsecurry'}
+                  placeholder={
+                    category === 'bread'
+                      ? 'z. B. Unser Dinkel-Sauerteigbrot, Apfelkuchen'
+                      : category === 'drink'
+                      ? 'z. B. Grüner Smoothie, Protein-Beeren-Shake, Frischer Eistee'
+                      : 'z. B. Blumenkohl-Auflauf, Rindergulasch, Gemüsecurry'
+                  }
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   className="w-full pl-4 pr-10 py-2.5 rounded-2xl border border-stone-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 font-bold text-stone-800 text-sm"
@@ -526,31 +668,51 @@ export const RecipeCreatorModal = ({
                 type="button"
                 onClick={() => {
                   setCategory('bread');
-                  if (name === 'Mein Gericht') setName('Unser selbstgebackenes Brot');
+                  if (name === 'Mein Gericht' || name === 'Mein Getränk / Smoothie') setName('Unser selbstgebackenes Brot');
                   if (sliceWeight === '250') setSliceWeight('50');
                 }}
-                className={`flex-1 py-1.5 px-3 rounded-xl border text-xs font-bold transition-all ${
+                className={`flex-1 py-2 px-2 rounded-xl border text-xs font-bold transition-all flex items-center justify-center gap-1 cursor-pointer ${
                   category === 'bread'
                     ? 'border-amber-500 bg-amber-50 text-amber-900 shadow-sm'
                     : 'border-stone-200 text-stone-600 hover:bg-stone-50'
                 }`}
               >
-                🍞 Brot & Gebäck
+                <span>🍞</span>
+                <span>Brot & Kuchen</span>
               </button>
+
               <button
                 type="button"
                 onClick={() => {
                   setCategory('meal');
-                  if (name === 'Unser selbstgebackenes Brot') setName('Mein Gericht');
+                  if (name === 'Unser selbstgebackenes Brot' || name === 'Mein Getränk / Smoothie') setName('Mein Gericht');
                   if (sliceWeight === '50') setSliceWeight('250');
                 }}
-                className={`flex-1 py-1.5 px-3 rounded-xl border text-xs font-bold transition-all ${
+                className={`flex-1 py-2 px-2 rounded-xl border text-xs font-bold transition-all flex items-center justify-center gap-1 cursor-pointer ${
                   category === 'meal'
                     ? 'border-emerald-500 bg-emerald-50 text-emerald-900 shadow-sm'
                     : 'border-stone-200 text-stone-600 hover:bg-stone-50'
                 }`}
               >
-                🍲 Gekochtes Gericht / Mahlzeit
+                <span>🍲</span>
+                <span>Feste Mahlzeit</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setCategory('drink');
+                  if (name === 'Unser selbstgebackenes Brot' || name === 'Mein Gericht') setName('Mein Getränk / Smoothie');
+                  setSliceWeight('250');
+                }}
+                className={`flex-1 py-2 px-2 rounded-xl border text-xs font-bold transition-all flex items-center justify-center gap-1 cursor-pointer ${
+                  category === 'drink'
+                    ? 'border-blue-500 bg-blue-50 text-blue-900 shadow-sm'
+                    : 'border-stone-200 text-stone-600 hover:bg-stone-50'
+                }`}
+              >
+                <span>🥤</span>
+                <span>Getränk</span>
               </button>
             </div>
 
@@ -784,8 +946,9 @@ export const RecipeCreatorModal = ({
                             ? 'bg-emerald-600 text-white'
                             : 'bg-stone-200/70 text-stone-600 hover:bg-stone-200'
                         }`}
+                        title="Durchsucht die Offline-Datenbank und Millionen Supermarkt-Marken"
                       >
-                        🔍 Suche
+                        🔍 Textsuche
                       </button>
                       <button
                         type="button"
@@ -812,6 +975,11 @@ export const RecipeCreatorModal = ({
                       </button>
                     </div>
                   </div>
+
+                  {/* Search Transparency Note */}
+                  <p className="text-[10px] text-stone-400 font-medium">
+                    💡 Sucht blitzschnell in Offline-Basics & Supermarkt-Marken. <span className="text-emerald-700 font-bold">KI nur per Klick auf ✨</span>.
+                  </p>
 
                   {/* Search Bar + Barcode Scanner + Voice */}
                   <div className="relative">
@@ -1013,15 +1181,15 @@ export const RecipeCreatorModal = ({
                   {(activePickerTab === 'staples' || (activePickerTab === 'search' && searchResults.length === 0)) && (
                     <div>
                       <span className="text-[10px] font-bold text-stone-400 uppercase tracking-wider block mb-1">
-                        Beliebte Zutaten (1-Tap):
+                        Beliebte Basics für {category === 'bread' ? 'Brot & Kuchen' : category === 'drink' ? 'Getränke & Shakes' : 'Mahlzeiten'} (1-Tap):
                       </span>
                       <div className="flex flex-wrap gap-1.5">
-                        {(category === 'bread' ? BREAD_STAPLES : MEAL_STAPLES).map((s) => (
+                        {(category === 'bread' ? BREAD_STAPLES : category === 'drink' ? DRINK_STAPLES : MEAL_STAPLES).map((s) => (
                           <button
                             key={s.name}
                             type="button"
                             onClick={() => handleSelectStaple(s)}
-                            className="px-2.5 py-1 bg-white hover:bg-emerald-50 active:scale-95 border border-stone-200 hover:border-emerald-300 text-stone-700 hover:text-emerald-900 rounded-xl text-xs font-medium transition-all shadow-2xs flex items-center gap-1"
+                            className="px-2.5 py-1 bg-white hover:bg-emerald-50 active:scale-95 border border-stone-200 hover:border-emerald-300 text-stone-700 hover:text-emerald-900 rounded-xl text-xs font-medium transition-all shadow-2xs flex items-center gap-1 cursor-pointer"
                           >
                             <span>{s.icon}</span>
                             <span>{s.name.split(' ')[0]}</span>
@@ -1037,23 +1205,25 @@ export const RecipeCreatorModal = ({
 
           {/* BACKGEWICHT / KOCHVERLUST & PORTIONS-KALKULATION */}
           <div className={`p-4 rounded-2xl space-y-3 border ${
-            category === 'bread'
+            category === 'drink'
+              ? 'bg-blue-50/70 border-blue-200/80 text-blue-900'
+              : category === 'bread'
               ? 'bg-amber-50/70 border-amber-200/80 text-amber-900'
               : 'bg-emerald-50/70 border-emerald-200/80 text-emerald-900'
           }`}>
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold uppercase tracking-wider">
-                {category === 'bread' ? '🍞 Gebackenes Brotgewicht' : '🍲 Gekochtes Gesamtgewicht'}
+                {category === 'drink' ? '🥤 Getränke-Gesamtmenge' : category === 'bread' ? '🍞 Gebackenes Brotgewicht' : '🍲 Gekochtes Gesamtgewicht'}
               </span>
               <span className="text-xs font-black">
-                {effectiveBakedWeight} g fertig
+                {effectiveBakedWeight} {category === 'drink' ? 'ml / g' : 'g fertig'}
               </span>
             </div>
 
             <div className="grid grid-cols-2 gap-2 text-xs">
               <div>
                 <label className="text-[10px] font-bold block mb-0.5 opacity-70">
-                  {category === 'bread' ? 'Gebackenes Gewicht (g)' : 'Fertiges Gewicht (g)'}
+                  {category === 'drink' ? 'Gesamtmenge (ml/g)' : category === 'bread' ? 'Gebackenes Gewicht (g)' : 'Fertiges Gewicht (g)'}
                 </label>
                 <input
                   type="number"
@@ -1066,7 +1236,7 @@ export const RecipeCreatorModal = ({
 
               <div>
                 <label className="text-[10px] font-bold block mb-0.5 opacity-70">
-                  {category === 'bread' ? 'Gewicht pro Scheibe (g)' : 'Gewicht pro Portion (g)'}
+                  {category === 'drink' ? 'Menge pro Glas / Portion' : category === 'bread' ? 'Gewicht pro Scheibe (g)' : 'Gewicht pro Portion (g)'}
                 </label>
                 <input
                   type="number"
@@ -1081,7 +1251,7 @@ export const RecipeCreatorModal = ({
             <div className="p-3 bg-white/90 rounded-xl border border-stone-200/70 flex items-center justify-between gap-2 shadow-2xs">
               <div>
                 <span className="text-[10px] font-bold text-stone-400 block uppercase">
-                  {category === 'bread' ? '1 Scheibe Brot' : '1 Portion'} ({numSliceWeight}g)
+                  {category === 'drink' ? '1 Glas / Portion' : category === 'bread' ? '1 Scheibe Brot' : '1 Portion'} ({numSliceWeight}{category === 'drink' ? 'ml' : 'g'})
                 </span>
                 <span className="text-xl font-black text-stone-900">
                   {caloriesPerSlice} <span className="text-xs font-normal text-stone-400">kcal</span>
@@ -1104,125 +1274,418 @@ export const RecipeCreatorModal = ({
           <button
             type="submit"
             disabled={ingredients.length === 0 || !name.trim()}
-            className="w-full py-3.5 rounded-2xl bg-emerald-600 hover:bg-emerald-700 active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold text-sm shadow-soft transition-all flex items-center justify-center gap-2"
+            className="w-full py-3.5 rounded-2xl bg-emerald-600 hover:bg-emerald-700 active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold text-sm shadow-soft transition-all flex items-center justify-center gap-2 cursor-pointer"
           >
-            <span>Rezept dauerhaft speichern</span>
-            <span>({caloriesPerSlice} kcal / {category === 'bread' ? 'Scheibe' : 'Portion'})</span>
+            <span>{editingRecipeId ? '💾 Änderungen am Rezept speichern' : 'Rezept dauerhaft speichern'}</span>
+            <span>({caloriesPerSlice} kcal / {category === 'bread' ? 'Scheibe' : category === 'drink' ? 'Glas' : 'Portion'})</span>
           </button>
         </form>
         )}
 
-        {/* TAB 2: LIST & SHARE ALL SAVED RECIPES */}
+        {/* TAB 2: LIST & SHARE ALL SAVED RECIPES (AUFKLAPPBARE RUBRIKEN & KOMPAKTE VORSCHAU) */}
         {activeTab === 'list' && (
-          <div className="p-4 sm:p-5 overflow-y-auto space-y-4 flex-1">
-            {/* Share info banner */}
-            <div className="p-3.5 bg-gradient-to-r from-emerald-50 via-teal-50 to-emerald-50 border border-emerald-200/90 rounded-2xl flex items-center justify-between text-xs text-emerald-950 shadow-2xs">
-              <div className="flex items-center gap-2.5">
-                <span className="text-xl">📲</span>
-                <div>
-                  <div className="font-bold">Rezepte teilen leicht gemacht!</div>
-                  <div className="text-[11px] text-emerald-800/80">
-                    Tippe auf <strong>Per WhatsApp / QR teilen</strong>, um einen Link oder QR-Code für Partner & Freunde zu erstellen.
-                  </div>
-                </div>
+          <div className="p-4 sm:p-5 overflow-y-auto space-y-3.5 flex-1">
+            {/* Search & Filter Bar */}
+            <div className="space-y-2">
+              <div className="relative">
+                <input
+                  type="text"
+                  placeholder="Rezept oder Zutat suchen (z. B. Dinkelbrot, Smoothie, Auflauf)..."
+                  value={recipeSearchQuery}
+                  onChange={(e) => setRecipeSearchQuery(e.target.value)}
+                  className="w-full pl-9 pr-8 py-2 rounded-2xl border border-stone-200 bg-stone-50/60 focus:bg-white focus:border-emerald-500 font-medium text-xs text-stone-800 transition-all"
+                />
+                <Search className="w-4 h-4 text-stone-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                {recipeSearchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setRecipeSearchQuery('')}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600 font-bold text-xs cursor-pointer"
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+
+              {/* Category Filter Pills */}
+              <div className="flex gap-1.5 overflow-x-auto pb-0.5 no-scrollbar text-xs">
+                <button
+                  type="button"
+                  onClick={() => setListCategoryFilter('all')}
+                  className={`py-1 px-2.5 rounded-xl font-bold transition-all shrink-0 text-[11px] cursor-pointer ${
+                    listCategoryFilter === 'all'
+                      ? 'bg-stone-800 text-white shadow-2xs'
+                      : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
+                  }`}
+                >
+                  Alle ({customRecipes.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setListCategoryFilter('bread')}
+                  className={`py-1 px-2.5 rounded-xl font-bold transition-all shrink-0 text-[11px] flex items-center gap-1 cursor-pointer ${
+                    listCategoryFilter === 'bread'
+                      ? 'bg-amber-600 text-white shadow-2xs'
+                      : 'bg-amber-50 text-amber-900 border border-amber-200/60 hover:bg-amber-100'
+                  }`}
+                >
+                  <span>🍞</span>
+                  <span>Brot & Kuchen ({customRecipes.filter((r) => r.category === 'bread' || r.name.toLowerCase().includes('brot')).length})</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setListCategoryFilter('meal')}
+                  className={`py-1 px-2.5 rounded-xl font-bold transition-all shrink-0 text-[11px] flex items-center gap-1 cursor-pointer ${
+                    listCategoryFilter === 'meal'
+                      ? 'bg-emerald-600 text-white shadow-2xs'
+                      : 'bg-emerald-50 text-emerald-900 border border-emerald-200/60 hover:bg-emerald-100'
+                  }`}
+                >
+                  <span>🍲</span>
+                  <span>Mahlzeiten ({customRecipes.filter((r) => (r.category === 'meal' || (!r.category && !r.name.toLowerCase().includes('brot'))) && !r.name.toLowerCase().includes('brot')).length})</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setListCategoryFilter('drink')}
+                  className={`py-1 px-2.5 rounded-xl font-bold transition-all shrink-0 text-[11px] flex items-center gap-1 cursor-pointer ${
+                    listCategoryFilter === 'drink'
+                      ? 'bg-blue-600 text-white shadow-2xs'
+                      : 'bg-blue-50 text-blue-900 border border-blue-200/60 hover:bg-blue-100'
+                  }`}
+                >
+                  <span>🥤</span>
+                  <span>Getränke ({customRecipes.filter((r) => r.category === 'drink').length})</span>
+                </button>
               </div>
             </div>
 
+            {/* Rubriken / Categories */}
             {customRecipes.length > 0 ? (
               <div className="space-y-3">
-                {customRecipes.map((r) => {
-                  const isBread = r.category === 'bread' || r.name.toLowerCase().includes('brot');
-                  const sliceWeight = r.servingWeightGrams || (isBread ? 50 : 250);
-                  const sliceKcal = Math.round(r.calories100g * (sliceWeight / 100));
-                  const servLabel = r.servingName || (isBread ? '1 Scheibe' : '1 Portion');
+                {[
+                  {
+                    key: 'bread' as const,
+                    title: 'Brot, Brötchen & Kuchen',
+                    icon: '🍞',
+                    match: (r: CustomRecipe) => r.category === 'bread' || r.name.toLowerCase().includes('brot'),
+                    bgHeader: 'bg-amber-50/80',
+                    borderHeader: 'border-amber-200/80',
+                    textColor: 'text-amber-950',
+                    badgeColor: 'bg-amber-100 text-amber-900',
+                  },
+                  {
+                    key: 'meal' as const,
+                    title: 'Feste Mahlzeiten & Gerichte',
+                    icon: '🍲',
+                    match: (r: CustomRecipe) => (r.category === 'meal' || (!r.category && !r.name.toLowerCase().includes('brot'))) && !r.name.toLowerCase().includes('brot'),
+                    bgHeader: 'bg-emerald-50/80',
+                    borderHeader: 'border-emerald-200/80',
+                    textColor: 'text-emerald-950',
+                    badgeColor: 'bg-emerald-100 text-emerald-900',
+                  },
+                  {
+                    key: 'drink' as const,
+                    title: 'Getränke, Shakes & Smoothies',
+                    icon: '🥤',
+                    match: (r: CustomRecipe) => r.category === 'drink',
+                    bgHeader: 'bg-blue-50/80',
+                    borderHeader: 'border-blue-200/80',
+                    textColor: 'text-blue-950',
+                    badgeColor: 'bg-blue-100 text-blue-900',
+                  },
+                  {
+                    key: 'snack' as const,
+                    title: 'Snacks & Süßes',
+                    icon: '🍫',
+                    match: (r: CustomRecipe) => r.category === 'snack',
+                    bgHeader: 'bg-pink-50/80',
+                    borderHeader: 'border-pink-200/80',
+                    textColor: 'text-pink-950',
+                    badgeColor: 'bg-pink-100 text-pink-900',
+                  },
+                ].map((rubrik) => {
+                  if (listCategoryFilter !== 'all' && listCategoryFilter !== rubrik.key) {
+                    return null;
+                  }
+
+                  const query = recipeSearchQuery.trim().toLowerCase();
+                  const rubrikRecipes = customRecipes.filter((r) => {
+                    if (!rubrik.match(r)) return false;
+                    if (!query) return true;
+                    return (
+                      r.name.toLowerCase().includes(query) ||
+                      r.ingredients?.some((ing) => ing.name.toLowerCase().includes(query))
+                    );
+                  });
+
+                  if (rubrikRecipes.length === 0) {
+                    if (listCategoryFilter === rubrik.key) {
+                      return (
+                        <div key={rubrik.key} className="py-8 text-center text-stone-400 text-xs bg-stone-50 rounded-2xl border border-stone-200/70">
+                          Keine Rezepte in dieser Rubrik gefunden.
+                        </div>
+                      );
+                    }
+                    return null;
+                  }
+
+                  const isOpen = openCategories[rubrik.key] !== false;
 
                   return (
                     <div
-                      key={r.id}
-                      className="p-4 bg-white border border-stone-200/80 hover:border-amber-400 rounded-3xl transition-all shadow-xs space-y-3"
+                      key={rubrik.key}
+                      className="border border-stone-200/90 rounded-2xl overflow-hidden bg-white shadow-2xs transition-all"
                     >
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex items-center gap-3 min-w-0">
-                          <div className={`w-12 h-12 rounded-2xl border flex items-center justify-center text-2xl shrink-0 ${
-                            isBread
-                              ? 'bg-amber-500/10 text-amber-700 border-amber-200/50'
-                              : 'bg-emerald-500/10 text-emerald-700 border-emerald-200/50'
-                          }`}>
-                            {isBread ? '🍞' : '🍲'}
-                          </div>
-                          <div className="min-w-0">
-                            <div className="flex items-center gap-1.5">
-                              <h4 className="font-extrabold text-stone-900 text-sm truncate">
-                                {r.name}
-                              </h4>
-                              <span className={`text-[9px] font-bold px-1.5 py-0.2 rounded-md shrink-0 ${
-                                isBread ? 'bg-amber-100 text-amber-900' : 'bg-emerald-100 text-emerald-900'
-                              }`}>
-                                {r.category === 'bread' ? 'Brot' : 'Gericht'}
-                              </span>
-                            </div>
-                            <span className="text-[11px] text-stone-400 block truncate">
-                              {isBread ? 'Laib' : 'Gericht'} gewogen: {r.cookedWeight || r.totalRawWeight}g (Roh: {r.totalRawWeight}g)
-                            </span>
-                          </div>
+                      {/* Rubrik Accordion Header */}
+                      <button
+                        type="button"
+                        onClick={() => toggleCategory(rubrik.key)}
+                        className={`w-full p-3 px-4 flex items-center justify-between cursor-pointer select-none transition-colors border-b ${
+                          isOpen ? 'border-stone-100' : 'border-transparent'
+                        } ${rubrik.bgHeader}`}
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <span className="text-xl">{rubrik.icon}</span>
+                          <span className={`font-bold text-xs ${rubrik.textColor}`}>
+                            {rubrik.title}
+                          </span>
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border border-stone-200/60 ${rubrik.badgeColor}`}>
+                            {rubrikRecipes.length}
+                          </span>
                         </div>
+                        {isOpen ? (
+                          <ChevronUp className="w-4 h-4 text-stone-500" />
+                        ) : (
+                          <ChevronDown className="w-4 h-4 text-stone-500" />
+                        )}
+                      </button>
 
-                        <button
-                          type="button"
-                          onClick={(e) => handleDeleteRecipe(e, r.id)}
-                          className="p-1.5 rounded-xl text-stone-300 hover:text-rose-500 hover:bg-rose-50 transition-colors"
-                          title="Rezept löschen"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
+                      {/* Rubrik Recipes List */}
+                      {isOpen && (
+                        <div className="divide-y divide-stone-100 p-2 space-y-2">
+                          {rubrikRecipes.map((r) => {
+                            const isExpanded = expandedRecipeId === r.id;
+                            const isBread = r.category === 'bread' || r.name.toLowerCase().includes('brot');
+                            const isDrink = r.category === 'drink';
+                            const sliceWeight = r.servingWeightGrams || (isDrink ? 250 : isBread ? 50 : 250);
+                            const sliceKcal = Math.round(r.calories100g * (sliceWeight / 100));
+                            const servLabel = r.servingName || (isBread ? '1 Scheibe' : isDrink ? '1 Glas' : '1 Portion');
+                            const mult = sliceWeight / 100;
+                            const proteinSlice = Math.round((r.protein100g || 0) * mult * 10) / 10;
+                            const carbsSlice = Math.round((r.carbs100g || 0) * mult * 10) / 10;
+                            const fatSlice = Math.round((r.fat100g || 0) * mult * 10) / 10;
 
-                      {/* Ingredients preview */}
-                      {r.ingredients && r.ingredients.length > 0 && (
-                        <div className="text-[11px] text-stone-500 bg-stone-50 p-2.5 rounded-xl border border-stone-100/80">
-                          <span className="font-semibold text-stone-700">Zutaten ({r.ingredients.length}): </span>
-                          <span>{r.ingredients.map((ing) => `${ing.name} (${ing.amountGrams}g)`).join(', ')}</span>
+                            if (!isExpanded) {
+                              // KOMPAKTE VORSCHAU-ZEILE
+                              return (
+                                <div
+                                  key={r.id}
+                                  onClick={() => setExpandedRecipeId(r.id || null)}
+                                  className="p-2.5 sm:p-3 bg-white hover:bg-stone-50/90 rounded-xl border border-stone-200/70 transition-all flex items-center justify-between gap-3 cursor-pointer shadow-2xs group"
+                                  title="Tippen, um Rezeptdetails, Zutaten und Teilen-Optionen zu sehen"
+                                >
+                                  <div className="flex items-center gap-3 min-w-0">
+                                    <div className={`w-10 h-10 rounded-xl border flex items-center justify-center text-xl shrink-0 ${
+                                      isDrink
+                                        ? 'bg-blue-500/10 text-blue-700 border-blue-200/50'
+                                        : isBread
+                                        ? 'bg-amber-500/10 text-amber-700 border-amber-200/50'
+                                        : 'bg-emerald-500/10 text-emerald-700 border-emerald-200/50'
+                                    }`}>
+                                      {isDrink ? '🥤' : isBread ? '🍞' : '🍲'}
+                                    </div>
+
+                                    <div className="min-w-0">
+                                      <h4 className="font-extrabold text-stone-900 text-xs sm:text-sm truncate">
+                                        {r.name}
+                                      </h4>
+                                      <div className="flex items-center gap-2 text-[11px] text-stone-500 truncate mt-0.5">
+                                        <span className={`font-bold ${isDrink ? 'text-blue-800' : isBread ? 'text-amber-800' : 'text-emerald-800'}`}>
+                                          {servLabel} ({sliceWeight}{isDrink ? 'ml' : 'g'}): <strong className="text-stone-900 font-black">{sliceKcal} kcal</strong>
+                                        </span>
+                                        <span className="text-[10px] text-stone-400 hidden sm:inline">
+                                          P: {proteinSlice}g • K: {carbsSlice}g • F: {fatSlice}g
+                                        </span>
+                                      </div>
+                                    </div>
+                                  </div>
+
+                                  <div className="flex items-center gap-1.5 shrink-0">
+                                    {onRecipeSaved && (
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          onRecipeSaved(r);
+                                          onClose();
+                                        }}
+                                        className="p-1.5 px-2.5 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200/80 font-bold text-[10px] transition-colors flex items-center gap-1 cursor-pointer"
+                                        title="Direkt als Mahlzeit eintragen"
+                                      >
+                                        <Utensils className="w-3 h-3 text-amber-700" />
+                                        <span className="hidden sm:inline">Eintragen</span>
+                                      </button>
+                                    )}
+
+                                    <button
+                                      type="button"
+                                      onClick={() => setExpandedRecipeId(r.id || null)}
+                                      className="p-1.5 rounded-lg text-stone-400 hover:text-stone-700 group-hover:bg-stone-100 transition-colors"
+                                      title="Details öffnen"
+                                    >
+                                      <ChevronDown className="w-4 h-4" />
+                                    </button>
+                                  </div>
+                                </div>
+                              );
+                            }
+
+                            // AUFGEKLAPPTE DETAILANSICHT (BEARBEITBAR, ZUTATEN, TEILEN, PORTIONIERUNG)
+                            return (
+                              <div
+                                key={r.id}
+                                className="p-4 bg-white border-2 border-emerald-500/80 rounded-2xl transition-all shadow-md space-y-3.5 animate-in fade-in"
+                              >
+                                {/* Header: Icon, Name (mit Bearbeiten), Löschen */}
+                                <div className="flex items-start justify-between gap-2 border-b border-stone-100 pb-3">
+                                  <div className="flex items-center gap-3 min-w-0">
+                                    <div className={`w-12 h-12 rounded-2xl border flex items-center justify-center text-2xl shrink-0 ${
+                                      isDrink
+                                        ? 'bg-blue-500/10 text-blue-700 border-blue-200/50'
+                                        : isBread
+                                        ? 'bg-amber-500/10 text-amber-700 border-amber-200/50'
+                                        : 'bg-emerald-500/10 text-emerald-700 border-emerald-200/50'
+                                    }`}>
+                                      {isDrink ? '🥤' : isBread ? '🍞' : '🍲'}
+                                    </div>
+                                    <div className="min-w-0">
+                                      <div className="flex items-center gap-1.5 flex-wrap">
+                                        <h4 className="font-black text-stone-900 text-sm sm:text-base">
+                                          {r.name}
+                                        </h4>
+                                        <button
+                                          type="button"
+                                          onClick={() => handleStartEdit(r)}
+                                          className="text-[10px] font-bold text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200 px-2 py-0.5 rounded-lg flex items-center gap-1 cursor-pointer transition-colors"
+                                          title="Rezept bearbeiten"
+                                        >
+                                          <Edit3 className="w-3 h-3 text-amber-700" />
+                                          <span>Bearbeiten</span>
+                                        </button>
+                                      </div>
+                                      <span className="text-[11px] text-stone-400 block mt-0.5">
+                                        {isDrink ? 'Getränk' : isBread ? 'Laib' : 'Gericht'} fertig gewogen: {r.cookedWeight || r.totalRawWeight}{isDrink ? 'ml' : 'g'} (Rohgewicht: {r.totalRawWeight}{isDrink ? 'ml' : 'g'})
+                                      </span>
+                                    </div>
+                                  </div>
+
+                                  <div className="flex items-center gap-1">
+                                    <button
+                                      type="button"
+                                      onClick={(e) => handleDeleteRecipe(e, r.id)}
+                                      className="p-1.5 rounded-xl text-stone-300 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
+                                      title="Rezept löschen"
+                                    >
+                                      <Trash2 className="w-4 h-4" />
+                                    </button>
+                                  </div>
+                                </div>
+
+                                {/* Portionierung & Nährwert-Box */}
+                                <div className="p-3 bg-stone-50 rounded-xl border border-stone-200/70 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                                  <div>
+                                    <span className="text-[10px] font-bold text-stone-400 uppercase tracking-wider block">
+                                      Portionierung ({servLabel}):
+                                    </span>
+                                    <span className="text-base font-black text-stone-900 block">
+                                      {sliceKcal} kcal <span className="text-xs font-normal text-stone-500">pro {sliceWeight}{isDrink ? 'ml' : 'g'}</span>
+                                    </span>
+                                    <span className="text-[11px] text-stone-600 font-medium">
+                                      P: {proteinSlice}g • K: {carbsSlice}g • F: {fatSlice}g
+                                    </span>
+                                  </div>
+
+                                  <div className="sm:text-right border-t sm:border-t-0 pt-2 sm:pt-0 border-stone-200/60 text-[11px] text-stone-500">
+                                    <span className="font-bold text-stone-700 block">Pro 100g: {r.calories100g} kcal</span>
+                                    <span className="text-[10px] text-stone-400 block">
+                                      P: {r.protein100g}g • K: {r.carbs100g}g • F: {r.fat100g}g
+                                    </span>
+                                  </div>
+                                </div>
+
+                                {/* Zutatenliste */}
+                                {r.ingredients && r.ingredients.length > 0 && (
+                                  <div className="space-y-1.5">
+                                    <span className="text-[10px] font-bold text-stone-500 uppercase tracking-wider block">
+                                      Zutatenliste ({r.ingredients.length}):
+                                    </span>
+                                    <div className="divide-y divide-stone-100 bg-stone-50/70 rounded-xl border border-stone-200/60 p-2 max-h-48 overflow-y-auto">
+                                      {r.ingredients.map((ing, idx) => (
+                                        <div key={idx} className="py-1 px-1.5 flex items-center justify-between text-xs">
+                                          <span className="font-semibold text-stone-800 truncate mr-2">
+                                            {ing.name}
+                                          </span>
+                                          <span className="text-[11px] text-stone-500 shrink-0 font-medium">
+                                            {ing.amountGrams}g ({ing.calories} kcal)
+                                          </span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+
+                                {/* Aktions-Buttons: Bearbeiten, Teilen, Mahlzeit eintragen */}
+                                <div className="pt-2 flex flex-wrap items-center justify-between gap-2 border-t border-stone-100 text-xs">
+                                  <div className="flex items-center gap-2 flex-1">
+                                    <button
+                                      type="button"
+                                      onClick={() => handleStartEdit(r)}
+                                      className="py-2 px-3 rounded-xl bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-900 font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                                      title="Rezept bearbeiten"
+                                    >
+                                      <Edit3 className="w-3.5 h-3.5 text-amber-700" />
+                                      <span>Bearbeiten</span>
+                                    </button>
+
+                                    <button
+                                      type="button"
+                                      onClick={() => setSharingRecipe(r)}
+                                      className="py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-soft"
+                                      title="Per WhatsApp oder QR-Code teilen"
+                                    >
+                                      <QrCode className="w-3.5 h-3.5" />
+                                      <span>Per WhatsApp / QR teilen</span>
+                                    </button>
+
+                                    {onRecipeSaved && (
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          onRecipeSaved(r);
+                                          onClose();
+                                        }}
+                                        className="py-2 px-3 rounded-xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-900 font-bold transition-all flex items-center gap-1 cursor-pointer"
+                                        title="Dieses Rezept jetzt als Mahlzeit eintragen"
+                                      >
+                                        <Utensils className="w-3.5 h-3.5 text-emerald-700" />
+                                        <span>Eintragen</span>
+                                      </button>
+                                    )}
+                                  </div>
+
+                                  <button
+                                    type="button"
+                                    onClick={() => setExpandedRecipeId(null)}
+                                    className="py-1.5 px-2.5 text-stone-400 hover:text-stone-700 font-bold text-[11px] rounded-lg hover:bg-stone-100 transition-colors cursor-pointer"
+                                  >
+                                    ▲ Zuklappen
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          })}
                         </div>
                       )}
-
-                      {/* Nutrition Summary & Action Buttons */}
-                      <div className="pt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-t border-stone-100 text-xs">
-                        <div>
-                          <span className={`font-bold block ${isBread ? 'text-amber-800' : 'text-emerald-800'}`}>
-                            {servLabel} ({sliceWeight}g): <strong className="text-stone-900 text-sm font-black">{sliceKcal} kcal</strong>
-                          </span>
-                          <span className="text-[10px] text-stone-400">
-                            100g: {r.calories100g} kcal • P: {r.protein100g}g • K: {r.carbs100g}g • F: {r.fat100g}g
-                          </span>
-                        </div>
-
-                        <div className="flex items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() => setSharingRecipe(r)}
-                            className="flex-1 sm:flex-none py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold text-xs shadow-soft transition-all flex items-center justify-center gap-1.5"
-                            title="Per WhatsApp oder QR-Code teilen"
-                          >
-                            <QrCode className="w-4 h-4" />
-                            <span>Per WhatsApp / QR teilen</span>
-                          </button>
-
-                          {onRecipeSaved && (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                onRecipeSaved(r);
-                                onClose();
-                              }}
-                              className="py-2 px-3 rounded-xl bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-900 font-bold text-xs transition-colors flex items-center justify-center gap-1"
-                              title="Dieses Rezept jetzt als Mahlzeit eintragen"
-                            >
-                              <Utensils className="w-3.5 h-3.5" />
-                              <span>Eintragen</span>
-                            </button>
-                          )}
-                        </div>
-                      </div>
                     </div>
                   );
                 })}
@@ -1235,13 +1698,13 @@ export const RecipeCreatorModal = ({
                 <div className="space-y-1">
                   <h4 className="font-bold text-stone-700 text-sm">Noch keine eigenen Rezepte vorhanden</h4>
                   <p className="text-xs text-stone-400 max-w-xs mx-auto">
-                    Erstelle dein erstes selbstgebackenes Brot oder Gericht, oder empfange Rezepte per WhatsApp / QR-Code von Freunden.
+                    Erstelle dein erstes Rezept für Brot & Kuchen, eine Mahlzeit oder ein Getränk, oder empfange Rezepte per WhatsApp / QR-Code.
                   </p>
                 </div>
                 <button
                   type="button"
                   onClick={() => setActiveTab('create')}
-                  className="py-2.5 px-4 rounded-xl bg-emerald-600 text-white font-bold text-xs hover:bg-emerald-700 transition-colors inline-flex items-center gap-1.5 shadow-soft"
+                  className="py-2.5 px-4 rounded-xl bg-emerald-600 text-white font-bold text-xs hover:bg-emerald-700 transition-colors inline-flex items-center gap-1.5 shadow-soft cursor-pointer"
                 >
                   <Plus className="w-4 h-4" />
                   <span>Jetzt Rezept erstellen</span>

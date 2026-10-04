@@ -288,7 +288,7 @@ export const FoodSearchModal = ({
               }`}
             >
               <span>🍲</span>
-              <span>Rezepte & Brot ({customRecipes.length})</span>
+              <span>Rezepte ({customRecipes.length})</span>
             </button>
 
             <button

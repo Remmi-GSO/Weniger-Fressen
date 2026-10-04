@@ -21,8 +21,9 @@ import { SnackModal } from './components/SnackModal';
 import { AiMealModal } from './components/AiMealModal';
 import { EditEntryModal } from './components/EditEntryModal';
 import { NutritionReportModal } from './components/NutritionReportModal';
-import { Settings, Maximize, Minimize } from 'lucide-react';
+import { Settings, Maximize, Minimize, RefreshCw } from 'lucide-react';
 import { APP_VERSION } from './config/version';
+import { triggerAppUpdate } from './utils/appUpdate';
 
 export function App() {
   const [selectedDate, setSelectedDate] = useState<string>(getTodayDateString());
@@ -151,26 +152,27 @@ export function App() {
     }
   };
 
+  const [isUpdating, setIsUpdating] = useState(false);
+  const handleTriggerUpdate = async () => {
+    setIsUpdating(true);
+    await triggerAppUpdate();
+  };
+
   return (
     <div className="min-h-screen bg-[#F8FAF8] text-stone-800 flex flex-col font-sans selection:bg-emerald-100">
       
       {/* Top Header */}
-      <header className="sticky top-0 z-30 bg-white/90 backdrop-blur-md border-b border-surface-border px-5 py-3.5 shadow-sm">
-        <div className="max-w-md mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-emerald-500 to-teal-400 flex items-center justify-center text-xl shadow-soft">
+      <header className="sticky top-0 z-30 bg-white/90 backdrop-blur-md border-b border-surface-border px-4 py-2.5 shadow-sm">
+        <div className="max-w-md mx-auto flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-emerald-500 to-teal-400 flex items-center justify-center text-xl shadow-soft shrink-0">
               🥗
             </div>
-            <div>
-              <div className="flex items-center gap-1.5">
-                <h1 className="text-base font-extrabold tracking-tight text-stone-900 leading-none">
-                  Weniger Fressen
-                </h1>
-                <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200/80 px-1.5 py-0.2 rounded-md">
-                  v{APP_VERSION}
-                </span>
-              </div>
-              <p className="text-[11px] text-stone-400 font-medium mt-0.5">
+            <div className="min-w-0">
+              <h1 className="text-base font-extrabold tracking-tight text-stone-900 leading-none truncate">
+                Weniger Fressen
+              </h1>
+              <p className="text-[11px] text-stone-400 font-medium mt-0.5 truncate">
                 {profile.name && profile.name.trim() !== 'Du' ? (
                   <>Hallo, <span className="font-semibold text-stone-600">{profile.name.trim()}</span> 👋</>
                 ) : (
@@ -180,25 +182,44 @@ export function App() {
             </div>
           </div>
 
-          <div className="flex items-center gap-1.5">
-            <button
-              onClick={handleToggleFullscreen}
-              className={`w-9 h-9 rounded-2xl flex items-center justify-center transition-all border ${
-                isFullscreen
-                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                  : 'bg-stone-50 hover:bg-stone-100 text-stone-500 border-stone-100'
-              }`}
-              title={isFullscreen ? 'Vollbildmodus beenden' : 'Vollbildmodus aktivieren'}
-            >
-              {isFullscreen ? <Minimize className="w-4 h-4" /> : <Maximize className="w-4 h-4" />}
-            </button>
+          {/* Top Right Controls: Version & 1-Click Update Button directly below */}
+          <div className="flex flex-col items-end gap-1 shrink-0">
+            <div className="flex items-center gap-1.5">
+              <span className="text-[10px] font-black text-stone-600 bg-stone-100 border border-stone-200/90 px-1.5 py-0.5 rounded-md leading-none shadow-2xs">
+                v{APP_VERSION}
+              </span>
 
+              <button
+                onClick={handleToggleFullscreen}
+                className={`w-7 h-7 rounded-xl flex items-center justify-center transition-all border ${
+                  isFullscreen
+                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                    : 'bg-stone-50 hover:bg-stone-100 text-stone-500 border-stone-100'
+                }`}
+                title={isFullscreen ? 'Vollbildmodus beenden' : 'Vollbildmodus aktivieren'}
+              >
+                {isFullscreen ? <Minimize className="w-3.5 h-3.5" /> : <Maximize className="w-3.5 h-3.5" />}
+              </button>
+
+              <button
+                onClick={() => setShowSettings(true)}
+                className="w-7 h-7 rounded-xl bg-stone-50 hover:bg-stone-100 flex items-center justify-center text-stone-500 transition-colors border border-stone-100"
+                title="Einstellungen & Eigenschaften"
+              >
+                <Settings className="w-3.5 h-3.5" />
+              </button>
+            </div>
+
+            {/* 1-Click Update Button directly under the version number */}
             <button
-              onClick={() => setShowSettings(true)}
-              className="w-9 h-9 rounded-2xl bg-stone-50 hover:bg-stone-100 flex items-center justify-center text-stone-500 transition-colors border border-stone-100"
-              title="Einstellungen & Eigenschaften"
+              type="button"
+              onClick={handleTriggerUpdate}
+              disabled={isUpdating}
+              className="text-[10px] font-bold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 active:scale-95 border border-emerald-200/90 px-1.5 py-0.5 rounded-md flex items-center gap-1 transition-all shadow-2xs cursor-pointer disabled:opacity-50"
+              title="Auf neueste Version aktualisieren & Cache leeren"
             >
-              <Settings className="w-4 h-4" />
+              <RefreshCw className={`w-2.5 h-2.5 ${isUpdating ? 'animate-spin text-emerald-600' : 'text-emerald-700'}`} />
+              <span>{isUpdating ? 'Update...' : 'App updaten'}</span>
             </button>
           </div>
         </div>

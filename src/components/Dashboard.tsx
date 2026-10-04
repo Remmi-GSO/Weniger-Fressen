@@ -596,10 +596,10 @@ export const Dashboard = ({
               <button
                 onClick={onOpenRecipeCreator}
                 className="flex items-center gap-1 text-xs font-bold text-amber-800 bg-amber-50 hover:bg-amber-100 px-2.5 py-1 rounded-full transition-all border border-amber-200/60"
-                title="Eigenes Rezept oder selbstgebackenes Brot berechnen"
+                title="Eigene Rezepte für Brot, Mahlzeiten & Getränke ansehen und berechnen"
               >
                 <span>🍲</span>
-                <span>Rezepte & Brot</span>
+                <span>Rezepte</span>
               </button>
             )}
             <button

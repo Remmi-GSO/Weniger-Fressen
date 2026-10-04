@@ -12,7 +12,7 @@ interface MinifiedIngredient {
 
 interface MinifiedRecipePayload {
   n: string; // name
-  c: 'bread' | 'meal' | 'snack';
+  c: 'bread' | 'meal' | 'drink' | 'snack';
   rw: number; // totalRawWeight
   cw: number; // cookedWeight
   sn: string; // servingName
@@ -79,8 +79,8 @@ export function decodePayloadToRecipe(compressed: string): Omit<CustomRecipe, 'i
       category: min.c || 'bread',
       totalRawWeight: min.rw || 0,
       cookedWeight: min.cw || min.rw || 0,
-      servingName: min.sn || (min.c === 'bread' ? '1 Scheibe' : '1 Portion'),
-      servingWeightGrams: min.sw || 50,
+      servingName: min.sn || (min.c === 'bread' ? '1 Scheibe' : min.c === 'drink' ? '1 Glas' : '1 Portion'),
+      servingWeightGrams: min.sw || (min.c === 'drink' ? 250 : min.c === 'bread' ? 50 : 250),
       calories100g: min.cal,
       protein100g: min.p || 0,
       carbs100g: min.cb || 0,

@@ -136,14 +136,16 @@ export interface RecipeIngredient {
   sugar?: number;
 }
 
+export type RecipeCategory = 'bread' | 'meal' | 'drink' | 'snack';
+
 export interface CustomRecipe {
   id?: number;
   name: string;
-  category: 'bread' | 'meal' | 'snack';
+  category: RecipeCategory;
   ingredients: RecipeIngredient[];
   totalRawWeight: number; // in grams
-  cookedWeight: number; // in grams (baked loaf weight)
-  servingName: string; // e.g. "1 Scheibe"
+  cookedWeight: number; // in grams (baked loaf weight or finished weight)
+  servingName: string; // e.g. "1 Scheibe", "1 Portion", "1 Glas"
   servingWeightGrams: number; // e.g. 50g
   calories100g: number;
   protein100g: number;

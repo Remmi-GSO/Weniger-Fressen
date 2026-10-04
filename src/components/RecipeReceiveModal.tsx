@@ -18,7 +18,8 @@ export const RecipeReceiveModal = ({
   if (!isOpen || !receivedRecipe) return null;
 
   const isBread = receivedRecipe.category === 'bread' || receivedRecipe.name.toLowerCase().includes('brot');
-  const sliceWeight = receivedRecipe.servingWeightGrams || (isBread ? 50 : 100);
+  const isDrink = receivedRecipe.category === 'drink';
+  const sliceWeight = receivedRecipe.servingWeightGrams || (isDrink ? 250 : isBread ? 50 : 250);
   const sliceKcal = Math.round(receivedRecipe.calories100g * (sliceWeight / 100));
 
   const handleSaveToMyRecipes = async () => {
@@ -69,12 +70,24 @@ export const RecipeReceiveModal = ({
         <div className="p-5 overflow-y-auto space-y-4 text-left">
           
           <div className="text-center py-2">
-            <div className="w-16 h-16 rounded-3xl bg-amber-500/10 border border-amber-200/60 text-amber-700 flex items-center justify-center text-3xl mx-auto shadow-sm">
-              {isBread ? '🍞' : '🍲'}
+            <div className={`w-16 h-16 rounded-3xl border flex items-center justify-center text-3xl mx-auto shadow-sm ${
+              isDrink
+                ? 'bg-blue-500/10 border-blue-200/60 text-blue-700'
+                : isBread
+                ? 'bg-amber-500/10 border-amber-200/60 text-amber-700'
+                : 'bg-emerald-500/10 border-emerald-200/60 text-emerald-700'
+            }`}>
+              {isDrink ? '🥤' : isBread ? '🍞' : '🍲'}
             </div>
             <h4 className="font-black text-stone-900 text-base mt-2">{receivedRecipe.name}</h4>
-            <span className="text-xs font-bold text-amber-800 bg-amber-100 px-2.5 py-0.5 rounded-full inline-block mt-1">
-              {isBread ? 'Selbstgebackenes Brot' : 'Eigenes Rezept'}
+            <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full inline-block mt-1 ${
+              isDrink
+                ? 'text-blue-800 bg-blue-100'
+                : isBread
+                ? 'text-amber-800 bg-amber-100'
+                : 'text-emerald-800 bg-emerald-100'
+            }`}>
+              {isDrink ? 'Getränk / Smoothie' : isBread ? 'Brot & Backwaren' : 'Feste Mahlzeit'}
             </span>
           </div>
 
