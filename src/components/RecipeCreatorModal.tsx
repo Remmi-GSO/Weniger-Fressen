@@ -236,7 +236,7 @@ export const RecipeCreatorModal = ({
     snack: true,
   });
 
-  // Auto-migrate legacy recipes that had no category or were miscategorized before v1.5
+  // Auto-migrate legacy recipes that had no category or were miscategorized before v1.5, or had 5% steam loss
   useEffect(() => {
     const migrateLegacyCategories = async () => {
       try {
@@ -244,14 +244,23 @@ export const RecipeCreatorModal = ({
         for (const r of allRecipes) {
           if (!r.id) continue;
           const inferred = inferRecipeCategory(r);
-          if (!r.category || (r.category === 'meal' && inferred !== 'meal')) {
-            const isDrink = inferred === 'drink';
-            const isBread = inferred === 'bread';
-            const isCoffee = r.name.toLowerCase().includes('cortado') || r.name.toLowerCase().includes('kaffee') || r.name.toLowerCase().includes('espresso');
-            const servingName = isCoffee ? '1 Tasse' : isDrink ? '1 Glas' : isBread ? '1 Scheibe' : r.servingName || '1 Portion';
-            const servingWeightGrams = isCoffee ? 120 : isDrink ? 250 : isBread ? 50 : 250;
+          const needsCatMigration = !r.category || (r.category === 'meal' && inferred !== 'meal');
+          const isDrink = inferred === 'drink';
+          const isBread = inferred === 'bread';
+          const isCoffee = r.name.toLowerCase().includes('cortado') || r.name.toLowerCase().includes('kaffee') || r.name.toLowerCase().includes('espresso');
+          const servingName = isCoffee ? '1 Tasse' : isDrink ? '1 Glas' : isBread ? '1 Scheibe' : r.servingName || '1 Portion (Ganzes Gericht)';
+          const servingWeightGrams = isCoffee ? 120 : isDrink ? (r.cookedWeight || 250) : isBread ? 50 : (r.cookedWeight || 250);
+
+          let newCooked = r.cookedWeight;
+          // Restore true 100% weight for non-bread meals that suffered from the old 5% steam loss reduction
+          if (inferred !== 'bread' && r.totalRawWeight && r.cookedWeight && Math.round(r.totalRawWeight * 0.95) === r.cookedWeight) {
+            newCooked = r.totalRawWeight;
+          }
+
+          if (needsCatMigration || newCooked !== r.cookedWeight) {
             await db.recipes.update(r.id, {
               category: inferred,
+              cookedWeight: newCooked,
               servingName,
               servingWeightGrams: r.servingWeightGrams || servingWeightGrams,
             });
@@ -354,21 +363,31 @@ export const RecipeCreatorModal = ({
   };
 
   // Interactive Portion Scaling & Cooking Checkboxes in Database List
-  const [portionMultipliers, setPortionMultipliers] = useState<Record<number, number>>({});
+  const [portionRatios, setPortionRatios] = useState<Record<number, number>>({});
+  const [portionCustomGrams, setPortionCustomGrams] = useState<Record<number, string>>({});
   const [checkedIngredients, setCheckedIngredients] = useState<Record<string, boolean>>({});
   const [checkedInstructions, setCheckedInstructions] = useState<Record<string, boolean>>({});
 
-  const getMultiplier = (recipeId?: number) => {
+  const getPortionRatio = (recipeId?: number) => {
     if (!recipeId) return 1;
-    return portionMultipliers[recipeId] || 1;
+    return portionRatios[recipeId] !== undefined ? portionRatios[recipeId] : 1;
   };
 
-  const setMultiplier = (recipeId: number, delta: number) => {
-    setPortionMultipliers((prev) => {
-      const curr = prev[recipeId] || 1;
-      const next = Math.max(0.5, Math.min(10, Math.round((curr + delta) * 10) / 10));
-      return { ...prev, [recipeId]: next };
+  const setPortionRatio = (recipeId: number, ratio: number) => {
+    setPortionRatios((prev) => ({ ...prev, [recipeId]: ratio }));
+    setPortionCustomGrams((prev) => {
+      const copy = { ...prev };
+      delete copy[recipeId];
+      return copy;
     });
+  };
+
+  const setRecipeCustomGramInput = (recipeId: number, gramsStr: string, totalWeight: number) => {
+    setPortionCustomGrams((prev) => ({ ...prev, [recipeId]: gramsStr }));
+    const parsed = parseFloat(gramsStr);
+    if (parsed && parsed > 0 && totalWeight > 0) {
+      setPortionRatios((prev) => ({ ...prev, [recipeId]: parsed / totalWeight }));
+    }
   };
 
   const toggleIngredientCheck = (key: string) => {
@@ -382,7 +401,8 @@ export const RecipeCreatorModal = ({
   // Diary Logging Modal State & Handlers
   const [diaryLogModalRecipe, setDiaryLogModalRecipe] = useState<CustomRecipe | null>(null);
   const [diaryLogMealType, setDiaryLogMealType] = useState<MealType>(defaultMealType || 'lunch');
-  const [diaryLogPortionCount, setDiaryLogPortionCount] = useState<number>(1);
+  const [diaryLogFraction, setDiaryLogFraction] = useState<number>(1);
+  const [diaryLogCustomGrams, setDiaryLogCustomGrams] = useState<string>('');
   const [diaryLogSuccess, setDiaryLogSuccess] = useState<string | null>(null);
 
   const handleOpenDiaryLog = (e: React.MouseEvent, r: CustomRecipe) => {
@@ -403,29 +423,60 @@ export const RecipeCreatorModal = ({
       else if (hour < 21) setDiaryLogMealType('dinner');
       else setDiaryLogMealType('snack');
     }
-    setDiaryLogPortionCount(1);
+
+    const currentRatio = r.id ? getPortionRatio(r.id) : 1;
+    const currentCustom = r.id ? portionCustomGrams[r.id] || '' : '';
+    setDiaryLogFraction(currentRatio);
+    setDiaryLogCustomGrams(currentCustom);
   };
 
   const handleLogToDiary = async () => {
     if (!diaryLogModalRecipe) return;
     const r = diaryLogModalRecipe;
-    const scale = Math.max(0.25, Number(diaryLogPortionCount) || 1);
     const effectiveCategory = inferRecipeCategory(r);
     const isBread = effectiveCategory === 'bread';
     const isDrink = effectiveCategory === 'drink';
-    const isCoffee = isDrink && (r.name.toLowerCase().includes('cortado') || r.name.toLowerCase().includes('kaffee') || r.name.toLowerCase().includes('espresso'));
-    const baseServingGrams = r.servingWeightGrams || (isCoffee ? 120 : isDrink ? 250 : isBread ? 50 : 250);
-    const totalLoggedGrams = Math.round(baseServingGrams * scale);
-    const ratio = totalLoggedGrams / 100;
+    const totalDishWeight = r.cookedWeight || r.totalRawWeight;
 
+    let totalLoggedGrams = Math.round(totalDishWeight * diaryLogFraction);
+    let unitLabel = '';
+
+    const parsedCustom = parseFloat(diaryLogCustomGrams);
+    if (parsedCustom && parsedCustom > 0) {
+      totalLoggedGrams = Math.round(parsedCustom);
+      unitLabel = `Portion (${totalLoggedGrams}${isDrink ? 'ml' : 'g'})`;
+    } else {
+      if (isBread) {
+        const sliceG = r.servingWeightGrams || 50;
+        if (Math.abs(diaryLogFraction - 1) < 0.02) {
+          unitLabel = `Ganzer Laib (${totalDishWeight}g)`;
+        } else if (Math.abs(diaryLogFraction - 0.5) < 0.02) {
+          unitLabel = `1/2 Laib (${totalLoggedGrams}g)`;
+        } else {
+          const numSlices = Math.max(1, Math.round(totalLoggedGrams / sliceG));
+          unitLabel = numSlices === 1 ? `1 Scheibe (${totalLoggedGrams}g)` : `${numSlices} Scheiben (${totalLoggedGrams}g)`;
+        }
+      } else {
+        if (Math.abs(diaryLogFraction - 1) < 0.02) {
+          unitLabel = `Ganzes Gericht (${totalLoggedGrams}${isDrink ? 'ml' : 'g'})`;
+        } else if (Math.abs(diaryLogFraction - 0.5) < 0.02) {
+          unitLabel = `1/2 Gericht (${totalLoggedGrams}${isDrink ? 'ml' : 'g'})`;
+        } else if (Math.abs(diaryLogFraction - 1 / 3) < 0.02) {
+          unitLabel = `1/3 Gericht (${totalLoggedGrams}${isDrink ? 'ml' : 'g'})`;
+        } else if (Math.abs(diaryLogFraction - 0.25) < 0.02) {
+          unitLabel = `1/4 Gericht (${totalLoggedGrams}${isDrink ? 'ml' : 'g'})`;
+        } else if (Math.abs(diaryLogFraction - 1 / 6) < 0.02) {
+          unitLabel = `1/6 Gericht (${totalLoggedGrams}${isDrink ? 'ml' : 'g'})`;
+        } else if (diaryLogFraction > 1) {
+          unitLabel = `${diaryLogFraction}x Gesamtrezept (${totalLoggedGrams}${isDrink ? 'ml' : 'g'})`;
+        } else {
+          unitLabel = `Portion (${totalLoggedGrams}${isDrink ? 'ml' : 'g'})`;
+        }
+      }
+    }
+
+    const ratio = totalLoggedGrams / 100;
     const todayStr = selectedDate || new Date().toISOString().split('T')[0];
-    const unitLabel = isBread
-      ? (scale === 1 ? '1 Scheibe' : `${scale} Scheiben`)
-      : isCoffee
-      ? (scale === 1 ? '1 Tasse' : `${scale} Tassen`)
-      : isDrink
-      ? (scale === 1 ? '1 Glas' : `${scale} Gläser`)
-      : (scale === 1 ? '1 Portion' : `${scale} Portionen`);
 
     const entry: DiaryEntry = {
       date: todayStr,
@@ -438,7 +489,7 @@ export const RecipeCreatorModal = ({
       fiber: r.fiber100g ? Math.round(r.fiber100g * ratio * 10) / 10 : undefined,
       sugar: r.sugar100g ? Math.round(r.sugar100g * ratio * 10) / 10 : undefined,
       amount: totalLoggedGrams,
-      unit: `${unitLabel} (${totalLoggedGrams}${isDrink ? 'ml' : 'g'})`,
+      unit: unitLabel,
       timestamp: Date.now(),
     };
 
@@ -457,6 +508,7 @@ export const RecipeCreatorModal = ({
       setDiaryLogModalRecipe(null);
     }, 1600);
   };
+
 
   // AI Chef Tab State & Handlers
   const [chefPrompt, setChefPrompt] = useState('');
@@ -756,12 +808,12 @@ export const RecipeCreatorModal = ({
     return ingredients.reduce((sum, item) => sum + item.fat, 0);
   }, [ingredients]);
 
-  // Baked/Cooked weight: if not manually specified, bread loses ~12%, cooked meals lose ~5% to steam, drinks lose 0%
+  // Baked/Cooked weight: if not manually specified, bread loses ~12% (water evaporation), other categories keep 100% of raw ingredients
   const effectiveBakedWeight = useMemo(() => {
     const manual = parseFloat(customBakedWeight);
     if (manual && manual > 0) return manual;
-    if (category === 'drink') return totalRawWeight;
-    return Math.round(totalRawWeight * (category === 'bread' ? 0.88 : 0.95));
+    if (category === 'bread') return Math.round(totalRawWeight * 0.88);
+    return totalRawWeight;
   }, [customBakedWeight, totalRawWeight, category]);
 
   // Nutritional values per 100g of final baked/cooked food
@@ -786,7 +838,7 @@ export const RecipeCreatorModal = ({
   }, [totalRawFat, effectiveBakedWeight]);
 
   // Nutritional values per single slice/portion
-  const numSliceWeight = parseFloat(sliceWeight) || (category === 'bread' ? 50 : category === 'drink' ? 250 : 250);
+  const numSliceWeight = parseFloat(sliceWeight) || (category === 'bread' ? 50 : effectiveBakedWeight || 250);
   const sliceMultiplier = numSliceWeight / 100;
   const caloriesPerSlice = Math.round(caloriesPer100g * sliceMultiplier);
   const proteinPerSlice = Math.round(proteinPer100g * sliceMultiplier * 10) / 10;
@@ -932,7 +984,11 @@ export const RecipeCreatorModal = ({
       ingredients,
       totalRawWeight,
       cookedWeight: effectiveBakedWeight,
-      servingName: category === 'bread' ? '1 Scheibe' : category === 'drink' ? '1 Glas' : '1 Portion',
+      servingName: category === 'bread'
+        ? '1 Scheibe'
+        : category === 'drink'
+        ? (numSliceWeight >= effectiveBakedWeight ? 'Ganzes Getränk' : '1 Glas')
+        : (numSliceWeight >= effectiveBakedWeight ? 'Ganzes Gericht' : `1 Portion (von ${Math.max(2, Math.round(effectiveBakedWeight / numSliceWeight))})`),
       servingWeightGrams: numSliceWeight,
       calories100g: caloriesPer100g,
       protein100g: proteinPer100g,
@@ -1777,38 +1833,88 @@ export const RecipeCreatorModal = ({
               </span>
             </div>
 
-            <div className="grid grid-cols-2 gap-2 text-xs">
-              <div>
-                <label className="text-[10px] font-bold block mb-0.5 opacity-70">
-                  {category === 'drink' ? 'Gesamtmenge (ml/g)' : category === 'bread' ? 'Gebackenes Gewicht (g)' : 'Fertiges Gewicht (g)'}
-                </label>
-                <input
-                  type="number"
-                  placeholder={`ca. ${effectiveBakedWeight}g`}
-                  value={customBakedWeight}
-                  onChange={(e) => setCustomBakedWeight(e.target.value)}
-                  className="w-full px-2.5 py-1.5 rounded-xl border border-stone-200 bg-white font-bold text-stone-800 text-xs"
-                />
+            {category === 'bread' ? (
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <div>
+                  <label className="text-[10px] font-bold block mb-0.5 opacity-70">
+                    Gebackenes Gewicht (g)
+                  </label>
+                  <input
+                    type="number"
+                    placeholder={`ca. ${effectiveBakedWeight}g`}
+                    value={customBakedWeight}
+                    onChange={(e) => setCustomBakedWeight(e.target.value)}
+                    className="w-full px-2.5 py-1.5 rounded-xl border border-stone-200 bg-white font-bold text-stone-800 text-xs"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold block mb-0.5 opacity-70">
+                    Gewicht pro Scheibe (g)
+                  </label>
+                  <input
+                    type="number"
+                    value={sliceWeight}
+                    onChange={(e) => setSliceWeight(e.target.value)}
+                    className="w-full px-2.5 py-1.5 rounded-xl border border-stone-200 bg-white font-bold text-stone-800 text-xs"
+                  />
+                </div>
               </div>
-
-              <div>
-                <label className="text-[10px] font-bold block mb-0.5 opacity-70">
-                  {category === 'drink' ? 'Menge pro Glas / Portion' : category === 'bread' ? 'Gewicht pro Scheibe (g)' : 'Gewicht pro Portion (g)'}
-                </label>
-                <input
-                  type="number"
-                  value={sliceWeight}
-                  onChange={(e) => setSliceWeight(e.target.value)}
-                  className="w-full px-2.5 py-1.5 rounded-xl border border-stone-200 bg-white font-bold text-stone-800 text-xs"
-                />
+            ) : (
+              <div className="space-y-2 text-xs">
+                <div>
+                  <label className="text-[10px] font-bold block mb-0.5 opacity-70">
+                    {category === 'drink' ? 'Fertige Gesamtmenge (ml / g)' : 'Fertiges Gewicht des gesamten Gerichts (g)'}
+                  </label>
+                  <input
+                    type="number"
+                    placeholder={`${effectiveBakedWeight}g`}
+                    value={customBakedWeight}
+                    onChange={(e) => setCustomBakedWeight(e.target.value)}
+                    className="w-full px-2.5 py-1.5 rounded-xl border border-stone-200 bg-white font-bold text-stone-800 text-xs"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold block mb-1 opacity-70">
+                    Rezept-Basis & Portionierung:
+                  </label>
+                  <div className="flex flex-wrap gap-1.5">
+                    {[
+                      { label: '1/1 Ganzes Gericht', count: 1, grams: effectiveBakedWeight },
+                      { label: '2 Portionen (1/2)', count: 2, grams: Math.round(effectiveBakedWeight / 2) },
+                      { label: '3 Portionen (1/3)', count: 3, grams: Math.round(effectiveBakedWeight / 3) },
+                      { label: '4 Portionen (1/4)', count: 4, grams: Math.round(effectiveBakedWeight / 4) },
+                    ].map((p) => {
+                      const isSel = (parseInt(sliceWeight, 10) || effectiveBakedWeight) === p.grams;
+                      return (
+                        <button
+                          key={p.label}
+                          type="button"
+                          onClick={() => setSliceWeight(String(p.grams))}
+                          className={`py-1 px-2.5 rounded-xl text-[11px] font-bold transition-all border cursor-pointer ${
+                            isSel
+                              ? 'bg-emerald-600 text-white border-emerald-700 shadow-2xs'
+                              : 'bg-white hover:bg-stone-50 text-stone-700 border-stone-200'
+                          }`}
+                        >
+                          <span>{p.label}</span>
+                          <span className="opacity-80 text-[10px] ml-1">({p.grams}{category === 'drink' ? 'ml' : 'g'})</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Live Nutrition Summary */}
             <div className="p-3 bg-white/90 rounded-xl border border-stone-200/70 flex items-center justify-between gap-2 shadow-2xs">
               <div>
                 <span className="text-[10px] font-bold text-stone-400 block uppercase">
-                  {category === 'drink' ? '1 Glas / Portion' : category === 'bread' ? '1 Scheibe Brot' : '1 Portion'} ({numSliceWeight}{category === 'drink' ? 'ml' : 'g'})
+                  {category === 'bread'
+                    ? `1 Scheibe Brot (${numSliceWeight}g)`
+                    : category === 'drink'
+                    ? (numSliceWeight >= effectiveBakedWeight ? `Ganzes Getränk (${numSliceWeight}ml)` : `1 Glas (${numSliceWeight}ml)`)
+                    : (numSliceWeight >= effectiveBakedWeight ? `Ganzes Gericht (${numSliceWeight}g)` : `1 Portion (${numSliceWeight}g)`)}
                 </span>
                 <span className="text-xl font-black text-stone-900">
                   {caloriesPerSlice} <span className="text-xs font-normal text-stone-400">kcal</span>
@@ -2095,15 +2201,11 @@ export const RecipeCreatorModal = ({
                             const isBread = effectiveCategory === 'bread';
                             const isDrink = effectiveCategory === 'drink';
                             const isCoffee = isDrink && (r.name.toLowerCase().includes('cortado') || r.name.toLowerCase().includes('kaffee') || r.name.toLowerCase().includes('espresso'));
-                            const multiplier = r.id ? getMultiplier(r.id) : 1;
-                            const baseSliceWeight = r.servingWeightGrams || (isCoffee ? 120 : isDrink ? 250 : isBread ? 50 : 250);
-                            const sliceWeight = Math.round(baseSliceWeight * multiplier);
-                            const ratio = sliceWeight / 100;
-                            const sliceKcal = Math.round(r.calories100g * ratio);
-                            const servLabel = r.servingName || (isBread ? '1 Scheibe' : isCoffee ? '1 Tasse' : isDrink ? '1 Glas' : '1 Portion');
-                            const proteinSlice = Math.round((r.protein100g || 0) * ratio * 10) / 10;
-                            const carbsSlice = Math.round((r.carbs100g || 0) * ratio * 10) / 10;
-                            const fatSlice = Math.round((r.fat100g || 0) * ratio * 10) / 10;
+                            const totalDishWeight = r.cookedWeight || r.totalRawWeight;
+                            const isWholeDish = !r.servingWeightGrams || r.servingWeightGrams >= totalDishWeight;
+                            const basePortionGrams = isBread ? (r.servingWeightGrams || 50) : (isWholeDish ? totalDishWeight : (r.servingWeightGrams || totalDishWeight));
+                            const servLabel = isBread ? (r.servingName || '1 Scheibe') : (isWholeDish ? 'Ganzes Gericht' : (r.servingName || '1 Portion'));
+                            const previewKcal = Math.round(r.calories100g * (basePortionGrams / 100));
 
                             if (!isExpanded) {
                               // KOMPAKTE VORSCHAU-ZEILE
@@ -2149,10 +2251,10 @@ export const RecipeCreatorModal = ({
                                       </div>
                                       <div className="flex items-center gap-2 text-[11px] text-stone-500 truncate mt-0.5">
                                         <span className={`font-bold ${isDrink ? 'text-blue-800' : isBread ? 'text-amber-800' : 'text-emerald-800'}`}>
-                                          {servLabel} ({baseSliceWeight}{isDrink ? 'ml' : 'g'}): <strong className="text-stone-900 font-black">{Math.round(r.calories100g * (baseSliceWeight / 100))} kcal</strong>
+                                          {servLabel} ({basePortionGrams}{isDrink ? 'ml' : 'g'}): <strong className="text-stone-900 font-black">{previewKcal} kcal</strong>
                                         </span>
                                         <span className="text-[10px] text-stone-400 hidden sm:inline">
-                                          P: {Math.round((r.protein100g || 0) * (baseSliceWeight / 100) * 10) / 10}g • K: {Math.round((r.carbs100g || 0) * (baseSliceWeight / 100) * 10) / 10}g
+                                          P: {Math.round((r.protein100g || 0) * (basePortionGrams / 100) * 10) / 10}g • K: {Math.round((r.carbs100g || 0) * (basePortionGrams / 100) * 10) / 10}g
                                         </span>
                                       </div>
                                     </div>
@@ -2315,97 +2417,230 @@ export const RecipeCreatorModal = ({
                                   </div>
                                 </div>
 
-                                {/* Interactive Portion Scaler */}
-                                <div className="p-2.5 bg-stone-50 rounded-2xl border border-stone-200/80 flex items-center justify-between gap-2">
-                                  <div className="flex items-center gap-1.5">
-                                    <span className="text-xs font-bold text-stone-700">Portionen anpassen:</span>
-                                    <span className="text-[10px] text-stone-400 hidden sm:inline">(Zutaten & Werte skalieren live)</span>
-                                  </div>
-                                  <div className="flex items-center gap-2">
-                                    <button
-                                      type="button"
-                                      onClick={() => r.id && setMultiplier(r.id, -0.5)}
-                                      className="w-7 h-7 rounded-lg bg-white border border-stone-200 hover:bg-stone-100 text-stone-700 font-bold flex items-center justify-center text-xs shadow-2xs"
-                                    >
-                                      <Minus className="w-3.5 h-3.5" />
-                                    </button>
-                                    <span className="font-extrabold text-xs text-stone-900 min-w-10 text-center">
-                                      {multiplier}x
-                                    </span>
-                                    <button
-                                      type="button"
-                                      onClick={() => r.id && setMultiplier(r.id, 0.5)}
-                                      className="w-7 h-7 rounded-lg bg-white border border-stone-200 hover:bg-stone-100 text-stone-700 font-bold flex items-center justify-center text-xs shadow-2xs"
-                                    >
-                                      <Plus className="w-3.5 h-3.5" />
-                                    </button>
-                                  </div>
-                                </div>
+                                {/* Interactive Portion Scaler & Live Macros */}
+                                {(() => {
+                                  const currentRatio = r.id ? getPortionRatio(r.id) : 1;
+                                  const currentCustomGrams = r.id ? portionCustomGrams[r.id] || '' : '';
+                                  const activeGrams = currentCustomGrams && parseFloat(currentCustomGrams) > 0
+                                    ? Math.round(parseFloat(currentCustomGrams))
+                                    : Math.round(totalDishWeight * currentRatio);
+                                  const ratioForCalc = activeGrams / 100;
+                                  const currentKcal = Math.round(r.calories100g * ratioForCalc);
+                                  const currentProt = Math.round((r.protein100g || 0) * ratioForCalc * 10) / 10;
+                                  const currentCarbs = Math.round((r.carbs100g || 0) * ratioForCalc * 10) / 10;
+                                  const currentFat = Math.round((r.fat100g || 0) * ratioForCalc * 10) / 10;
+                                  const ratioForIngredients = totalDishWeight > 0 ? activeGrams / totalDishWeight : 1;
 
-                                {/* Portionierung & Nährwert-Box (live skaliert) */}
-                                <div className="p-3 bg-stone-50 rounded-2xl border border-stone-200/70 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
-                                  <div>
-                                    <span className="text-[10px] font-bold text-stone-400 uppercase tracking-wider block">
-                                      Portionierung ({servLabel} {multiplier !== 1 ? `x${multiplier}` : ''}):
-                                    </span>
-                                    <span className="text-base font-black text-stone-900 block">
-                                      {sliceKcal} kcal <span className="text-xs font-normal text-stone-500">für {sliceWeight}{isDrink ? 'ml' : 'g'}</span>
-                                    </span>
-                                    <span className="text-[11px] text-stone-600 font-medium">
-                                      P: {proteinSlice}g • K: {carbsSlice}g • F: {fatSlice}g
-                                    </span>
-                                  </div>
+                                  let activePortionTitle = 'Ganzes Gericht (1/1)';
+                                  if (isBread) {
+                                    const sliceG = r.servingWeightGrams || 50;
+                                    if (Math.abs(currentRatio - 1) < 0.02) activePortionTitle = `Ganzer Laib (${totalDishWeight}g)`;
+                                    else if (Math.abs(currentRatio - 0.5) < 0.02) activePortionTitle = `1/2 Laib (${activeGrams}g)`;
+                                    else {
+                                      const sCount = Math.max(1, Math.round(activeGrams / sliceG));
+                                      activePortionTitle = sCount === 1 ? `1 Scheibe (${activeGrams}g)` : `${sCount} Scheiben (${activeGrams}g)`;
+                                    }
+                                  } else {
+                                    if (Math.abs(currentRatio - 1) < 0.02) activePortionTitle = `Ganzes Gericht (100% • ${totalDishWeight}${isDrink ? 'ml' : 'g'})`;
+                                    else if (Math.abs(currentRatio - 0.5) < 0.02) activePortionTitle = `1/2 Gericht (50% • ${activeGrams}${isDrink ? 'ml' : 'g'})`;
+                                    else if (Math.abs(currentRatio - 1 / 3) < 0.02) activePortionTitle = `1/3 Gericht (33% • ${activeGrams}${isDrink ? 'ml' : 'g'})`;
+                                    else if (Math.abs(currentRatio - 0.25) < 0.02) activePortionTitle = `1/4 Gericht (25% • ${activeGrams}${isDrink ? 'ml' : 'g'})`;
+                                    else if (Math.abs(currentRatio - 1 / 6) < 0.02) activePortionTitle = `1/6 Gericht (17% • ${activeGrams}${isDrink ? 'ml' : 'g'})`;
+                                    else if (currentRatio > 1) activePortionTitle = `${currentRatio}x Gesamtrezept (${activeGrams}${isDrink ? 'ml' : 'g'})`;
+                                    else activePortionTitle = `Portion (${activeGrams}${isDrink ? 'ml' : 'g'})`;
+                                  }
 
-                                  <div className="sm:text-right border-t sm:border-t-0 pt-2 sm:pt-0 border-stone-200/60 text-[11px] text-stone-500">
-                                    <span className="font-bold text-stone-700 block">Pro 100g: {r.calories100g} kcal</span>
-                                    <span className="text-[10px] text-stone-400 block">
-                                      P: {r.protein100g}g • K: {r.carbs100g}g • F: {r.fat100g}g
-                                    </span>
-                                  </div>
-                                </div>
-
-                                {/* Zutatenliste mit Live-Skalierung & Checkboxen */}
-                                {r.ingredients && r.ingredients.length > 0 && (
-                                  <div className="space-y-1.5">
-                                    <div className="flex items-center justify-between">
-                                      <span className="text-[10px] font-bold text-stone-500 uppercase tracking-wider block">
-                                        Zutatenliste ({r.ingredients.length}) • {multiplier}x skaliert:
-                                      </span>
-                                      <span className="text-[10px] text-stone-400">Beim Kochen abhaken</span>
-                                    </div>
-                                    <div className="divide-y divide-stone-100 bg-stone-50/70 rounded-2xl border border-stone-200/60 p-2 max-h-48 overflow-y-auto">
-                                      {r.ingredients.map((ing, idx) => {
-                                        const ingKey = `${r.id}_ing_${idx}`;
-                                        const isDone = !!checkedIngredients[ingKey];
-                                        const scaledG = Math.round(ing.amountGrams * multiplier);
-                                        const scaledKcal = Math.round(ing.calories * multiplier);
-                                        return (
-                                          <div
-                                            key={idx}
-                                            onClick={() => toggleIngredientCheck(ingKey)}
-                                            className={`py-1.5 px-2 flex items-center justify-between text-xs cursor-pointer select-none rounded-xl transition-colors ${
-                                              isDone ? 'bg-emerald-50/50 text-stone-400' : 'hover:bg-white'
-                                            }`}
-                                          >
-                                            <div className="flex items-center gap-2 min-w-0 mr-2">
-                                              {isDone ? (
-                                                <CheckSquare className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                                              ) : (
-                                                <Square className="w-3.5 h-3.5 text-stone-300 shrink-0" />
-                                              )}
-                                              <span className={`font-semibold truncate ${isDone ? 'line-through text-stone-400' : 'text-stone-800'}`}>
-                                                {ing.name}
-                                              </span>
-                                            </div>
-                                            <span className="text-[11px] text-stone-500 shrink-0 font-bold">
-                                              {scaledG}g ({scaledKcal} kcal)
+                                  return (
+                                    <>
+                                      {/* Interactive Portion Scaler (Teiler & Portionen) */}
+                                      {isBread ? (
+                                        <div className="p-3 bg-stone-50/90 rounded-2xl border border-stone-200/80 space-y-2">
+                                          <div className="flex items-center justify-between text-xs">
+                                            <span className="font-bold text-stone-800">
+                                              Brot portionieren:
+                                            </span>
+                                            <span className="text-[11px] text-stone-400">
+                                              (Laib gesamt: <strong className="text-stone-700 font-extrabold">{totalDishWeight}g</strong>)
                                             </span>
                                           </div>
-                                        );
-                                      })}
-                                    </div>
-                                  </div>
-                                )}
+                                          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+                                            {(() => {
+                                              const sliceG = r.servingWeightGrams || 50;
+                                              return [
+                                                { label: '1 Scheibe', ratio: sliceG / totalDishWeight, grams: sliceG },
+                                                { label: '2 Scheiben', ratio: (sliceG * 2) / totalDishWeight, grams: sliceG * 2 },
+                                                { label: '3 Scheiben', ratio: (sliceG * 3) / totalDishWeight, grams: sliceG * 3 },
+                                                { label: '1/4 Laib', ratio: 0.25, grams: Math.round(totalDishWeight / 4) },
+                                                { label: '1/2 Laib', ratio: 0.5, grams: Math.round(totalDishWeight / 2) },
+                                                { label: 'Ganzer Laib', ratio: 1, grams: totalDishWeight },
+                                              ].map((bItem) => {
+                                                const isSel = !currentCustomGrams && Math.abs(currentRatio - bItem.ratio) < 0.02;
+                                                return (
+                                                  <button
+                                                    key={bItem.label}
+                                                    type="button"
+                                                    onClick={() => r.id && setPortionRatio(r.id, bItem.ratio)}
+                                                    className={`py-1.5 px-2.5 rounded-xl text-xs font-bold shrink-0 transition-all cursor-pointer border ${
+                                                      isSel
+                                                        ? 'bg-amber-600 text-white border-amber-700 shadow-2xs'
+                                                        : 'bg-white hover:bg-stone-100 text-stone-700 border-stone-200/90'
+                                                    }`}
+                                                  >
+                                                    <span>{bItem.label}</span>
+                                                    <span className="text-[10px] opacity-80 ml-1">({bItem.grams}g)</span>
+                                                  </button>
+                                                );
+                                              });
+                                            })()}
+                                          </div>
+                                        </div>
+                                      ) : (
+                                        <div className="p-3 bg-stone-50/90 rounded-2xl border border-stone-200/80 space-y-2.5">
+                                          <div className="flex items-center justify-between gap-2 flex-wrap">
+                                            <div className="flex items-center gap-1.5">
+                                              <span className="text-xs font-bold text-stone-800">
+                                                Portionierung wählen:
+                                              </span>
+                                              <span className="text-[11px] text-stone-400">
+                                                (Gesamtmenge: <strong className="text-stone-700 font-extrabold">{totalDishWeight}{isDrink ? 'ml' : 'g'}</strong>)
+                                              </span>
+                                            </div>
+
+                                            {/* Cooking Multiplier (2x, 3x) */}
+                                            <div className="flex items-center gap-1 text-[11px]">
+                                              <span className="text-[10px] text-stone-400 mr-1 hidden sm:inline">Vorkochen:</span>
+                                              {[1, 2, 3].map((mult) => {
+                                                const isSel = Math.abs(currentRatio - mult) < 0.02 && !currentCustomGrams;
+                                                return (
+                                                  <button
+                                                    key={mult}
+                                                    type="button"
+                                                    onClick={() => r.id && setPortionRatio(r.id, mult)}
+                                                    className={`px-2 py-0.5 rounded-lg font-bold border transition-all cursor-pointer ${
+                                                      isSel
+                                                        ? 'bg-amber-500 text-white border-amber-600 shadow-2xs'
+                                                        : 'bg-white hover:bg-stone-100 text-stone-600 border-stone-200'
+                                                    }`}
+                                                    title={`${mult}x Gesamt-Rezept zubereiten`}
+                                                  >
+                                                    {mult}x
+                                                  </button>
+                                                );
+                                              })}
+                                            </div>
+                                          </div>
+
+                                          {/* Fraction Chips */}
+                                          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+                                            {[
+                                              { label: '1/1 Ganz', fraction: 1, grams: totalDishWeight },
+                                              { label: '1/2 Halb', fraction: 0.5, grams: Math.round(totalDishWeight / 2) },
+                                              { label: '1/3 Drittel', fraction: 1 / 3, grams: Math.round(totalDishWeight / 3) },
+                                              { label: '1/4 Viertel', fraction: 0.25, grams: Math.round(totalDishWeight / 4) },
+                                              { label: '1/6 Sechstel', fraction: 1 / 6, grams: Math.round(totalDishWeight / 6) },
+                                            ].map((fItem) => {
+                                              const isSel = !currentCustomGrams && Math.abs(currentRatio - fItem.fraction) < 0.02;
+                                              return (
+                                                <button
+                                                  key={fItem.label}
+                                                  type="button"
+                                                  onClick={() => r.id && setPortionRatio(r.id, fItem.fraction)}
+                                                  className={`py-1.5 px-2.5 rounded-xl text-xs font-bold shrink-0 transition-all cursor-pointer border ${
+                                                    isSel
+                                                      ? 'bg-emerald-600 text-white border-emerald-700 shadow-2xs'
+                                                      : 'bg-white hover:bg-stone-100 text-stone-700 border-stone-200/90'
+                                                  }`}
+                                                >
+                                                  <span>{fItem.label}</span>
+                                                  <span className="text-[10px] opacity-80 ml-1">({fItem.grams}{isDrink ? 'ml' : 'g'})</span>
+                                                </button>
+                                              );
+                                            })}
+
+                                            {/* Direct Gram Input */}
+                                            <div className="flex items-center gap-1 bg-white border border-stone-200 rounded-xl px-2 py-1 shrink-0">
+                                              <span className="text-[10px] font-bold text-stone-400">Frei:</span>
+                                              <input
+                                                type="number"
+                                                placeholder="Gramm"
+                                                value={currentCustomGrams}
+                                                onChange={(e) => r.id && setRecipeCustomGramInput(r.id, e.target.value, totalDishWeight)}
+                                                className="w-14 text-xs font-bold text-stone-800 outline-none text-right"
+                                              />
+                                              <span className="text-[10px] text-stone-400">{isDrink ? 'ml' : 'g'}</span>
+                                            </div>
+                                          </div>
+                                        </div>
+                                      )}
+
+                                      {/* Portionierung & Nährwert-Box (live skaliert) */}
+                                      <div className="p-3 bg-stone-50 rounded-2xl border border-stone-200/70 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                                        <div>
+                                          <span className="text-[10px] font-bold text-stone-400 uppercase tracking-wider block">
+                                            {activePortionTitle}:
+                                          </span>
+                                          <span className="text-base font-black text-stone-900 block">
+                                            {currentKcal} kcal <span className="text-xs font-normal text-stone-500">für {activeGrams}{isDrink ? 'ml' : 'g'}</span>
+                                          </span>
+                                          <span className="text-[11px] text-stone-600 font-medium">
+                                            P: {currentProt}g • K: {currentCarbs}g • F: {currentFat}g
+                                          </span>
+                                        </div>
+
+                                        <div className="sm:text-right border-t sm:border-t-0 pt-2 sm:pt-0 border-stone-200/60 text-[11px] text-stone-500">
+                                          <span className="font-bold text-stone-700 block">Pro 100g: {r.calories100g} kcal</span>
+                                          <span className="text-[10px] text-stone-400 block">
+                                            P: {r.protein100g}g • K: {r.carbs100g}g • F: {r.fat100g}g
+                                          </span>
+                                        </div>
+                                      </div>
+
+                                      {/* Zutatenliste mit Live-Skalierung & Checkboxen */}
+                                      {r.ingredients && r.ingredients.length > 0 && (
+                                        <div className="space-y-1.5">
+                                          <div className="flex items-center justify-between">
+                                            <span className="text-[10px] font-bold text-stone-500 uppercase tracking-wider block">
+                                              Zutatenliste ({r.ingredients.length}) • {Math.round(ratioForIngredients * 100)}% skaliert:
+                                            </span>
+                                            <span className="text-[10px] text-stone-400">Beim Kochen abhaken</span>
+                                          </div>
+                                          <div className="divide-y divide-stone-100 bg-stone-50/70 rounded-2xl border border-stone-200/60 p-2 max-h-48 overflow-y-auto">
+                                            {r.ingredients.map((ing, idx) => {
+                                              const ingKey = `${r.id}_ing_${idx}`;
+                                              const isDone = !!checkedIngredients[ingKey];
+                                              const scaledG = Math.round(ing.amountGrams * ratioForIngredients);
+                                              return (
+                                                <div
+                                                  key={idx}
+                                                  onClick={() => toggleIngredientCheck(ingKey)}
+                                                  className={`py-1.5 px-2 flex items-center justify-between text-xs cursor-pointer select-none transition-colors rounded-xl ${
+                                                    isDone ? 'bg-emerald-50/60 text-stone-400' : 'hover:bg-white text-stone-800'
+                                                  }`}
+                                                >
+                                                  <div className="flex items-center gap-2 min-w-0 pr-2">
+                                                    <div className="shrink-0">
+                                                      {isDone ? (
+                                                        <CheckSquare className="w-4 h-4 text-emerald-600" />
+                                                      ) : (
+                                                        <Square className="w-4 h-4 text-stone-300" />
+                                                      )}
+                                                    </div>
+                                                    <span className={`truncate font-medium ${isDone ? 'line-through' : ''}`}>
+                                                      {ing.name}
+                                                    </span>
+                                                  </div>
+                                                  <span className="font-extrabold text-[11px] shrink-0 text-stone-700">
+                                                    {scaledG}g
+                                                  </span>
+                                                </div>
+                                              );
+                                            })}
+                                          </div>
+                                        </div>
+                                      )}
+                                    </>
+                                  );
+                                })()}
 
                                 {/* Schritt-für-Schritt Zubereitung (Instructions) */}
                                 {r.instructions && r.instructions.length > 0 && (
@@ -2977,68 +3212,180 @@ export const RecipeCreatorModal = ({
                   const effectiveCategory = inferRecipeCategory(diaryLogModalRecipe);
                   const isDrink = effectiveCategory === 'drink';
                   const isBread = effectiveCategory === 'bread';
-                  const isCoffee = isDrink && (diaryLogModalRecipe.name.toLowerCase().includes('cortado') || diaryLogModalRecipe.name.toLowerCase().includes('kaffee') || diaryLogModalRecipe.name.toLowerCase().includes('espresso'));
-                  const baseServing = diaryLogModalRecipe.servingWeightGrams || (isCoffee ? 120 : isDrink ? 250 : isBread ? 50 : 250);
-                  const totalG = Math.round(baseServing * diaryLogPortionCount);
+                  const totalDishWeight = diaryLogModalRecipe.cookedWeight || diaryLogModalRecipe.totalRawWeight;
+
+                  let totalG = Math.round(totalDishWeight * diaryLogFraction);
+                  const parsedCustom = parseFloat(diaryLogCustomGrams);
+                  if (parsedCustom && parsedCustom > 0) {
+                    totalG = Math.round(parsedCustom);
+                  }
+
                   const ratio = totalG / 100;
                   const cals = Math.round(diaryLogModalRecipe.calories100g * ratio);
                   const prot = Math.round((diaryLogModalRecipe.protein100g || 0) * ratio * 10) / 10;
                   const carb = Math.round((diaryLogModalRecipe.carbs100g || 0) * ratio * 10) / 10;
                   const fat = Math.round((diaryLogModalRecipe.fat100g || 0) * ratio * 10) / 10;
-                  const unitWord = diaryLogModalRecipe.servingName || (isCoffee ? 'Tasse' : isDrink ? 'Glas' : isBread ? 'Scheibe' : 'Portion');
+
+                  // Label for active portion
+                  let activePortionLabel = '';
+                  if (parsedCustom && parsedCustom > 0) {
+                    activePortionLabel = `Eigene Angabe (${totalG}${isDrink ? 'ml' : 'g'})`;
+                  } else if (isBread) {
+                    const sliceG = diaryLogModalRecipe.servingWeightGrams || 50;
+                    if (Math.abs(diaryLogFraction - 1) < 0.02) {
+                      activePortionLabel = `Ganzer Laib (${totalDishWeight}g)`;
+                    } else if (Math.abs(diaryLogFraction - 0.5) < 0.02) {
+                      activePortionLabel = `1/2 Laib (${totalG}g)`;
+                    } else {
+                      const numSlices = Math.max(1, Math.round(totalG / sliceG));
+                      activePortionLabel = numSlices === 1 ? `1 Scheibe (${totalG}g)` : `${numSlices} Scheiben (${totalG}g)`;
+                    }
+                  } else {
+                    if (Math.abs(diaryLogFraction - 1) < 0.02) {
+                      activePortionLabel = `Ganzes Gericht (${totalG}${isDrink ? 'ml' : 'g'})`;
+                    } else if (Math.abs(diaryLogFraction - 0.5) < 0.02) {
+                      activePortionLabel = `1/2 Gericht (${totalG}${isDrink ? 'ml' : 'g'})`;
+                    } else if (Math.abs(diaryLogFraction - 1 / 3) < 0.02) {
+                      activePortionLabel = `1/3 Gericht (${totalG}${isDrink ? 'ml' : 'g'})`;
+                    } else if (Math.abs(diaryLogFraction - 0.25) < 0.02) {
+                      activePortionLabel = `1/4 Gericht (${totalG}${isDrink ? 'ml' : 'g'})`;
+                    } else if (Math.abs(diaryLogFraction - 1 / 6) < 0.02) {
+                      activePortionLabel = `1/6 Gericht (${totalG}${isDrink ? 'ml' : 'g'})`;
+                    } else if (diaryLogFraction > 1) {
+                      activePortionLabel = `${diaryLogFraction}x Gesamtrezept (${totalG}${isDrink ? 'ml' : 'g'})`;
+                    } else {
+                      activePortionLabel = `Portion (${totalG}${isDrink ? 'ml' : 'g'})`;
+                    }
+                  }
 
                   return (
-                    <>
-                      <div className="space-y-1">
+                    <div className="space-y-3">
+                      <div className="space-y-1.5">
                         <div className="flex items-center justify-between">
                           <label className="text-xs font-semibold text-stone-600">Portionsmenge:</label>
                           <span className="text-xs font-bold text-stone-500">
                             {totalG} {isDrink ? 'ml' : 'g'} gesamt
                           </span>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() => setDiaryLogPortionCount((prev) => Math.max(0.25, Math.round((prev - 0.5) * 100) / 100))}
-                            className="w-9 h-9 rounded-xl bg-stone-100 hover:bg-stone-200 text-stone-700 font-bold flex items-center justify-center text-sm cursor-pointer"
-                          >
-                            <Minus className="w-4 h-4" />
-                          </button>
-                          <div className="flex-1 py-1.5 bg-stone-50 rounded-xl border border-stone-200 text-center font-black text-sm text-stone-900">
-                            {diaryLogPortionCount}x {unitWord}
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => setDiaryLogPortionCount((prev) => Math.min(10, Math.round((prev + 0.5) * 100) / 100))}
-                            className="w-9 h-9 rounded-xl bg-stone-100 hover:bg-stone-200 text-stone-700 font-bold flex items-center justify-center text-sm cursor-pointer"
-                          >
-                            <Plus className="w-4 h-4" />
-                          </button>
-                        </div>
 
-                        {/* Quick portion chips */}
-                        <div className="flex gap-1 pt-1">
-                          {[0.5, 1, 1.5, 2, 3].map((val) => (
-                            <button
-                              key={val}
-                              type="button"
-                              onClick={() => setDiaryLogPortionCount(val)}
-                              className={`flex-1 py-1 rounded-lg border text-[10px] font-bold transition-all cursor-pointer ${
-                                diaryLogPortionCount === val
-                                  ? 'border-emerald-500 bg-emerald-50 text-emerald-900'
-                                  : 'border-stone-200 text-stone-600 hover:bg-stone-50'
-                              }`}
-                            >
-                              {val}x
-                            </button>
-                          ))}
-                        </div>
+                        {/* If bread, show slice / loaf chips */}
+                        {isBread ? (
+                          <div className="space-y-2">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              {(() => {
+                                const sliceG = diaryLogModalRecipe.servingWeightGrams || 50;
+                                const loafG = totalDishWeight;
+                                const breadOptions = [
+                                  { label: '1 Scheibe', fraction: sliceG / loafG, grams: sliceG },
+                                  { label: '2 Scheiben', fraction: (sliceG * 2) / loafG, grams: sliceG * 2 },
+                                  { label: '3 Scheiben', fraction: (sliceG * 3) / loafG, grams: sliceG * 3 },
+                                  { label: '1/2 Laib', fraction: 0.5, grams: Math.round(loafG / 2) },
+                                  { label: 'Ganzer Laib', fraction: 1, grams: loafG },
+                                ];
+                                return breadOptions.map((bItem) => {
+                                  const isSel = !diaryLogCustomGrams && Math.abs(diaryLogFraction - bItem.fraction) < 0.02;
+                                  return (
+                                    <button
+                                      key={bItem.label}
+                                      type="button"
+                                      onClick={() => {
+                                        setDiaryLogFraction(bItem.fraction);
+                                        setDiaryLogCustomGrams('');
+                                      }}
+                                      className={`py-1 px-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer border ${
+                                        isSel
+                                          ? 'bg-amber-600 text-white border-amber-700 shadow-2xs'
+                                          : 'bg-white hover:bg-stone-100 text-stone-700 border-stone-200'
+                                      }`}
+                                    >
+                                      <span>{bItem.label}</span>
+                                      <span className="text-[10px] opacity-80 ml-1">({bItem.grams}g)</span>
+                                    </button>
+                                  );
+                                });
+                              })()}
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs text-stone-500 font-medium">Oder freie Gramm:</span>
+                              <div className="flex items-center gap-1 bg-white border border-stone-200 rounded-xl px-2.5 py-1">
+                                <input
+                                  type="number"
+                                  placeholder="z.B. 65"
+                                  value={diaryLogCustomGrams}
+                                  onChange={(e) => {
+                                    setDiaryLogCustomGrams(e.target.value);
+                                    const parsed = parseFloat(e.target.value);
+                                    if (parsed && parsed > 0 && totalDishWeight > 0) {
+                                      setDiaryLogFraction(parsed / totalDishWeight);
+                                    }
+                                  }}
+                                  className="w-16 text-xs font-bold text-stone-800 outline-none text-right"
+                                />
+                                <span className="text-[11px] text-stone-400">g</span>
+                              </div>
+                            </div>
+                          </div>
+                        ) : (
+                          /* For dishes, bowls, drinks, menus, snacks: Fractions 1/1, 1/2, 1/3, 1/4, 1/6 + custom grams */
+                          <div className="space-y-2">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              {[
+                                { label: '1/1 Ganz', fraction: 1, grams: totalDishWeight },
+                                { label: '1/2 Halb', fraction: 0.5, grams: Math.round(totalDishWeight / 2) },
+                                { label: '1/3 Drittel', fraction: 1 / 3, grams: Math.round(totalDishWeight / 3) },
+                                { label: '1/4 Viertel', fraction: 0.25, grams: Math.round(totalDishWeight / 4) },
+                                { label: '1/6 Sechstel', fraction: 1 / 6, grams: Math.round(totalDishWeight / 6) },
+                              ].map((fItem) => {
+                                const isSel = !diaryLogCustomGrams && Math.abs(diaryLogFraction - fItem.fraction) < 0.02;
+                                return (
+                                  <button
+                                    key={fItem.label}
+                                    type="button"
+                                    onClick={() => {
+                                      setDiaryLogFraction(fItem.fraction);
+                                      setDiaryLogCustomGrams('');
+                                    }}
+                                    className={`py-1.5 px-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer border ${
+                                      isSel
+                                        ? 'bg-emerald-600 text-white border-emerald-700 shadow-2xs'
+                                        : 'bg-white hover:bg-stone-100 text-stone-700 border-stone-200'
+                                    }`}
+                                  >
+                                    <span>{fItem.label}</span>
+                                    <span className="text-[10px] opacity-80 ml-1">({fItem.grams}{isDrink ? 'ml' : 'g'})</span>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs text-stone-500 font-medium">Oder freie {isDrink ? 'ml' : 'Gramm'}:</span>
+                              <div className="flex items-center gap-1 bg-white border border-stone-200 rounded-xl px-2.5 py-1">
+                                <input
+                                  type="number"
+                                  placeholder="z.B. 250"
+                                  value={diaryLogCustomGrams}
+                                  onChange={(e) => {
+                                    setDiaryLogCustomGrams(e.target.value);
+                                    const parsed = parseFloat(e.target.value);
+                                    if (parsed && parsed > 0 && totalDishWeight > 0) {
+                                      setDiaryLogFraction(parsed / totalDishWeight);
+                                    }
+                                  }}
+                                  className="w-16 text-xs font-bold text-stone-800 outline-none text-right"
+                                />
+                                <span className="text-[11px] text-stone-400">{isDrink ? 'ml' : 'g'}</span>
+                              </div>
+                            </div>
+                          </div>
+                        )}
                       </div>
 
                       {/* Calculated Macros Box */}
                       <div className="p-3 bg-emerald-50/70 border border-emerald-200/80 rounded-2xl flex items-center justify-between text-xs">
                         <div>
-                          <span className="text-[10px] font-bold text-emerald-900 block uppercase">Im Tagebuch:</span>
+                          <span className="text-[10px] font-bold text-emerald-900 block uppercase">
+                            {activePortionLabel}:
+                          </span>
                           <span className="text-xl font-black text-emerald-950">{cals} kcal</span>
                         </div>
                         <div className="text-right text-[11px] text-emerald-800 space-y-0.5">
@@ -3046,7 +3393,7 @@ export const RecipeCreatorModal = ({
                           <div>K: <strong className="text-stone-900">{carb}g</strong> • F: <strong className="text-stone-900">{fat}g</strong></div>
                         </div>
                       </div>
-                    </>
+                    </div>
                   );
                 })()}
 
