@@ -139,13 +139,18 @@ export interface RecipeIngredient {
   sugar?: number;
 }
 
-export type RecipeCategory = 'bread' | 'meal' | 'drink' | 'snack';
+export type RecipeCategory = 'bread' | 'breakfast' | 'meal' | 'salad' | 'drink' | 'snack';
 
 export interface CustomRecipe {
   id?: number;
   name: string;
   category: RecipeCategory;
   ingredients: RecipeIngredient[];
+  instructions?: string[]; // Schritt-für-Schritt-Zubereitung
+  imageUrl?: string; // Komprimiertes Rezeptfoto (Base64 Data URL)
+  prepTimeMinutes?: number; // Zubereitungszeit in Minuten
+  isFavorite?: boolean; // Als Favorit markiert ⭐
+  tags?: string[]; // Schlagwörter wie #highprotein, #schnell
   totalRawWeight: number; // in grams
   cookedWeight: number; // in grams (baked loaf weight or finished weight)
   servingName: string; // e.g. "1 Scheibe", "1 Portion", "1 Glas"

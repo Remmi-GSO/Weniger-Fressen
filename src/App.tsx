@@ -403,6 +403,7 @@ export function App() {
         defaultMealType={activeMealType}
         geminiApiKey={profile.geminiApiKey}
         onOpenSettings={() => setShowSettings(true)}
+        selectedDate={selectedDate}
         onRecipeSaved={(recipe) => {
           setIsRecipeCreatorOpen(false);
           // Convert newly created recipe into FoodProduct and open PortionCalculator immediately

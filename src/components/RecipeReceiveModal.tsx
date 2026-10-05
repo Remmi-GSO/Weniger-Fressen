@@ -139,6 +139,23 @@ export const RecipeReceiveModal = ({
             </div>
           )}
 
+          {/* Instructions if present */}
+          {receivedRecipe.instructions && receivedRecipe.instructions.length > 0 && (
+            <div className="space-y-1.5">
+              <span className="text-[11px] font-bold text-stone-400 uppercase tracking-wider block">
+                Zubereitung ({receivedRecipe.instructions.length} Schritte):
+              </span>
+              <div className="max-h-32 overflow-y-auto space-y-1 bg-stone-50 p-2.5 rounded-xl border border-stone-100 text-xs">
+                {receivedRecipe.instructions.map((step, idx) => (
+                  <div key={idx} className="text-stone-600 leading-snug">
+                    <span className="font-bold text-emerald-700 mr-1.5">{idx + 1}.</span>
+                    <span>{step.replace(/^\d+\.\s*/, '')}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Action buttons */}
           <div className="space-y-2 pt-2">
             <button

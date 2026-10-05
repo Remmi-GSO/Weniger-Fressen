@@ -12,7 +12,7 @@ interface MinifiedIngredient {
 
 interface MinifiedRecipePayload {
   n: string; // name
-  c: 'bread' | 'meal' | 'drink' | 'snack';
+  c: 'bread' | 'breakfast' | 'meal' | 'salad' | 'drink' | 'snack';
   rw: number; // totalRawWeight
   cw: number; // cookedWeight
   sn: string; // servingName
@@ -23,6 +23,8 @@ interface MinifiedRecipePayload {
   f: number; // fat100g
   fib?: number; // fiber100g
   sug?: number; // sugar100g
+  pt?: number; // prepTimeMinutes
+  ins?: string[]; // instructions
   ing?: MinifiedIngredient[];
 }
 
@@ -43,6 +45,8 @@ export function encodeRecipeToPayload(recipe: CustomRecipe): string {
     f: recipe.fat100g,
     fib: recipe.fiber100g,
     sug: recipe.sugar100g,
+    pt: recipe.prepTimeMinutes,
+    ins: recipe.instructions,
     ing: recipe.ingredients?.map((i) => ({
       n: i.name,
       g: i.amountGrams,
@@ -97,6 +101,8 @@ export function decodePayloadToRecipe(compressed: string): Omit<CustomRecipe, 'i
             fat: i.f,
           }))
         : [],
+      instructions: min.ins || [],
+      prepTimeMinutes: min.pt || undefined,
       createdAt: Date.now(),
     };
   } catch (err) {

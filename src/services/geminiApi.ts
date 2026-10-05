@@ -560,3 +560,124 @@ Antworte ausschließlich im angegebenen JSON-Format:
   }
 }
 
+export interface AiChefRecipeResult {
+  name: string;
+  category: 'bread' | 'breakfast' | 'meal' | 'salad' | 'drink' | 'snack';
+  servingName: string;
+  servingWeightGrams: number;
+  portionCount: number;
+  cookedWeightGrams?: number;
+  prepTimeMinutes?: number;
+  instructions: string[];
+  ingredients: ParsedRecipeIngredient[];
+  tags?: string[];
+  summaryNote?: string;
+}
+
+/**
+ * Generates an inspiring, healthy, and precise recipe from free speech or user ideas
+ * using Gemini Flash. Includes exact weights, macro calculation, and instructions.
+ */
+export async function generateRecipeWithAiChef({
+  userPrompt,
+  apiKey,
+}: {
+  userPrompt: string;
+  apiKey: string;
+}): Promise<AiChefRecipeResult> {
+  const prompt = `Du bist ein leidenschaftlicher Spitzenkoch und herzlicher deutscher Ernährungsexperte.
+Der Nutzer wünscht sich ein Rezept:
+"${userPrompt}"
+
+AUFGABE:
+Kreiere ein alltagstaugliches, köstliches und genau kalkuliertes Rezept.
+1. Vergib einen appetitanregenden Namen ("name").
+2. Wähle die beste Rubrik ("category"): "bread" (Brot/Backen), "breakfast" (Frühstück/Bowls/Pancakes), "meal" (Hauptgerichte/One-Pot), "salad" (Salate/Beilagen), "drink" (Smoothies/Shakes/Drinks) oder "snack" (Snacks/Desserts).
+3. Bestimme die Portionen ("portionCount", z.B. 1, 2 oder 4; bei Brot ca. 16 Scheiben) und Portionsname ("servingName", z.B. "1 Scheibe", "1 Portion", "1 Glas", "1 Schüssel").
+4. Gib realistische Zubereitungszeit in Minuten ("prepTimeMinutes", z.B. 20).
+5. Definiere alle Zutaten mit exakter Grammangabe ("amountGrams") und verlässlichen Makros (Kalorien, Eiweiß, Kohlenhydrate, Fett, Ballaststoffe, Zucker).
+6. Verfasse eine leicht verständliche, nummerierte Schritt-für-Schritt-Anleitung ("instructions", Array aus 2-5 Strings, z.B. ["1. Gemüse waschen und würfeln.", "2. Fleisch scharf anbraten...", "3. Mit Gewürzen abschmecken und 10 Min köcheln lassen."]).
+7. Bei Brot/Backen: Berechne Backverlust (ca. 12-15% weniger als Rohgewicht) und setze "cookedWeightGrams".
+
+Antworte ausschließlich im angegebenen JSON-Format:
+{
+  "name": "Rezeptname",
+  "category": "meal",
+  "servingName": "1 Portion",
+  "servingWeightGrams": 350,
+  "portionCount": 2,
+  "cookedWeightGrams": 700,
+  "prepTimeMinutes": 25,
+  "instructions": [
+    "1. Schritt eins...",
+    "2. Schritt zwei...",
+    "3. Schritt drei..."
+  ],
+  "tags": ["High-Protein", "Schnell"],
+  "summaryNote": "Ein knackiges Pfannengericht mit viel Eiweiß und wenig Aufwand.",
+  "ingredients": [
+    {
+      "name": "Hähnchenbrustfilet",
+      "amountGrams": 300,
+      "calories": 330,
+      "protein": 69.0,
+      "carbs": 0.0,
+      "fat": 4.5,
+      "fiber": 0.0,
+      "sugar": 0.0
+    }
+  ]
+}`;
+
+  try {
+    const { rawText } = await callGeminiApi({
+      apiKey,
+      parts: [{ text: prompt }],
+      temperature: 0.3,
+    });
+
+    const parsed = JSON.parse(rawText);
+    const rawIngs: any[] = Array.isArray(parsed.ingredients) ? parsed.ingredients : [];
+
+    const ingredients: ParsedRecipeIngredient[] = rawIngs.map((ing) => {
+      const amountGrams = Math.max(1, Number(ing.amountGrams) || 50);
+      return {
+        name: String(ing.name || 'Zutat'),
+        amountGrams,
+        calories: Math.max(0, Math.round(Number(ing.calories) || 0)),
+        protein: Math.max(0, Math.round((Number(ing.protein) || 0) * 10) / 10),
+        carbs: Math.max(0, Math.round((Number(ing.carbs) || 0) * 10) / 10),
+        fat: Math.max(0, Math.round((Number(ing.fat) || 0) * 10) / 10),
+        fiber: ing.fiber !== undefined ? Math.max(0, Math.round(Number(ing.fiber) * 10) / 10) : undefined,
+        sugar: ing.sugar !== undefined ? Math.max(0, Math.round(Number(ing.sugar) * 10) / 10) : undefined,
+      };
+    });
+
+    const validCats = ['bread', 'breakfast', 'meal', 'salad', 'drink', 'snack'] as const;
+    const category = validCats.includes(parsed.category) ? parsed.category : 'meal';
+
+    const rawInstructions = Array.isArray(parsed.instructions)
+      ? parsed.instructions.map((s: any) => String(s).trim()).filter(Boolean)
+      : typeof parsed.instructions === 'string'
+      ? parsed.instructions.split('\n').map((s: string) => s.trim()).filter(Boolean)
+      : [];
+
+    return {
+      name: String(parsed.name || 'KI-Rezept-Idee'),
+      category,
+      servingName: String(parsed.servingName || (category === 'bread' ? '1 Scheibe' : category === 'drink' ? '1 Glas' : '1 Portion')),
+      servingWeightGrams: Math.max(1, Number(parsed.servingWeightGrams) || (category === 'bread' ? 50 : 250)),
+      portionCount: Math.max(1, Number(parsed.portionCount) || 1),
+      cookedWeightGrams: parsed.cookedWeightGrams ? Math.max(1, Number(parsed.cookedWeightGrams)) : undefined,
+      prepTimeMinutes: parsed.prepTimeMinutes ? Math.max(1, Number(parsed.prepTimeMinutes)) : undefined,
+      instructions: rawInstructions,
+      ingredients,
+      tags: Array.isArray(parsed.tags) ? parsed.tags.map(String) : [],
+      summaryNote: parsed.summaryNote ? String(parsed.summaryNote) : undefined,
+    };
+  } catch (err: any) {
+    console.error('Gemini AI chef recipe failed:', err);
+    throw err;
+  }
+}
+
