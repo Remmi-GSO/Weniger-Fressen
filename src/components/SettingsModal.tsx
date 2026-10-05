@@ -1420,12 +1420,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             </div>
 
             <div className="space-y-2.5 pt-1">
-              {/* Version 1.5 */}
+              {/* Version 1.6 */}
               <div className="p-3 bg-white rounded-xl border border-emerald-200/90 shadow-2xs space-y-1.5">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-1.5">
                     <span className="px-2 py-0.5 rounded-md bg-emerald-600 text-white text-[11px] font-black">
-                      v1.5
+                      v1.6
                     </span>
                     <span className="text-xs font-bold text-stone-800">Aktuelle Version</span>
                   </div>
@@ -1448,28 +1448,43 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     <span className="text-emerald-600 shrink-0 font-bold">✓</span>
                     <span><strong>📖 Kurzanleitung & Bedienungs-Tipps:</strong> Schneller Leitfaden direkt hier in den Einstellungen – übersichtlich gegliedert für KI-Diktat, Portionierung und Rezepte.</span>
                   </li>
+                </ul>
+              </div>
+
+              {/* Version 1.5 */}
+              <div className="p-3 bg-white rounded-xl border border-stone-200/80 shadow-2xs space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5">
+                    <span className="px-2 py-0.5 rounded-md bg-stone-100 text-stone-800 text-[11px] font-black border border-stone-200">
+                      v1.5
+                    </span>
+                    <span className="text-xs font-bold text-stone-700">Rezept-Datenbank & KI-Chefkoch</span>
+                  </div>
+                  <span className="text-[10px] text-stone-400 font-medium">05.10.2026</span>
+                </div>
+                <ul className="text-xs text-stone-600 space-y-1 pl-1">
                   <li className="flex items-start gap-1.5">
-                    <span className="text-emerald-600 shrink-0 font-bold">✓</span>
+                    <span className="text-stone-400 shrink-0 font-bold">•</span>
                     <span><strong>📚 Große Rezepte-Datenbank:</strong> Neuer übersichtlicher Rezeptkatalog mit 6 Rubriken (Brot & Backen, Frühstück & Bowls, Hauptgerichte, Salate & Beilagen, Getränke & Shakes, Snacks & Süßes) und Favoriten-Filter ⭐.</span>
                   </li>
                   <li className="flex items-start gap-1.5">
-                    <span className="text-emerald-600 shrink-0 font-bold">✓</span>
+                    <span className="text-stone-400 shrink-0 font-bold">•</span>
                     <span><strong>📸 Fotos zu Rezepten:</strong> Eigene Fotos direkt per Kamera oder Galerie hinzufügen. Automatische lokale Komprimierung und blitzschnelles Laden ohne Speicherplatz-Verschwendung.</span>
                   </li>
                   <li className="flex items-start gap-1.5">
-                    <span className="text-emerald-600 shrink-0 font-bold">✓</span>
+                    <span className="text-stone-400 shrink-0 font-bold">•</span>
                     <span><strong>👩‍🍳 Interaktiver Portions-Skalierer:</strong> Ändere die Portionsanzahl live mit Plus/Minus – alle Zutatenmengen in Gramm und Nährwerte passen sich sofort an.</span>
                   </li>
                   <li className="flex items-start gap-1.5">
-                    <span className="text-emerald-600 shrink-0 font-bold">✓</span>
+                    <span className="text-stone-400 shrink-0 font-bold">•</span>
                     <span><strong>📝 Schritt-für-Schritt-Zubereitung & Koch-Checkboxen:</strong> Alle Zubereitungsschritte und Zutaten können während des Kochens interaktiv abgehakt werden.</span>
                   </li>
                   <li className="flex items-start gap-1.5">
-                    <span className="text-emerald-600 shrink-0 font-bold">✓</span>
+                    <span className="text-stone-400 shrink-0 font-bold">•</span>
                     <span><strong>🥗 1-Klick ins Tagebuch:</strong> Jedes Rezept lässt sich mit flexibler Portionsmenge sofort als Frühstück, Mittag, Abendessen oder Snack in dein Tagebuch buchen.</span>
                   </li>
                   <li className="flex items-start gap-1.5">
-                    <span className="text-emerald-600 shrink-0 font-bold">✓</span>
+                    <span className="text-stone-400 shrink-0 font-bold">•</span>
                     <span><strong>🪄 KI-Chefkoch:</strong> Sag oder tippe einfach, worauf du Appetit hast oder welche Reste im Kühlschrank liegen – die KI kreiert dir sofort ein fertiges Rezept mit exakten Nährwerten, Zutaten und Zubereitung.</span>
                   </li>
                 </ul>
