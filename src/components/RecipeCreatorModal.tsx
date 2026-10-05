@@ -365,6 +365,7 @@ export const RecipeCreatorModal = ({
   // Interactive Portion Scaling & Cooking Checkboxes in Database List
   const [portionRatios, setPortionRatios] = useState<Record<number, number>>({});
   const [portionCustomGrams, setPortionCustomGrams] = useState<Record<number, string>>({});
+  const [portionCustomDenominators, setPortionCustomDenominators] = useState<Record<number, string>>({});
   const [checkedIngredients, setCheckedIngredients] = useState<Record<string, boolean>>({});
   const [checkedInstructions, setCheckedInstructions] = useState<Record<string, boolean>>({});
 
@@ -380,10 +381,33 @@ export const RecipeCreatorModal = ({
       delete copy[recipeId];
       return copy;
     });
+    setPortionCustomDenominators((prev) => {
+      const copy = { ...prev };
+      delete copy[recipeId];
+      return copy;
+    });
+  };
+
+  const setRecipeCustomFractionInput = (recipeId: number, denomStr: string) => {
+    setPortionCustomDenominators((prev) => ({ ...prev, [recipeId]: denomStr }));
+    setPortionCustomGrams((prev) => {
+      const copy = { ...prev };
+      delete copy[recipeId];
+      return copy;
+    });
+    const parsed = parseFloat(denomStr);
+    if (parsed && parsed > 0) {
+      setPortionRatios((prev) => ({ ...prev, [recipeId]: 1 / parsed }));
+    }
   };
 
   const setRecipeCustomGramInput = (recipeId: number, gramsStr: string, totalWeight: number) => {
     setPortionCustomGrams((prev) => ({ ...prev, [recipeId]: gramsStr }));
+    setPortionCustomDenominators((prev) => {
+      const copy = { ...prev };
+      delete copy[recipeId];
+      return copy;
+    });
     const parsed = parseFloat(gramsStr);
     if (parsed && parsed > 0 && totalWeight > 0) {
       setPortionRatios((prev) => ({ ...prev, [recipeId]: parsed / totalWeight }));
@@ -403,6 +427,7 @@ export const RecipeCreatorModal = ({
   const [diaryLogMealType, setDiaryLogMealType] = useState<MealType>(defaultMealType || 'lunch');
   const [diaryLogFraction, setDiaryLogFraction] = useState<number>(1);
   const [diaryLogCustomGrams, setDiaryLogCustomGrams] = useState<string>('');
+  const [diaryLogCustomDenominator, setDiaryLogCustomDenominator] = useState<string>('');
   const [diaryLogSuccess, setDiaryLogSuccess] = useState<string | null>(null);
 
   const handleOpenDiaryLog = (e: React.MouseEvent, r: CustomRecipe) => {
@@ -426,8 +451,10 @@ export const RecipeCreatorModal = ({
 
     const currentRatio = r.id ? getPortionRatio(r.id) : 1;
     const currentCustom = r.id ? portionCustomGrams[r.id] || '' : '';
+    const currentDenom = r.id ? portionCustomDenominators[r.id] || '' : '';
     setDiaryLogFraction(currentRatio);
     setDiaryLogCustomGrams(currentCustom);
+    setDiaryLogCustomDenominator(currentDenom);
   };
 
   const handleLogToDiary = async () => {
@@ -442,9 +469,14 @@ export const RecipeCreatorModal = ({
     let unitLabel = '';
 
     const parsedCustom = parseFloat(diaryLogCustomGrams);
+    const parsedDenom = parseFloat(diaryLogCustomDenominator);
+
     if (parsedCustom && parsedCustom > 0) {
       totalLoggedGrams = Math.round(parsedCustom);
       unitLabel = `Portion (${totalLoggedGrams}${isDrink ? 'ml' : 'g'})`;
+    } else if (parsedDenom && parsedDenom > 0) {
+      totalLoggedGrams = Math.round(totalDishWeight / parsedDenom);
+      unitLabel = `1/${parsedDenom} Portion (${totalLoggedGrams}${isDrink ? 'ml' : 'g'})`;
     } else {
       if (isBread) {
         const sliceG = r.servingWeightGrams || 50;
@@ -458,15 +490,24 @@ export const RecipeCreatorModal = ({
         }
       } else {
         if (Math.abs(diaryLogFraction - 1) < 0.02) {
-          unitLabel = `Ganzes Gericht (${totalLoggedGrams}${isDrink ? 'ml' : 'g'})`;
+          unitLabel = `Ganze Portion gegessen (${totalLoggedGrams}${isDrink ? 'ml' : 'g'})`;
         } else if (Math.abs(diaryLogFraction - 0.5) < 0.02) {
-          unitLabel = `1/2 Gericht (${totalLoggedGrams}${isDrink ? 'ml' : 'g'})`;
+          unitLabel = `Halbe Portion gegessen (${totalLoggedGrams}${isDrink ? 'ml' : 'g'})`;
         } else if (Math.abs(diaryLogFraction - 1 / 3) < 0.02) {
-          unitLabel = `1/3 Gericht (${totalLoggedGrams}${isDrink ? 'ml' : 'g'})`;
+          unitLabel = `1/3 Portion (${totalLoggedGrams}${isDrink ? 'ml' : 'g'})`;
         } else if (Math.abs(diaryLogFraction - 0.25) < 0.02) {
-          unitLabel = `1/4 Gericht (${totalLoggedGrams}${isDrink ? 'ml' : 'g'})`;
+          unitLabel = `1/4 Portion (${totalLoggedGrams}${isDrink ? 'ml' : 'g'})`;
+        } else if (Math.abs(diaryLogFraction - 0.2) < 0.02) {
+          unitLabel = `1/5 Portion (${totalLoggedGrams}${isDrink ? 'ml' : 'g'})`;
         } else if (Math.abs(diaryLogFraction - 1 / 6) < 0.02) {
-          unitLabel = `1/6 Gericht (${totalLoggedGrams}${isDrink ? 'ml' : 'g'})`;
+          unitLabel = `1/6 Portion (${totalLoggedGrams}${isDrink ? 'ml' : 'g'})`;
+        } else if (diaryLogFraction > 0 && diaryLogFraction < 1) {
+          const inv = Math.round(1 / diaryLogFraction);
+          if (Math.abs(diaryLogFraction - 1 / inv) < 0.02) {
+            unitLabel = `1/${inv} Portion (${totalLoggedGrams}${isDrink ? 'ml' : 'g'})`;
+          } else {
+            unitLabel = `Portion (${totalLoggedGrams}${isDrink ? 'ml' : 'g'})`;
+          }
         } else if (diaryLogFraction > 1) {
           unitLabel = `${diaryLogFraction}x Gesamtrezept (${totalLoggedGrams}${isDrink ? 'ml' : 'g'})`;
         } else {
@@ -1883,6 +1924,8 @@ export const RecipeCreatorModal = ({
                       { label: '2 Portionen (1/2)', count: 2, grams: Math.round(effectiveBakedWeight / 2) },
                       { label: '3 Portionen (1/3)', count: 3, grams: Math.round(effectiveBakedWeight / 3) },
                       { label: '4 Portionen (1/4)', count: 4, grams: Math.round(effectiveBakedWeight / 4) },
+                      { label: '5 Portionen (1/5)', count: 5, grams: Math.round(effectiveBakedWeight / 5) },
+                      { label: '6 Portionen (1/6)', count: 6, grams: Math.round(effectiveBakedWeight / 6) },
                     ].map((p) => {
                       const isSel = (parseInt(sliceWeight, 10) || effectiveBakedWeight) === p.grams;
                       return (
@@ -2355,9 +2398,21 @@ export const RecipeCreatorModal = ({
                                           <span>Bearbeiten</span>
                                         </button>
                                       </div>
-                                      <span className="text-[11px] text-stone-400 block mt-0.5">
-                                        {isDrink ? 'Getränk' : isBread ? 'Laib' : 'Gericht'} fertig: {r.cookedWeight || r.totalRawWeight}{isDrink ? 'ml' : 'g'} (Rohgewicht: {r.totalRawWeight}{isDrink ? 'ml' : 'g'})
-                                      </span>
+                                      <div className="text-[11px] text-stone-500 mt-1 space-y-0.5">
+                                        <div className="flex items-center gap-1.5 flex-wrap">
+                                          <span className="font-extrabold text-stone-700">
+                                            {isDrink ? 'Ganzes Getränk' : isBread ? 'Ganzer Laib' : 'Ganze Portion (gegart)'}:
+                                          </span>
+                                          <span className="font-black text-emerald-800 bg-emerald-50 px-1.5 py-0.5 rounded-md border border-emerald-200">
+                                            {r.cookedWeight || r.totalRawWeight}{isDrink ? 'ml' : 'g'}
+                                          </span>
+                                        </div>
+                                        {r.cookedWeight && r.cookedWeight !== r.totalRawWeight && (
+                                          <div className="text-[10px] text-stone-400">
+                                            Rohzutaten: {r.totalRawWeight}{isDrink ? 'ml' : 'g'} • Garverlust: {Math.round((1 - r.cookedWeight / r.totalRawWeight) * 100)}%
+                                          </div>
+                                        )}
+                                      </div>
                                     </div>
                                   </div>
 
@@ -2421,6 +2476,7 @@ export const RecipeCreatorModal = ({
                                 {(() => {
                                   const currentRatio = r.id ? getPortionRatio(r.id) : 1;
                                   const currentCustomGrams = r.id ? portionCustomGrams[r.id] || '' : '';
+                                  const currentCustomDenom = r.id ? portionCustomDenominators[r.id] || '' : '';
                                   const activeGrams = currentCustomGrams && parseFloat(currentCustomGrams) > 0
                                     ? Math.round(parseFloat(currentCustomGrams))
                                     : Math.round(totalDishWeight * currentRatio);
@@ -2431,7 +2487,7 @@ export const RecipeCreatorModal = ({
                                   const currentFat = Math.round((r.fat100g || 0) * ratioForCalc * 10) / 10;
                                   const ratioForIngredients = totalDishWeight > 0 ? activeGrams / totalDishWeight : 1;
 
-                                  let activePortionTitle = 'Ganzes Gericht (1/1)';
+                                  let activePortionTitle = 'Ganze Portion gegessen';
                                   if (isBread) {
                                     const sliceG = r.servingWeightGrams || 50;
                                     if (Math.abs(currentRatio - 1) < 0.02) activePortionTitle = `Ganzer Laib (${totalDishWeight}g)`;
@@ -2441,13 +2497,27 @@ export const RecipeCreatorModal = ({
                                       activePortionTitle = sCount === 1 ? `1 Scheibe (${activeGrams}g)` : `${sCount} Scheiben (${activeGrams}g)`;
                                     }
                                   } else {
-                                    if (Math.abs(currentRatio - 1) < 0.02) activePortionTitle = `Ganzes Gericht (100% • ${totalDishWeight}${isDrink ? 'ml' : 'g'})`;
-                                    else if (Math.abs(currentRatio - 0.5) < 0.02) activePortionTitle = `1/2 Gericht (50% • ${activeGrams}${isDrink ? 'ml' : 'g'})`;
-                                    else if (Math.abs(currentRatio - 1 / 3) < 0.02) activePortionTitle = `1/3 Gericht (33% • ${activeGrams}${isDrink ? 'ml' : 'g'})`;
-                                    else if (Math.abs(currentRatio - 0.25) < 0.02) activePortionTitle = `1/4 Gericht (25% • ${activeGrams}${isDrink ? 'ml' : 'g'})`;
-                                    else if (Math.abs(currentRatio - 1 / 6) < 0.02) activePortionTitle = `1/6 Gericht (17% • ${activeGrams}${isDrink ? 'ml' : 'g'})`;
-                                    else if (currentRatio > 1) activePortionTitle = `${currentRatio}x Gesamtrezept (${activeGrams}${isDrink ? 'ml' : 'g'})`;
-                                    else activePortionTitle = `Portion (${activeGrams}${isDrink ? 'ml' : 'g'})`;
+                                    if (currentCustomGrams && parseFloat(currentCustomGrams) > 0) {
+                                      activePortionTitle = `Eigene Angabe (${activeGrams}${isDrink ? 'ml' : 'g'})`;
+                                    } else if (currentCustomDenom && parseFloat(currentCustomDenom) > 0) {
+                                      activePortionTitle = `1/${currentCustomDenom} Portion (${activeGrams}${isDrink ? 'ml' : 'g'})`;
+                                    } else if (Math.abs(currentRatio - 1) < 0.02) {
+                                      activePortionTitle = `Ganze Portion gegessen (${totalDishWeight}${isDrink ? 'ml' : 'g'})`;
+                                    } else if (Math.abs(currentRatio - 0.5) < 0.02) {
+                                      activePortionTitle = `Halbe Portion gegessen (${activeGrams}${isDrink ? 'ml' : 'g'})`;
+                                    } else if (Math.abs(currentRatio - 1 / 3) < 0.02) {
+                                      activePortionTitle = `1/3 Portion (${activeGrams}${isDrink ? 'ml' : 'g'})`;
+                                    } else if (Math.abs(currentRatio - 0.25) < 0.02) {
+                                      activePortionTitle = `1/4 Portion (${activeGrams}${isDrink ? 'ml' : 'g'})`;
+                                    } else if (Math.abs(currentRatio - 0.2) < 0.02) {
+                                      activePortionTitle = `1/5 Portion (${activeGrams}${isDrink ? 'ml' : 'g'})`;
+                                    } else if (Math.abs(currentRatio - 1 / 6) < 0.02) {
+                                      activePortionTitle = `1/6 Portion (${activeGrams}${isDrink ? 'ml' : 'g'})`;
+                                    } else if (currentRatio > 1) {
+                                      activePortionTitle = `${currentRatio}x Gesamtrezept (${activeGrams}${isDrink ? 'ml' : 'g'})`;
+                                    } else {
+                                      activePortionTitle = `Portion (${activeGrams}${isDrink ? 'ml' : 'g'})`;
+                                    }
                                   }
 
                                   return (
@@ -2502,7 +2572,7 @@ export const RecipeCreatorModal = ({
                                                 Portionierung wählen:
                                               </span>
                                               <span className="text-[11px] text-stone-400">
-                                                (Gesamtmenge: <strong className="text-stone-700 font-extrabold">{totalDishWeight}{isDrink ? 'ml' : 'g'}</strong>)
+                                                (Ganze Portion: <strong className="text-stone-700 font-extrabold">{totalDishWeight}{isDrink ? 'ml' : 'g'}</strong>)
                                               </span>
                                             </div>
 
@@ -2510,7 +2580,7 @@ export const RecipeCreatorModal = ({
                                             <div className="flex items-center gap-1 text-[11px]">
                                               <span className="text-[10px] text-stone-400 mr-1 hidden sm:inline">Vorkochen:</span>
                                               {[1, 2, 3].map((mult) => {
-                                                const isSel = Math.abs(currentRatio - mult) < 0.02 && !currentCustomGrams;
+                                                const isSel = Math.abs(currentRatio - mult) < 0.02 && !currentCustomGrams && !currentCustomDenom;
                                                 return (
                                                   <button
                                                     key={mult}
@@ -2530,16 +2600,17 @@ export const RecipeCreatorModal = ({
                                             </div>
                                           </div>
 
-                                          {/* Fraction Chips */}
+                                          {/* Fraction Chips + Manual 1/X + Gram Input */}
                                           <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
                                             {[
                                               { label: '1/1 Ganz', fraction: 1, grams: totalDishWeight },
                                               { label: '1/2 Halb', fraction: 0.5, grams: Math.round(totalDishWeight / 2) },
                                               { label: '1/3 Drittel', fraction: 1 / 3, grams: Math.round(totalDishWeight / 3) },
                                               { label: '1/4 Viertel', fraction: 0.25, grams: Math.round(totalDishWeight / 4) },
+                                              { label: '1/5 Fünftel', fraction: 0.2, grams: Math.round(totalDishWeight / 5) },
                                               { label: '1/6 Sechstel', fraction: 1 / 6, grams: Math.round(totalDishWeight / 6) },
                                             ].map((fItem) => {
-                                              const isSel = !currentCustomGrams && Math.abs(currentRatio - fItem.fraction) < 0.02;
+                                              const isSel = !currentCustomGrams && !currentCustomDenom && Math.abs(currentRatio - fItem.fraction) < 0.02;
                                               return (
                                                 <button
                                                   key={fItem.label}
@@ -2556,6 +2627,21 @@ export const RecipeCreatorModal = ({
                                                 </button>
                                               );
                                             })}
+
+                                            {/* Manual Fraction Input (1 / X) */}
+                                            <div className="flex items-center gap-1 bg-white border border-stone-200 rounded-xl px-2 py-1 shrink-0">
+                                              <span className="text-[10px] font-bold text-stone-500">1 /</span>
+                                              <input
+                                                type="number"
+                                                placeholder="Teiler"
+                                                min="1"
+                                                max="50"
+                                                value={currentCustomDenom}
+                                                onChange={(e) => r.id && setRecipeCustomFractionInput(r.id, e.target.value)}
+                                                className="w-12 text-xs font-bold text-stone-800 outline-none text-center"
+                                                title="Manueller Bruchteil (z. B. 8 für 1/8 Portion)"
+                                              />
+                                            </div>
 
                                             {/* Direct Gram Input */}
                                             <div className="flex items-center gap-1 bg-white border border-stone-200 rounded-xl px-2 py-1 shrink-0">
@@ -3216,8 +3302,11 @@ export const RecipeCreatorModal = ({
 
                   let totalG = Math.round(totalDishWeight * diaryLogFraction);
                   const parsedCustom = parseFloat(diaryLogCustomGrams);
+                  const parsedDenom = parseFloat(diaryLogCustomDenominator);
                   if (parsedCustom && parsedCustom > 0) {
                     totalG = Math.round(parsedCustom);
+                  } else if (parsedDenom && parsedDenom > 0) {
+                    totalG = Math.round(totalDishWeight / parsedDenom);
                   }
 
                   const ratio = totalG / 100;
@@ -3230,6 +3319,8 @@ export const RecipeCreatorModal = ({
                   let activePortionLabel = '';
                   if (parsedCustom && parsedCustom > 0) {
                     activePortionLabel = `Eigene Angabe (${totalG}${isDrink ? 'ml' : 'g'})`;
+                  } else if (parsedDenom && parsedDenom > 0) {
+                    activePortionLabel = `1/${parsedDenom} Portion (${totalG}${isDrink ? 'ml' : 'g'})`;
                   } else if (isBread) {
                     const sliceG = diaryLogModalRecipe.servingWeightGrams || 50;
                     if (Math.abs(diaryLogFraction - 1) < 0.02) {
@@ -3242,15 +3333,17 @@ export const RecipeCreatorModal = ({
                     }
                   } else {
                     if (Math.abs(diaryLogFraction - 1) < 0.02) {
-                      activePortionLabel = `Ganzes Gericht (${totalG}${isDrink ? 'ml' : 'g'})`;
+                      activePortionLabel = `Ganze Portion gegessen (${totalG}${isDrink ? 'ml' : 'g'})`;
                     } else if (Math.abs(diaryLogFraction - 0.5) < 0.02) {
-                      activePortionLabel = `1/2 Gericht (${totalG}${isDrink ? 'ml' : 'g'})`;
+                      activePortionLabel = `Halbe Portion gegessen (${totalG}${isDrink ? 'ml' : 'g'})`;
                     } else if (Math.abs(diaryLogFraction - 1 / 3) < 0.02) {
-                      activePortionLabel = `1/3 Gericht (${totalG}${isDrink ? 'ml' : 'g'})`;
+                      activePortionLabel = `1/3 Portion (${totalG}${isDrink ? 'ml' : 'g'})`;
                     } else if (Math.abs(diaryLogFraction - 0.25) < 0.02) {
-                      activePortionLabel = `1/4 Gericht (${totalG}${isDrink ? 'ml' : 'g'})`;
+                      activePortionLabel = `1/4 Portion (${totalG}${isDrink ? 'ml' : 'g'})`;
+                    } else if (Math.abs(diaryLogFraction - 0.2) < 0.02) {
+                      activePortionLabel = `1/5 Portion (${totalG}${isDrink ? 'ml' : 'g'})`;
                     } else if (Math.abs(diaryLogFraction - 1 / 6) < 0.02) {
-                      activePortionLabel = `1/6 Gericht (${totalG}${isDrink ? 'ml' : 'g'})`;
+                      activePortionLabel = `1/6 Portion (${totalG}${isDrink ? 'ml' : 'g'})`;
                     } else if (diaryLogFraction > 1) {
                       activePortionLabel = `${diaryLogFraction}x Gesamtrezept (${totalG}${isDrink ? 'ml' : 'g'})`;
                     } else {
@@ -3283,7 +3376,7 @@ export const RecipeCreatorModal = ({
                                   { label: 'Ganzer Laib', fraction: 1, grams: loafG },
                                 ];
                                 return breadOptions.map((bItem) => {
-                                  const isSel = !diaryLogCustomGrams && Math.abs(diaryLogFraction - bItem.fraction) < 0.02;
+                                  const isSel = !diaryLogCustomGrams && !diaryLogCustomDenominator && Math.abs(diaryLogFraction - bItem.fraction) < 0.02;
                                   return (
                                     <button
                                       key={bItem.label}
@@ -3291,6 +3384,7 @@ export const RecipeCreatorModal = ({
                                       onClick={() => {
                                         setDiaryLogFraction(bItem.fraction);
                                         setDiaryLogCustomGrams('');
+                                        setDiaryLogCustomDenominator('');
                                       }}
                                       className={`py-1 px-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer border ${
                                         isSel
@@ -3314,6 +3408,7 @@ export const RecipeCreatorModal = ({
                                   value={diaryLogCustomGrams}
                                   onChange={(e) => {
                                     setDiaryLogCustomGrams(e.target.value);
+                                    setDiaryLogCustomDenominator('');
                                     const parsed = parseFloat(e.target.value);
                                     if (parsed && parsed > 0 && totalDishWeight > 0) {
                                       setDiaryLogFraction(parsed / totalDishWeight);
@@ -3326,7 +3421,7 @@ export const RecipeCreatorModal = ({
                             </div>
                           </div>
                         ) : (
-                          /* For dishes, bowls, drinks, menus, snacks: Fractions 1/1, 1/2, 1/3, 1/4, 1/6 + custom grams */
+                          /* For dishes, bowls, drinks, menus, snacks: Fractions 1/1, 1/2, 1/3, 1/4, 1/5, 1/6 + manual 1/X + custom grams */
                           <div className="space-y-2">
                             <div className="flex items-center gap-1.5 flex-wrap">
                               {[
@@ -3334,9 +3429,10 @@ export const RecipeCreatorModal = ({
                                 { label: '1/2 Halb', fraction: 0.5, grams: Math.round(totalDishWeight / 2) },
                                 { label: '1/3 Drittel', fraction: 1 / 3, grams: Math.round(totalDishWeight / 3) },
                                 { label: '1/4 Viertel', fraction: 0.25, grams: Math.round(totalDishWeight / 4) },
+                                { label: '1/5 Fünftel', fraction: 0.2, grams: Math.round(totalDishWeight / 5) },
                                 { label: '1/6 Sechstel', fraction: 1 / 6, grams: Math.round(totalDishWeight / 6) },
                               ].map((fItem) => {
-                                const isSel = !diaryLogCustomGrams && Math.abs(diaryLogFraction - fItem.fraction) < 0.02;
+                                const isSel = !diaryLogCustomGrams && !diaryLogCustomDenominator && Math.abs(diaryLogFraction - fItem.fraction) < 0.02;
                                 return (
                                   <button
                                     key={fItem.label}
@@ -3344,6 +3440,7 @@ export const RecipeCreatorModal = ({
                                     onClick={() => {
                                       setDiaryLogFraction(fItem.fraction);
                                       setDiaryLogCustomGrams('');
+                                      setDiaryLogCustomDenominator('');
                                     }}
                                     className={`py-1.5 px-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer border ${
                                       isSel
@@ -3356,6 +3453,28 @@ export const RecipeCreatorModal = ({
                                   </button>
                                 );
                               })}
+
+                              {/* Manual Fraction Input (1 / X) */}
+                              <div className="flex items-center gap-1 bg-white border border-stone-200 rounded-xl px-2 py-1 shrink-0">
+                                <span className="text-[10px] font-bold text-stone-500">1 /</span>
+                                <input
+                                  type="number"
+                                  placeholder="Teiler"
+                                  min="1"
+                                  max="50"
+                                  value={diaryLogCustomDenominator}
+                                  onChange={(e) => {
+                                    setDiaryLogCustomDenominator(e.target.value);
+                                    setDiaryLogCustomGrams('');
+                                    const parsed = parseFloat(e.target.value);
+                                    if (parsed && parsed > 0) {
+                                      setDiaryLogFraction(1 / parsed);
+                                    }
+                                  }}
+                                  className="w-12 text-xs font-bold text-stone-800 outline-none text-center"
+                                  title="Manueller Bruchteil (z. B. 8 für 1/8 Portion)"
+                                />
+                              </div>
                             </div>
                             <div className="flex items-center gap-2">
                               <span className="text-xs text-stone-500 font-medium">Oder freie {isDrink ? 'ml' : 'Gramm'}:</span>
@@ -3366,6 +3485,7 @@ export const RecipeCreatorModal = ({
                                   value={diaryLogCustomGrams}
                                   onChange={(e) => {
                                     setDiaryLogCustomGrams(e.target.value);
+                                    setDiaryLogCustomDenominator('');
                                     const parsed = parseFloat(e.target.value);
                                     if (parsed && parsed > 0 && totalDishWeight > 0) {
                                       setDiaryLogFraction(parsed / totalDishWeight);
