@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { db, DEFAULT_USER_PROFILE, type UserProfile, DEFAULT_FOOD_FOCUS, type FoodFocusSettings, DEFAULT_NUTRIENT_BARS, type DashboardNutrientBars } from '../db/db';
 import { VoiceInputButton } from './VoiceInputButton';
-import { X, Key, Download, Upload, Trash2, Sliders, Check, RefreshCw, CheckCircle, Maximize, Minimize, BarChart3, Scale, Sparkles, Leaf } from 'lucide-react';
+import { X, Key, Download, Upload, Trash2, Sliders, Check, RefreshCw, CheckCircle, Maximize, Minimize, BarChart3, Scale, Sparkles, Leaf, BookOpen, ChevronDown, ChevronUp } from 'lucide-react';
 import { APP_VERSION, APP_BUILD_DATE, APP_DB_VERSION, APP_CACHE_VERSION } from '../config/version';
 import { calculateNutritionTargets, type DailyStepLevel, type WorkoutIntensity } from '../utils/nutrition';
 import { triggerAppUpdate } from '../utils/appUpdate';
@@ -65,6 +65,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [savedSuccess, setSavedSuccess] = useState(false);
   const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
   const [updateMessage, setUpdateMessage] = useState<string | null>(null);
+  const [showGuide, setShowGuide] = useState(false);
 
   const effectiveDeficit = goalType === 'maintain_weight' ? 0 : (goalDeficit || 500);
 
@@ -1317,6 +1318,90 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             </p>
           </div>
 
+          {/* Kurzanleitung & Bedienungs-Tipps */}
+          <div className="p-4 bg-gradient-to-br from-amber-50/60 via-stone-50/50 to-white rounded-2xl border border-amber-200/80 space-y-3">
+            <button
+              type="button"
+              onClick={() => setShowGuide(!showGuide)}
+              className="w-full flex items-center justify-between text-left group"
+            >
+              <div className="flex items-center gap-2">
+                <span className="w-8 h-8 rounded-xl bg-amber-500 text-white flex items-center justify-center text-sm shadow-2xs group-hover:scale-105 transition-transform">
+                  <BookOpen className="w-4 h-4" />
+                </span>
+                <div>
+                  <h4 className="text-xs font-bold text-stone-900 group-hover:text-amber-900 transition-colors">
+                    Kurzanleitung & Bedienungs-Tipps
+                  </h4>
+                  <p className="text-[11px] text-stone-500">
+                    KI-Diktat, Snack-Vorschläge, Portionsteiler & Rezepte
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-1 text-stone-400 group-hover:text-amber-700">
+                <span className="text-[10px] font-bold uppercase tracking-wider">
+                  {showGuide ? 'Schließen' : 'Öffnen'}
+                </span>
+                {showGuide ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+              </div>
+            </button>
+
+            {showGuide && (
+              <div className="space-y-3 pt-2 text-xs text-stone-700 border-t border-amber-100 animate-in fade-in duration-200">
+                {/* 1. Zentraler KI-Button */}
+                <div className="p-3 bg-white rounded-xl border border-amber-100 space-y-1.5 shadow-2xs">
+                  <div className="font-bold text-stone-900 flex items-center gap-1.5 text-xs">
+                    <span>🎙️</span>
+                    <span>Zentraler KI-Button (All-in-One)</span>
+                  </div>
+                  <p className="text-[11px] text-stone-600 leading-relaxed">
+                    Der Mikrofon-Button in der unteren Navigationsleiste ist dein universeller Assistent:
+                  </p>
+                  <ul className="text-[11px] text-stone-600 space-y-1 pl-1 list-disc list-inside">
+                    <li><strong>Essen diktieren:</strong> Sag frei, was du gegessen hast (z. B. <em>„Ein Teller Gemüseeintopf und 50g Brot“</em>). Die KI erkennt Zutaten, schätzt Nährwerte und priorisiert deine gespeicherten Rezepte.</li>
+                    <li><strong>Snack-Inspirationen fürs Restbudget:</strong> Frag einfach <em>„Was kann ich noch snacken?“</em> oder tippe auf den Button <em>„💡 Snack für Restbudget“</em>. Die KI prüft live deine noch offenen Kalorien & Proteine und liefert 3 gesunde Vorschläge.</li>
+                    <li><strong>1-Klick-Übernahme:</strong> Jeder Snack-Vorschlag kann direkt <strong>ins Tagebuch</strong> gebucht oder <strong>als Rezept gespeichert</strong> werden.</li>
+                  </ul>
+                </div>
+
+                {/* 2. Rezepte, Menüs & Portionen */}
+                <div className="p-3 bg-white rounded-xl border border-amber-100 space-y-1.5 shadow-2xs">
+                  <div className="font-bold text-stone-900 flex items-center gap-1.5 text-xs">
+                    <span>🍲</span>
+                    <span>Rezepte, Menüs & Portionierungs-Teiler</span>
+                  </div>
+                  <ul className="text-[11px] text-stone-600 space-y-1 pl-1 list-disc list-inside">
+                    <li><strong>Menüs & Gekochtes:</strong> Lege ein Gericht mit allen Rohzutaten an. Das fertige Gericht (z. B. 450g nach Garverlust) dient als Basis für deine Portionen.</li>
+                    <li><strong>Ganze Portion & Bruchteile:</strong> Wähle bequem <em>„Ganze Portion gegessen (450g)“</em>, <em>„Halbe Portion“</em>, <em>1/3</em>, <em>1/4</em>, <em>1/5</em>, <em>1/6</em> oder trage einen freien Teiler wie <em>1/8</em> bzw. freie Gramm ein.</li>
+                    <li><strong>Kategorie nachträglich anpassen:</strong> Ist ein Rezept in der falschen Rubrik gelandet (z. B. Cortado als Mittagessen)? Tippe auf ✏️ Bearbeiten und wechsle die Rubrik einfach auf <em>Getränke</em>.</li>
+                  </ul>
+                </div>
+
+                {/* 3. Brot & Backen */}
+                <div className="p-3 bg-white rounded-xl border border-amber-100 space-y-1.5 shadow-2xs">
+                  <div className="font-bold text-stone-900 flex items-center gap-1.5 text-xs">
+                    <span>🍞</span>
+                    <span>Selbstgebackenes Brot</span>
+                  </div>
+                  <p className="text-[11px] text-stone-600 leading-relaxed">
+                    Brote werden automatisch auf Scheibenbasis berechnet (z. B. 50g pro Scheibe). Wenn du im KI-Diktat sagst <em>„2 Scheiben Dinkel-Vollkornbrot“</em>, erkennt die KI automatisch dein gespeichertes Brot und übernimmt die echten Nährwerte.
+                  </p>
+                </div>
+
+                {/* 4. Naschereien & Sport */}
+                <div className="p-3 bg-white rounded-xl border border-amber-100 space-y-1.5 shadow-2xs">
+                  <div className="font-bold text-stone-900 flex items-center gap-1.5 text-xs">
+                    <span>🍪</span>
+                    <span>Naschereien & Sport-Verrechnung</span>
+                  </div>
+                  <p className="text-[11px] text-stone-600 leading-relaxed">
+                    Süßigkeiten und Snacks können separat getrackt werden, um das Defizit im Auge zu behalten. Workouts und Schritte fließen über den wissenschaftlichen Netto-Mehrverbrauch ein, ohne den Grundumsatz doppelt anzurechnen.
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+
           {/* Versionshistorie & Neuerungen (Letzte 3 Versionen) */}
           <div className="p-4 bg-gradient-to-br from-emerald-50/70 via-stone-50/50 to-white rounded-2xl border border-emerald-200/80 space-y-3">
             <div className="flex items-center justify-between">
@@ -1347,6 +1432,22 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   <span className="text-[10px] text-stone-400 font-medium">05.10.2026</span>
                 </div>
                 <ul className="text-xs text-stone-600 space-y-1 pl-1">
+                  <li className="flex items-start gap-1.5">
+                    <span className="text-emerald-600 shrink-0 font-bold">✓</span>
+                    <span><strong>💡 Smarte Snack-Inspirationen nach Restbudget:</strong> Der zentrale KI-Mikrofon-Button kennt dein verbleibendes Tagesbudget (Kalorien & Eiweiß) und liefert dir auf Knopfdruck oder Zuruf gesunde Snack-Vorschläge. Mit 1-Klick-Übernahme direkt ins Tagebuch oder als dauerhaftes Rezept!</span>
+                  </li>
+                  <li className="flex items-start gap-1.5">
+                    <span className="text-emerald-600 shrink-0 font-bold">✓</span>
+                    <span><strong>🍲 Ganze Gerichte, Bruchteile & Garverlust:</strong> Bei warmen Speisen/Menüs wird das gesamte Kochgewicht (z. B. 450g gegart) transparent als Basis genommen. Im Portionierer wählst du flexibel „Ganze Portion gegessen“, Halbe, 1/3, 1/4, 1/5, 1/6 oder trägst freie Teiler (z. B. 1/8) bzw. freie Gramm ein.</span>
+                  </li>
+                  <li className="flex items-start gap-1.5">
+                    <span className="text-emerald-600 shrink-0 font-bold">✓</span>
+                    <span><strong>🔄 Rezept-Rubrik nachträglich ändern:</strong> Bestehende Rezepte (wie dein Cortado) können im Nachhinein im Bearbeiten-Modus per Klick einer neuen Kategorie (z. B. Getränke) zugewiesen werden.</span>
+                  </li>
+                  <li className="flex items-start gap-1.5">
+                    <span className="text-emerald-600 shrink-0 font-bold">✓</span>
+                    <span><strong>📖 Kurzanleitung & Bedienungs-Tipps:</strong> Schneller Leitfaden direkt hier in den Einstellungen – übersichtlich gegliedert für KI-Diktat, Portionierung und Rezepte.</span>
+                  </li>
                   <li className="flex items-start gap-1.5">
                     <span className="text-emerald-600 shrink-0 font-bold">✓</span>
                     <span><strong>📚 Große Rezepte-Datenbank:</strong> Neuer übersichtlicher Rezeptkatalog mit 6 Rubriken (Brot & Backen, Frühstück & Bowls, Hauptgerichte, Salate & Beilagen, Getränke & Shakes, Snacks & Süßes) und Favoriten-Filter ⭐.</span>

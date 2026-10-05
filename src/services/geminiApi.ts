@@ -681,3 +681,178 @@ Antworte ausschließlich im angegebenen JSON-Format:
   }
 }
 
+export interface AiSnackSuggestionItem {
+  name: string;
+  amountGrams: number;
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+  fiber?: number;
+  sugar?: number;
+}
+
+export interface AiSnackSuggestion {
+  id: string;
+  name: string;
+  portionDescription: string;
+  totalGrams: number;
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+  fiber?: number;
+  sugar?: number;
+  reasonWhy: string;
+  ingredients: AiSnackSuggestionItem[];
+}
+
+export interface AiSnackResponse {
+  introNote: string;
+  suggestions: AiSnackSuggestion[];
+}
+
+/**
+ * Recommends healthy, satisfying snack ideas fitting the user's remaining calorie and protein budget.
+ * Returns structured items with full macros that can be 1-tap logged to diary or saved as custom recipes.
+ */
+export async function suggestSnacksWithGemini({
+  remainingCalories,
+  remainingProtein,
+  userPrompt,
+  apiKey,
+  userRecipes,
+}: {
+  remainingCalories: number;
+  remainingProtein?: number;
+  userPrompt?: string;
+  apiKey: string;
+  userRecipes?: Array<{ name: string; category?: string }>;
+}): Promise<AiSnackResponse> {
+  const recipesContext = userRecipes && userRecipes.length > 0
+    ? `\nGespeicherte Rezepte des Nutzers (z.B. eigenes Brot): ${userRecipes.map(r => r.name).join(', ')}\n`
+    : '';
+
+  const budgetTarget = Math.max(80, remainingCalories);
+
+  const prompt = `Du bist ein feinfühliger deutscher Ernährungsberater und Koch.
+Der Nutzer möchte gesunde, alltagstaugliche Snack-Vorschläge.
+
+AKTUELLES KALORIENBUDGET DES NUTZERS:
+- Verbleibende Kalorien für heute: ca. ${budgetTarget} kcal
+${remainingProtein ? `- Noch benötigtes Protein heute: ca. ${remainingProtein} g` : ''}
+${userPrompt ? `- Spezifischer Wunsch / Diktat des Nutzers: "${userPrompt}"` : ''}
+${recipesContext}
+
+AUFGABE:
+1. Erstelle 2 bis 3 abwechslungsreiche, alltagstaugliche Snack-Ideen (z. B. Quark-Bowls, Gemüse mit Dip, Nüsse mit Obst, Vollkornbrot-Snack, etc.).
+2. JEDER Snack MUSS genau in das Restbudget von maximal ${budgetTarget} kcal passen (ideal zwischen ${Math.min(100, budgetTarget)} kcal und ${budgetTarget} kcal).
+3. Berechne für jeden Snack alle Zutaten mit exakter Grammangabe und korrekten Nährwerten (Kalorien, Protein, Kohlenhydrate, Fett, Ballaststoffe, Zucker).
+4. Schreibe eine kurze, appetitliche Begründung ("reasonWhy", 1 Satz), warum dieser Snack ideal ist (z. B. "Liefert 22g Protein für langanhaltende Sättigung und ist in 2 Minuten fertig.").
+
+Antworte ausschließlich im angegebenen JSON-Format:
+{
+  "introNote": "Hier sind 3 gesunde Snack-Ideen, die genau in dein Restbudget von ${budgetTarget} kcal passen:",
+  "suggestions": [
+    {
+      "name": "Beeren-Quark mit Mandelsplittern",
+      "portionDescription": "1 Schale (ca. 240g)",
+      "totalGrams": 240,
+      "calories": 195,
+      "protein": 22.0,
+      "carbs": 16.5,
+      "fat": 4.2,
+      "fiber": 4.0,
+      "sugar": 8.0,
+      "reasonWhy": "Liefert 22g wertvolles Protein bei nur 195 kcal und ist in 2 Minuten zubereitet.",
+      "ingredients": [
+        {
+          "name": "Magerquark",
+          "amountGrams": 150,
+          "calories": 102,
+          "protein": 18.0,
+          "carbs": 6.0,
+          "fat": 0.5,
+          "fiber": 0.0,
+          "sugar": 6.0
+        },
+        {
+          "name": "Heidelbeeren (frisch)",
+          "amountGrams": 80,
+          "calories": 46,
+          "protein": 0.6,
+          "carbs": 9.5,
+          "fat": 0.5,
+          "fiber": 2.5,
+          "sugar": 8.0
+        },
+        {
+          "name": "Gehackte Mandeln",
+          "amountGrams": 10,
+          "calories": 59,
+          "protein": 2.1,
+          "carbs": 0.6,
+          "fat": 5.0,
+          "fiber": 1.4,
+          "sugar": 0.4
+        }
+      ]
+    }
+  ]
+}`;
+
+  try {
+    const { rawText } = await callGeminiApi({
+      apiKey,
+      parts: [{ text: prompt }],
+      temperature: 0.3,
+    });
+
+    const parsed = JSON.parse(rawText);
+    const rawSuggestions: any[] = Array.isArray(parsed.suggestions) ? parsed.suggestions : [];
+
+    const suggestions: AiSnackSuggestion[] = rawSuggestions.map((s, idx) => {
+      const rawIngs: any[] = Array.isArray(s.ingredients) ? s.ingredients : [];
+      const ingredients: AiSnackSuggestionItem[] = rawIngs.map((ing) => ({
+        name: String(ing.name || 'Zutat'),
+        amountGrams: Math.max(1, Number(ing.amountGrams) || 50),
+        calories: Math.max(0, Math.round(Number(ing.calories) || 0)),
+        protein: Math.max(0, Math.round((Number(ing.protein) || 0) * 10) / 10),
+        carbs: Math.max(0, Math.round((Number(ing.carbs) || 0) * 10) / 10),
+        fat: Math.max(0, Math.round((Number(ing.fat) || 0) * 10) / 10),
+        fiber: ing.fiber !== undefined ? Math.max(0, Math.round(Number(ing.fiber) * 10) / 10) : undefined,
+        sugar: ing.sugar !== undefined ? Math.max(0, Math.round(Number(ing.sugar) * 10) / 10) : undefined,
+      }));
+
+      const totalGrams = Number(s.totalGrams) || ingredients.reduce((sum, it) => sum + it.amountGrams, 0);
+      const calories = Number(s.calories) || ingredients.reduce((sum, it) => sum + it.calories, 0);
+      const protein = Number(s.protein) || Math.round(ingredients.reduce((sum, it) => sum + it.protein, 0) * 10) / 10;
+      const carbs = Number(s.carbs) || Math.round(ingredients.reduce((sum, it) => sum + it.carbs, 0) * 10) / 10;
+      const fat = Number(s.fat) || Math.round(ingredients.reduce((sum, it) => sum + it.fat, 0) * 10) / 10;
+
+      return {
+        id: `snack_${Date.now()}_${idx}`,
+        name: String(s.name || `Snack-Idee ${idx + 1}`),
+        portionDescription: String(s.portionDescription || `${totalGrams}g Portion`),
+        totalGrams,
+        calories,
+        protein,
+        carbs,
+        fat,
+        fiber: s.fiber !== undefined ? Number(s.fiber) : undefined,
+        sugar: s.sugar !== undefined ? Number(s.sugar) : undefined,
+        reasonWhy: String(s.reasonWhy || 'Schneller und ausgewogener Snack.'),
+        ingredients,
+      };
+    });
+
+    return {
+      introNote: String(parsed.introNote || `Hier sind gesunde Snack-Ideen für dein Restbudget (${budgetTarget} kcal):`),
+      suggestions,
+    };
+  } catch (err: any) {
+    console.error('Gemini snack suggestion failed:', err);
+    throw err;
+  }
+}
+

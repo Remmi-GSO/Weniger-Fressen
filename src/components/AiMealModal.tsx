@@ -1,7 +1,13 @@
 import { useState, useRef, useEffect } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db, type MealType, type EatingReason, type DiaryEntry } from '../db/db';
-import { analyzeMealWithGemini, type AiMealComponent } from '../services/geminiApi';
+import {
+  analyzeMealWithGemini,
+  suggestSnacksWithGemini,
+  type AiMealComponent,
+  type AiSnackSuggestion,
+  type AiSnackResponse,
+} from '../services/geminiApi';
 import { compressImage } from '../utils/imageCompress';
 import {
   X,
@@ -18,6 +24,9 @@ import {
   AlertCircle,
   RotateCcw,
   Wand2,
+  Lightbulb,
+  BookmarkPlus,
+  Utensils,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
@@ -155,6 +164,23 @@ export const AiMealModal = ({
   // Fetch custom recipes (e.g. homemade breads) for accurate recognition
   const customRecipes = useLiveQuery(() => db.recipes.toArray()) || [];
 
+  // User profile and today's diary metrics for budget-aware snack recommendations
+  const userProfile = useLiveQuery(() => db.userProfile.get('current'));
+  const todayEntries = useLiveQuery(() => db.diaryEntries.where('date').equals(selectedDate).toArray()) || [];
+
+  const targetCalories = userProfile?.targetCalories || 1750;
+  const loggedCalories = todayEntries.reduce((sum, e) => sum + (e.calories || 0), 0);
+  const remainingCalories = Math.max(0, targetCalories - loggedCalories);
+  const loggedProtein = Math.round(todayEntries.reduce((sum, e) => sum + (e.protein || 0), 0) * 10) / 10;
+  const targetProtein = userProfile?.targetProtein || 110;
+  const remainingProtein = Math.max(0, Math.round((targetProtein - loggedProtein) * 10) / 10);
+
+  // Snack suggestions state
+  const [isSuggestingSnacks, setIsSuggestingSnacks] = useState(false);
+  const [snackResponse, setSnackResponse] = useState<AiSnackResponse | null>(null);
+  const [loggedSnackId, setLoggedSnackId] = useState<string | null>(null);
+  const [savedRecipeSnackId, setSavedRecipeSnackId] = useState<string | null>(null);
+
   // Analysis state
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
@@ -179,8 +205,137 @@ export const AiMealModal = ({
       setMealType(defaultMealType);
       setIsSaved(false);
       setAnalysisError(null);
+      setSnackResponse(null);
+      setLoggedSnackId(null);
+      setSavedRecipeSnackId(null);
     }
   }, [isOpen, defaultMealType]);
+
+  const isAskingForSnack = (text: string) => {
+    const t = text.toLowerCase();
+    return (
+      (t.includes('snack') && (t.includes('vorschlag') || t.includes('schlag') || t.includes('idee') || t.includes('was kann ich') || t.includes('empfehl') || t.includes('kann ich essen') || t.includes('übrig') || t.includes('rest') || t.includes('hunger'))) ||
+      ((t.includes('schlag mir') || t.includes('was kann ich noch') || t.includes('ideen für') || t.includes('was soll ich')) && (t.includes('essen') || t.includes('snacken') || t.includes('kalorien')))
+    );
+  };
+
+  const handleRequestSnackSuggestions = async (overridePrompt?: string) => {
+    const activeKey = geminiApiKey || tempApiKey;
+    if (!activeKey) {
+      setAnalysisError('Bitte trage zuerst deinen kostenlosen Gemini API-Key ein.');
+      return;
+    }
+
+    if (isRecording) {
+      stopListening();
+    }
+
+    setIsSuggestingSnacks(true);
+    setAnalysisError(null);
+    setComponents(null);
+
+    try {
+      const promptToUse = overridePrompt || recoverCleanSentence(description) || `Schlag mir gesunde Snacks passend zu meinem Restbudget von ${remainingCalories} kcal vor.`;
+
+      const res = await suggestSnacksWithGemini({
+        remainingCalories,
+        remainingProtein,
+        userPrompt: promptToUse,
+        apiKey: activeKey,
+        userRecipes: customRecipes.map((r) => ({ name: r.name, category: r.category })),
+      });
+
+      setSnackResponse(res);
+      setMealType('snack');
+    } catch (err: any) {
+      setAnalysisError(err.message || 'Konnte keine Snack-Vorschläge laden.');
+    } finally {
+      setIsSuggestingSnacks(false);
+    }
+  };
+
+  const handleLogSnackToDiary = async (snack: AiSnackSuggestion) => {
+    try {
+      const now = Date.now();
+      const entries: DiaryEntry[] = snack.ingredients.map((ing, idx) => ({
+        date: selectedDate,
+        mealType: 'snack',
+        name: ing.name,
+        calories: ing.calories,
+        protein: ing.protein,
+        carbs: ing.carbs,
+        fat: ing.fat,
+        fiber: ing.fiber,
+        sugar: ing.sugar,
+        amount: ing.amountGrams,
+        unit: 'g',
+        reason: 'hunger',
+        timestamp: now + idx,
+      }));
+
+      await db.diaryEntries.bulkAdd(entries);
+      setLoggedSnackId(snack.id);
+      confetti({
+        particleCount: 40,
+        spread: 50,
+        origin: { y: 0.6 },
+      });
+    } catch (err: any) {
+      alert('Fehler beim Eintragen ins Tagebuch: ' + (err.message || err));
+    }
+  };
+
+  const handleSaveSnackAsRecipe = async (snack: AiSnackSuggestion) => {
+    try {
+      const totalRawWeight = snack.ingredients.reduce((sum, it) => sum + it.amountGrams, 0);
+      const totalKcal = snack.calories;
+      const totalProt = snack.protein;
+      const totalCarbs = snack.carbs;
+      const totalFat = snack.fat;
+
+      const calories100g = totalRawWeight > 0 ? Math.round((totalKcal / totalRawWeight) * 100) : totalKcal;
+      const protein100g = totalRawWeight > 0 ? Math.round((totalProt / totalRawWeight) * 100 * 10) / 10 : totalProt;
+      const carbs100g = totalRawWeight > 0 ? Math.round((totalCarbs / totalRawWeight) * 100 * 10) / 10 : totalCarbs;
+      const fat100g = totalRawWeight > 0 ? Math.round((totalFat / totalRawWeight) * 100 * 10) / 10 : totalFat;
+
+      await db.recipes.add({
+        name: snack.name,
+        category: 'snack',
+        servingName: '1 Portion',
+        servingWeightGrams: totalRawWeight,
+        totalRawWeight,
+        cookedWeight: totalRawWeight,
+        calories100g,
+        protein100g,
+        carbs100g,
+        fat100g,
+        fiber100g: snack.fiber && totalRawWeight > 0 ? Math.round((snack.fiber / totalRawWeight) * 100 * 10) / 10 : undefined,
+        sugar100g: snack.sugar && totalRawWeight > 0 ? Math.round((snack.sugar / totalRawWeight) * 100 * 10) / 10 : undefined,
+        ingredients: snack.ingredients.map((ing) => ({
+          name: ing.name,
+          amountGrams: ing.amountGrams,
+          calories: ing.calories,
+          protein: ing.protein,
+          carbs: ing.carbs,
+          fat: ing.fat,
+          fiber: ing.fiber,
+          sugar: ing.sugar,
+        })),
+        instructions: [`Zutaten abwiegen, in einer Schale anrichten und genießen.`],
+        tags: ['Snack', 'Gesund', 'Schnell'],
+        createdAt: Date.now(),
+      });
+
+      setSavedRecipeSnackId(snack.id);
+      confetti({
+        particleCount: 30,
+        spread: 40,
+        origin: { y: 0.6 },
+      });
+    } catch (err: any) {
+      alert('Fehler beim Speichern des Rezepts: ' + (err.message || err));
+    }
+  };
 
   if (!isOpen) return null;
 
@@ -443,6 +598,64 @@ export const AiMealModal = ({
 
         {/* Modal Body */}
         <div className="p-5 overflow-y-auto space-y-4 flex-1">
+
+          {/* Daily Budget & Nutrition Banner */}
+          <div className="p-3 bg-gradient-to-r from-emerald-50 via-teal-50 to-emerald-50 border border-emerald-200/80 rounded-2xl flex items-center justify-between text-xs shadow-2xs">
+            <div className="flex items-center gap-2.5">
+              <span className="text-2xl">🎯</span>
+              <div>
+                <span className="text-[10px] font-bold text-emerald-800 uppercase tracking-wider block">
+                  Restbudget für heute:
+                </span>
+                <span className="text-base font-black text-emerald-950">
+                  {remainingCalories} kcal
+                </span>
+                <span className="text-[11px] text-emerald-700 ml-1.5 font-medium">
+                  • noch {remainingProtein}g Protein
+                </span>
+              </div>
+            </div>
+            <div className="text-right text-[10px] text-stone-500 space-y-0.5">
+              <div>Ziel: <strong className="text-stone-700">{targetCalories} kcal</strong></div>
+              <div>Geloggt: <strong className="text-stone-700">{loggedCalories} kcal</strong></div>
+            </div>
+          </div>
+
+          {/* Quick Snack Inspiration Chips */}
+          <div className="space-y-1">
+            <span className="text-[10px] font-bold text-stone-400 uppercase tracking-wider block">
+              Inspiration für dein Restbudget (1-Klick):
+            </span>
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none text-xs">
+              <button
+                type="button"
+                onClick={() => handleRequestSnackSuggestions(`Schlag mir gesunde Snacks passend zu meinem Restbudget von ${remainingCalories} kcal vor.`)}
+                disabled={isSuggestingSnacks}
+                className="py-1.5 px-3 rounded-xl bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-900 font-bold shrink-0 transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs"
+              >
+                <span>💡</span>
+                <span>Snack für Restbudget ({remainingCalories} kcal)</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleRequestSnackSuggestions(`Schlag mir proteinreiche Snacks vor. Ich benötige heute noch ${remainingProtein}g Protein im Rahmen meiner restlichen ${remainingCalories} kcal.`)}
+                disabled={isSuggestingSnacks}
+                className="py-1.5 px-3 rounded-xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-900 font-bold shrink-0 transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs"
+              >
+                <span>⚡</span>
+                <span>High-Protein ({remainingProtein}g Rest)</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleRequestSnackSuggestions(`Schlag mir einen leichten, frischen Frucht-, Beeren- oder Joghurt-Snack vor (max. ${Math.min(remainingCalories, 200)} kcal).`)}
+                disabled={isSuggestingSnacks}
+                className="py-1.5 px-3 rounded-xl bg-purple-50 hover:bg-purple-100 border border-purple-200 text-purple-900 font-bold shrink-0 transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs"
+              >
+                <span>🍓</span>
+                <span>Frucht & Joghurt</span>
+              </button>
+            </div>
+          </div>
           
           {/* Target Meal Type Selector */}
           <div className="grid grid-cols-4 gap-1.5 p-1 bg-stone-100/80 rounded-2xl">
@@ -451,7 +664,7 @@ export const AiMealModal = ({
                 key={m}
                 type="button"
                 onClick={() => setMealType(m)}
-                className={`py-2 px-1 text-xs font-bold rounded-xl transition-all capitalize ${
+                className={`py-2 px-1 text-xs font-bold rounded-xl transition-all capitalize cursor-pointer ${
                   mealType === m
                     ? 'bg-white text-emerald-800 shadow-xs'
                     : 'text-stone-500 hover:text-stone-800'
@@ -506,8 +719,148 @@ export const AiMealModal = ({
             </div>
           )}
 
-          {/* STEP 1: CAPTURE & INPUT (When no components analyzed yet) */}
-          {!components && (
+          {/* STEP: SNACK SUGGESTIONS RESULTS (When snacks are requested) */}
+          {snackResponse && (
+            <div className="space-y-4 animate-in fade-in">
+              <div className="p-3.5 bg-amber-50/80 border border-amber-200/90 rounded-2xl flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 text-xs text-amber-900 font-medium">
+                  <Lightbulb className="w-4 h-4 text-amber-600 shrink-0" />
+                  <span>{snackResponse.introNote}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSnackResponse(null)}
+                  className="text-xs text-stone-500 hover:text-stone-800 font-bold underline shrink-0 cursor-pointer"
+                >
+                  Zurück
+                </button>
+              </div>
+
+              <div className="space-y-3">
+                {snackResponse.suggestions.map((snack) => {
+                  const isLogged = loggedSnackId === snack.id;
+                  const isSavedRecipe = savedRecipeSnackId === snack.id;
+
+                  return (
+                    <div
+                      key={snack.id}
+                      className="p-4 bg-white rounded-2xl border border-stone-200 shadow-2xs space-y-3 transition-all hover:border-emerald-300"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <h4 className="font-extrabold text-stone-900 text-sm sm:text-base">
+                            {snack.name}
+                          </h4>
+                          <span className="text-xs text-stone-500 font-medium">
+                            {snack.portionDescription}
+                          </span>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <span className="text-base font-black text-emerald-800 block">
+                            {snack.calories} kcal
+                          </span>
+                          <span className="text-[10px] text-stone-400 font-bold block">
+                            P: {snack.protein}g • K: {snack.carbs}g • F: {snack.fat}g
+                          </span>
+                        </div>
+                      </div>
+
+                      <p className="text-xs text-stone-600 bg-stone-50 p-2.5 rounded-xl border border-stone-100 leading-relaxed italic">
+                        „{snack.reasonWhy}“
+                      </p>
+
+                      {/* Ingredients Preview */}
+                      <div className="space-y-1">
+                        <span className="text-[10px] font-bold text-stone-400 uppercase tracking-wider block">
+                          Zutaten ({snack.ingredients.length}):
+                        </span>
+                        <div className="flex flex-wrap gap-1.5">
+                          {snack.ingredients.map((ing, iIdx) => (
+                            <span
+                              key={iIdx}
+                              className="text-[11px] bg-stone-100 text-stone-700 px-2 py-0.5 rounded-lg border border-stone-200/60 font-medium"
+                            >
+                              {ing.amountGrams}g {ing.name} ({ing.calories} kcal)
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Action Buttons: Log to Diary & Save as Recipe */}
+                      <div className="pt-1 grid grid-cols-2 gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handleLogSnackToDiary(snack)}
+                          disabled={isLogged}
+                          className={`py-2.5 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs ${
+                            isLogged
+                              ? 'bg-emerald-100 text-emerald-900 border border-emerald-300'
+                              : 'bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white'
+                          }`}
+                        >
+                          {isLogged ? (
+                            <>
+                              <Check className="w-3.5 h-3.5 text-emerald-700" />
+                              <span>✓ Im Tagebuch</span>
+                            </>
+                          ) : (
+                            <>
+                              <Utensils className="w-3.5 h-3.5" />
+                              <span>Ins Tagebuch</span>
+                            </>
+                          )}
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => handleSaveSnackAsRecipe(snack)}
+                          disabled={isSavedRecipe}
+                          className={`py-2.5 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer border ${
+                            isSavedRecipe
+                              ? 'bg-amber-100 text-amber-950 border-amber-300'
+                              : 'bg-white hover:bg-stone-50 text-stone-700 border-stone-200'
+                          }`}
+                        >
+                          {isSavedRecipe ? (
+                            <>
+                              <Check className="w-3.5 h-3.5 text-amber-700" />
+                              <span>✓ Als Rezept gesichert</span>
+                            </>
+                          ) : (
+                            <>
+                              <BookmarkPlus className="w-3.5 h-3.5 text-amber-600" />
+                              <span>Als Rezept speichern</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className="flex items-center justify-between pt-2">
+                <button
+                  type="button"
+                  onClick={() => setSnackResponse(null)}
+                  className="py-2 px-3 text-xs font-bold text-stone-500 hover:text-stone-800 transition-colors cursor-pointer"
+                >
+                  ← Zurück zur Mahlzeiten-Eingabe
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleRequestSnackSuggestions(`Schlag mir noch andere, alternative Snack-Ideen vor passend zu ${remainingCalories} kcal.`)}
+                  disabled={isSuggestingSnacks}
+                  className="py-2 px-4 rounded-xl bg-stone-100 hover:bg-stone-200 text-stone-800 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
+                >
+                  {isSuggestingSnacks ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <span>🔄 Andere Ideen</span>}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* STEP 1: CAPTURE & INPUT (When no components and no snack suggestions yet) */}
+          {!components && !snackResponse && (
             <div className="space-y-4">
               
               {/* Photo Upload / Camera Card */}
@@ -677,25 +1030,67 @@ export const AiMealModal = ({
                 </div>
               )}
 
-              {/* Analyze Button */}
-              <button
-                type="button"
-                onClick={handleAnalyze}
-                disabled={isAnalyzing || (!imageBase64 && !description.trim())}
-                className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 active:scale-[0.99] text-white font-bold text-sm shadow-soft transition-all flex items-center justify-center gap-2 disabled:opacity-50"
-              >
-                {isAnalyzing ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    <span>KI analysiert dein Essen (Gemini Flash)...</span>
-                  </>
-                ) : (
-                  <>
-                    <Sparkles className="w-4 h-4" />
-                    <span>Mahlzeit jetzt mit KI analysieren</span>
-                  </>
-                )}
-              </button>
+              {/* Intelligent Action Button: Detect Snack Wish vs Food Analysis */}
+              {isAskingForSnack(description) ? (
+                <button
+                  type="button"
+                  onClick={() => handleRequestSnackSuggestions()}
+                  disabled={isSuggestingSnacks}
+                  className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-amber-600 via-emerald-600 to-teal-600 hover:from-amber-700 hover:to-teal-700 active:scale-[0.99] text-white font-bold text-sm shadow-soft transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                >
+                  {isSuggestingSnacks ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>KI sucht gesunde Snacks für dein Restbudget...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Lightbulb className="w-4 h-4" />
+                      <span>Passende Snacks für {remainingCalories} kcal anzeigen</span>
+                    </>
+                  )}
+                </button>
+              ) : (
+                <div className="space-y-2">
+                  <button
+                    type="button"
+                    onClick={handleAnalyze}
+                    disabled={isAnalyzing || (!imageBase64 && !description.trim())}
+                    className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 active:scale-[0.99] text-white font-bold text-sm shadow-soft transition-all flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
+                  >
+                    {isAnalyzing ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span>KI analysiert dein Essen (Gemini Flash)...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="w-4 h-4" />
+                        <span>Mahlzeit jetzt mit KI analysieren</span>
+                      </>
+                    )}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleRequestSnackSuggestions()}
+                    disabled={isSuggestingSnacks}
+                    className="w-full py-2.5 rounded-2xl bg-stone-100 hover:bg-stone-200 text-stone-700 font-bold text-xs transition-all flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    {isSuggestingSnacks ? (
+                      <>
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        <span>Suche Snacks...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Lightbulb className="w-3.5 h-3.5 text-amber-600" />
+                        <span>Oder: Gesunde Snack-Ideen für {remainingCalories} kcal vorschlagen</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              )}
             </div>
           )}
 
