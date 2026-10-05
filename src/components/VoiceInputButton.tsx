@@ -40,14 +40,14 @@ export const VoiceInputButton: React.FC<VoiceInputButtonProps> = ({
   };
 
   const sizeClasses = {
-    xs: 'w-7 h-7 p-1 text-xs',
-    sm: 'w-8 h-8 p-1.5 text-xs',
+    xs: 'w-7.5 h-7.5 p-1 text-xs',
+    sm: 'w-8.5 h-8.5 p-1.5 text-xs',
     md: 'w-10 h-10 p-2 text-sm',
   };
 
   const iconSizes = {
-    xs: 'w-3.5 h-3.5',
-    sm: 'w-4 h-4',
+    xs: 'w-4 h-4',
+    sm: 'w-4.5 h-4.5',
     md: 'w-5 h-5',
   };
 
@@ -56,18 +56,18 @@ export const VoiceInputButton: React.FC<VoiceInputButtonProps> = ({
       <button
         type="button"
         onClick={handleClick}
-        className={`rounded-xl transition-all flex items-center justify-center shrink-0 ${sizeClasses[size]} ${
+        className={`rounded-xl transition-all flex items-center justify-center shrink-0 cursor-pointer ${sizeClasses[size]} ${
           isListening
-            ? 'bg-rose-600 text-white shadow-md ring-4 ring-rose-400/40 animate-pulse'
-            : 'text-stone-400 hover:text-emerald-700 hover:bg-emerald-50 active:scale-95'
+            ? 'bg-gradient-to-br from-rose-500 to-rose-600 text-white shadow-md ring-4 ring-rose-400/40 animate-pulse'
+            : 'bg-emerald-100/90 hover:bg-emerald-200 text-emerald-800 hover:text-emerald-950 border border-emerald-300 hover:border-emerald-400 shadow-2xs hover:shadow-xs active:scale-95 ring-2 ring-emerald-500/10'
         } ${className}`}
-        title={isListening ? 'Höre zu... Tippe zum Beenden ⏹️' : title}
+        title={isListening ? 'Höre zu... Tippe zum Beenden ⏹️' : `${title} (Klicken zum Sprechen)`}
         aria-label={isListening ? 'Sprachaufnahme beenden' : title}
       >
         {isListening ? (
           <Square className={`${iconSizes[size]} fill-white`} />
         ) : (
-          <Mic className={iconSizes[size]} />
+          <Mic className={`${iconSizes[size]} text-emerald-700 stroke-[2.2]`} />
         )}
       </button>
 

@@ -124,6 +124,73 @@ const MEAL_STAPLES: Array<{ name: string; grams: number; icon: string }> = [
   { name: 'Speisesalz / Meersalz', grams: 5, icon: '🧂' },
 ];
 
+export const inferRecipeCategory = (r: { name: string; category?: RecipeCategory }): RecipeCategory => {
+  if (r.category) return r.category;
+  const n = r.name.toLowerCase();
+  if (
+    n.includes('cortado') ||
+    n.includes('kaffee') ||
+    n.includes('coffee') ||
+    n.includes('espresso') ||
+    n.includes('cappuccino') ||
+    n.includes('latte') ||
+    n.includes('tee') ||
+    n.includes('tea') ||
+    n.includes('shake') ||
+    n.includes('smoothie') ||
+    n.includes('saft') ||
+    n.includes('drink') ||
+    n.includes('getränk') ||
+    n.includes('kakao') ||
+    n.includes('sirup') ||
+    n.includes('limonade') ||
+    n.includes('wasser') ||
+    n.includes('chai')
+  ) {
+    return 'drink';
+  }
+  if (
+    n.includes('brot') ||
+    n.includes('brötchen') ||
+    n.includes('kuchen') ||
+    n.includes('loaf') ||
+    n.includes('teig') ||
+    n.includes('muffin') ||
+    n.includes('baguette') ||
+    n.includes('toast')
+  ) {
+    return 'bread';
+  }
+  if (
+    n.includes('müsli') ||
+    n.includes('haferflocken') ||
+    n.includes('porridge') ||
+    n.includes('oats') ||
+    n.includes('bowl') ||
+    n.includes('frühstück') ||
+    n.includes('pancake') ||
+    n.includes('rührei') ||
+    n.includes('omlett') ||
+    n.includes('egg')
+  ) {
+    return 'breakfast';
+  }
+  if (n.includes('salat') || n.includes('salad')) {
+    return 'salad';
+  }
+  if (
+    n.includes('snack') ||
+    n.includes('riegel') ||
+    n.includes('keks') ||
+    n.includes('cookie') ||
+    n.includes('chips') ||
+    n.includes('praline')
+  ) {
+    return 'snack';
+  }
+  return 'meal';
+};
+
 export const RecipeCreatorModal = ({
   isOpen,
   onClose,
@@ -159,6 +226,7 @@ export const RecipeCreatorModal = ({
   const [expandedRecipeId, setExpandedRecipeId] = useState<number | null>(null);
   const [listCategoryFilter, setListCategoryFilter] = useState<'all' | 'favorites' | RecipeCategory>('all');
   const [recipeSearchQuery, setRecipeSearchQuery] = useState('');
+  const [categoryChangeSuccess, setCategoryChangeSuccess] = useState<{ id: number; cat: string } | null>(null);
   const [openCategories, setOpenCategories] = useState<Record<string, boolean>>({
     bread: true,
     breakfast: true,
@@ -168,6 +236,64 @@ export const RecipeCreatorModal = ({
     snack: true,
   });
 
+  // Auto-migrate legacy recipes that had no category or were miscategorized before v1.5
+  useEffect(() => {
+    const migrateLegacyCategories = async () => {
+      try {
+        const allRecipes = await db.recipes.toArray();
+        for (const r of allRecipes) {
+          if (!r.id) continue;
+          const inferred = inferRecipeCategory(r);
+          if (!r.category || (r.category === 'meal' && inferred !== 'meal')) {
+            const isDrink = inferred === 'drink';
+            const isBread = inferred === 'bread';
+            const isCoffee = r.name.toLowerCase().includes('cortado') || r.name.toLowerCase().includes('kaffee') || r.name.toLowerCase().includes('espresso');
+            const servingName = isCoffee ? '1 Tasse' : isDrink ? '1 Glas' : isBread ? '1 Scheibe' : r.servingName || '1 Portion';
+            const servingWeightGrams = isCoffee ? 120 : isDrink ? 250 : isBread ? 50 : 250;
+            await db.recipes.update(r.id, {
+              category: inferred,
+              servingName,
+              servingWeightGrams: r.servingWeightGrams || servingWeightGrams,
+            });
+          }
+        }
+      } catch (err) {
+        console.error('Migration of legacy categories failed', err);
+      }
+    };
+    migrateLegacyCategories();
+  }, []);
+
+  const handleQuickChangeCategory = async (e: React.MouseEvent, r: CustomRecipe, newCategory: RecipeCategory) => {
+    e.stopPropagation();
+    if (!r.id) return;
+    const isDrink = newCategory === 'drink';
+    const isBread = newCategory === 'bread';
+    const isCoffee = r.name.toLowerCase().includes('cortado') || r.name.toLowerCase().includes('kaffee') || r.name.toLowerCase().includes('espresso');
+    const servingName = isCoffee ? '1 Tasse' : isDrink ? '1 Glas' : isBread ? '1 Scheibe' : '1 Portion';
+    const servingWeightGrams = isCoffee ? 120 : isDrink ? 250 : isBread ? 50 : 250;
+
+    await db.recipes.update(r.id, {
+      category: newCategory,
+      servingName,
+      servingWeightGrams: r.servingWeightGrams || servingWeightGrams,
+    });
+
+    const labelMap: Record<RecipeCategory, string> = {
+      bread: 'Brot & Backen',
+      breakfast: 'Frühstück & Bowls',
+      meal: 'Hauptgericht',
+      salad: 'Salat',
+      drink: 'Getränke',
+      snack: 'Snacks',
+    };
+
+    setCategoryChangeSuccess({ id: r.id, cat: labelMap[newCategory] });
+    setTimeout(() => {
+      setCategoryChangeSuccess(null);
+    }, 2500);
+  };
+
   const toggleCategory = (cat: string) => {
     setOpenCategories((prev) => ({ ...prev, [cat]: !prev[cat] }));
   };
@@ -175,9 +301,10 @@ export const RecipeCreatorModal = ({
   const handleStartEdit = (r: CustomRecipe) => {
     setEditingRecipeId(r.id || null);
     setName(r.name);
-    setCategory(r.category || 'bread');
+    const cat = inferRecipeCategory(r);
+    setCategory(cat);
     setIngredients(r.ingredients ? [...r.ingredients] : []);
-    setSliceWeight(String(r.servingWeightGrams || (r.category === 'bread' ? 50 : 250)));
+    setSliceWeight(String(r.servingWeightGrams || (cat === 'bread' ? 50 : 250)));
     setCustomBakedWeight(r.cookedWeight ? String(r.cookedWeight) : '');
     setRecipeImageUrl(r.imageUrl || null);
     setRecipePrepTime(r.prepTimeMinutes ? String(r.prepTimeMinutes) : '20');
@@ -262,9 +389,14 @@ export const RecipeCreatorModal = ({
     e.stopPropagation();
     setDiaryLogModalRecipe(r);
     // Suggest mealType matching recipe category or current time
-    if (r.category === 'breakfast') setDiaryLogMealType('breakfast');
-    else if (r.category === 'snack') setDiaryLogMealType('snack');
-    else {
+    const effectiveCategory = inferRecipeCategory(r);
+    if (effectiveCategory === 'breakfast') setDiaryLogMealType('breakfast');
+    else if (effectiveCategory === 'snack') setDiaryLogMealType('snack');
+    else if (effectiveCategory === 'drink') {
+      const hour = new Date().getHours();
+      if (hour < 11) setDiaryLogMealType('breakfast');
+      else setDiaryLogMealType('snack');
+    } else {
       const hour = new Date().getHours();
       if (hour < 11) setDiaryLogMealType('breakfast');
       else if (hour < 15) setDiaryLogMealType('lunch');
@@ -278,15 +410,19 @@ export const RecipeCreatorModal = ({
     if (!diaryLogModalRecipe) return;
     const r = diaryLogModalRecipe;
     const scale = Math.max(0.25, Number(diaryLogPortionCount) || 1);
-    const isBread = r.category === 'bread' || r.name.toLowerCase().includes('brot');
-    const isDrink = r.category === 'drink';
-    const baseServingGrams = r.servingWeightGrams || (isDrink ? 250 : isBread ? 50 : 250);
+    const effectiveCategory = inferRecipeCategory(r);
+    const isBread = effectiveCategory === 'bread';
+    const isDrink = effectiveCategory === 'drink';
+    const isCoffee = isDrink && (r.name.toLowerCase().includes('cortado') || r.name.toLowerCase().includes('kaffee') || r.name.toLowerCase().includes('espresso'));
+    const baseServingGrams = r.servingWeightGrams || (isCoffee ? 120 : isDrink ? 250 : isBread ? 50 : 250);
     const totalLoggedGrams = Math.round(baseServingGrams * scale);
     const ratio = totalLoggedGrams / 100;
 
     const todayStr = selectedDate || new Date().toISOString().split('T')[0];
     const unitLabel = isBread
       ? (scale === 1 ? '1 Scheibe' : `${scale} Scheiben`)
+      : isCoffee
+      ? (scale === 1 ? '1 Tasse' : `${scale} Tassen`)
       : isDrink
       ? (scale === 1 ? '1 Glas' : `${scale} Gläser`)
       : (scale === 1 ? '1 Portion' : `${scale} Portionen`);
@@ -302,7 +438,7 @@ export const RecipeCreatorModal = ({
       fiber: r.fiber100g ? Math.round(r.fiber100g * ratio * 10) / 10 : undefined,
       sugar: r.sugar100g ? Math.round(r.sugar100g * ratio * 10) / 10 : undefined,
       amount: totalLoggedGrams,
-      unit: `${unitLabel} (${totalLoggedGrams}g)`,
+      unit: `${unitLabel} (${totalLoggedGrams}${isDrink ? 'ml' : 'g'})`,
       timestamp: Date.now(),
     };
 
@@ -1763,7 +1899,7 @@ export const RecipeCreatorModal = ({
                   }`}
                 >
                   <span>🍞</span>
-                  <span>Brot ({customRecipes.filter((r) => r.category === 'bread' || r.name.toLowerCase().includes('brot')).length})</span>
+                  <span>Brot ({customRecipes.filter((r) => inferRecipeCategory(r) === 'bread').length})</span>
                 </button>
                 <button
                   type="button"
@@ -1775,7 +1911,7 @@ export const RecipeCreatorModal = ({
                   }`}
                 >
                   <span>🥣</span>
-                  <span>Frühstück ({customRecipes.filter((r) => r.category === 'breakfast').length})</span>
+                  <span>Frühstück ({customRecipes.filter((r) => inferRecipeCategory(r) === 'breakfast').length})</span>
                 </button>
                 <button
                   type="button"
@@ -1787,7 +1923,7 @@ export const RecipeCreatorModal = ({
                   }`}
                 >
                   <span>🍲</span>
-                  <span>Hauptgerichte ({customRecipes.filter((r) => r.category === 'meal' || (!r.category && !r.name.toLowerCase().includes('brot'))).length})</span>
+                  <span>Hauptgerichte ({customRecipes.filter((r) => inferRecipeCategory(r) === 'meal').length})</span>
                 </button>
                 <button
                   type="button"
@@ -1799,7 +1935,7 @@ export const RecipeCreatorModal = ({
                   }`}
                 >
                   <span>🥗</span>
-                  <span>Salate ({customRecipes.filter((r) => r.category === 'salad').length})</span>
+                  <span>Salate ({customRecipes.filter((r) => inferRecipeCategory(r) === 'salad').length})</span>
                 </button>
                 <button
                   type="button"
@@ -1811,7 +1947,7 @@ export const RecipeCreatorModal = ({
                   }`}
                 >
                   <span>🥤</span>
-                  <span>Getränke ({customRecipes.filter((r) => r.category === 'drink').length})</span>
+                  <span>Getränke ({customRecipes.filter((r) => inferRecipeCategory(r) === 'drink').length})</span>
                 </button>
                 <button
                   type="button"
@@ -1823,7 +1959,7 @@ export const RecipeCreatorModal = ({
                   }`}
                 >
                   <span>🍫</span>
-                  <span>Snacks ({customRecipes.filter((r) => r.category === 'snack').length})</span>
+                  <span>Snacks ({customRecipes.filter((r) => inferRecipeCategory(r) === 'snack').length})</span>
                 </button>
               </div>
             </div>
@@ -1836,7 +1972,7 @@ export const RecipeCreatorModal = ({
                     key: 'bread' as const,
                     title: 'Brot, Brötchen & Backen',
                     icon: '🍞',
-                    match: (r: CustomRecipe) => r.category === 'bread' || (!r.category && r.name.toLowerCase().includes('brot')),
+                    match: (r: CustomRecipe) => inferRecipeCategory(r) === 'bread',
                     bgHeader: 'bg-amber-50/80',
                     borderHeader: 'border-amber-200/80',
                     textColor: 'text-amber-950',
@@ -1846,7 +1982,7 @@ export const RecipeCreatorModal = ({
                     key: 'breakfast' as const,
                     title: 'Frühstück, Müsli & Bowls',
                     icon: '🥣',
-                    match: (r: CustomRecipe) => r.category === 'breakfast',
+                    match: (r: CustomRecipe) => inferRecipeCategory(r) === 'breakfast',
                     bgHeader: 'bg-orange-50/80',
                     borderHeader: 'border-orange-200/80',
                     textColor: 'text-orange-950',
@@ -1856,7 +1992,7 @@ export const RecipeCreatorModal = ({
                     key: 'meal' as const,
                     title: 'Hauptgerichte & Mahlzeiten',
                     icon: '🍲',
-                    match: (r: CustomRecipe) => r.category === 'meal' || (!r.category && !r.name.toLowerCase().includes('brot')),
+                    match: (r: CustomRecipe) => inferRecipeCategory(r) === 'meal',
                     bgHeader: 'bg-emerald-50/80',
                     borderHeader: 'border-emerald-200/80',
                     textColor: 'text-emerald-950',
@@ -1866,7 +2002,7 @@ export const RecipeCreatorModal = ({
                     key: 'salad' as const,
                     title: 'Salate & Frische Beilagen',
                     icon: '🥗',
-                    match: (r: CustomRecipe) => r.category === 'salad',
+                    match: (r: CustomRecipe) => inferRecipeCategory(r) === 'salad',
                     bgHeader: 'bg-lime-50/80',
                     borderHeader: 'border-lime-200/80',
                     textColor: 'text-lime-950',
@@ -1876,7 +2012,7 @@ export const RecipeCreatorModal = ({
                     key: 'drink' as const,
                     title: 'Getränke, Shakes & Smoothies',
                     icon: '🥤',
-                    match: (r: CustomRecipe) => r.category === 'drink',
+                    match: (r: CustomRecipe) => inferRecipeCategory(r) === 'drink',
                     bgHeader: 'bg-blue-50/80',
                     borderHeader: 'border-blue-200/80',
                     textColor: 'text-blue-950',
@@ -1886,7 +2022,7 @@ export const RecipeCreatorModal = ({
                     key: 'snack' as const,
                     title: 'Snacks, Riegel & Süßes',
                     icon: '🍫',
-                    match: (r: CustomRecipe) => r.category === 'snack',
+                    match: (r: CustomRecipe) => inferRecipeCategory(r) === 'snack',
                     bgHeader: 'bg-pink-50/80',
                     borderHeader: 'border-pink-200/80',
                     textColor: 'text-pink-950',
@@ -1955,14 +2091,16 @@ export const RecipeCreatorModal = ({
                         <div className="divide-y divide-stone-100 p-2 space-y-2">
                           {rubrikRecipes.map((r) => {
                             const isExpanded = expandedRecipeId === r.id;
-                            const isBread = r.category === 'bread' || r.name.toLowerCase().includes('brot');
-                            const isDrink = r.category === 'drink';
+                            const effectiveCategory = inferRecipeCategory(r);
+                            const isBread = effectiveCategory === 'bread';
+                            const isDrink = effectiveCategory === 'drink';
+                            const isCoffee = isDrink && (r.name.toLowerCase().includes('cortado') || r.name.toLowerCase().includes('kaffee') || r.name.toLowerCase().includes('espresso'));
                             const multiplier = r.id ? getMultiplier(r.id) : 1;
-                            const baseSliceWeight = r.servingWeightGrams || (isDrink ? 250 : isBread ? 50 : 250);
+                            const baseSliceWeight = r.servingWeightGrams || (isCoffee ? 120 : isDrink ? 250 : isBread ? 50 : 250);
                             const sliceWeight = Math.round(baseSliceWeight * multiplier);
                             const ratio = sliceWeight / 100;
                             const sliceKcal = Math.round(r.calories100g * ratio);
-                            const servLabel = r.servingName || (isBread ? '1 Scheibe' : isDrink ? '1 Glas' : '1 Portion');
+                            const servLabel = r.servingName || (isBread ? '1 Scheibe' : isCoffee ? '1 Tasse' : isDrink ? '1 Glas' : '1 Portion');
                             const proteinSlice = Math.round((r.protein100g || 0) * ratio * 10) / 10;
                             const carbsSlice = Math.round((r.carbs100g || 0) * ratio * 10) / 10;
                             const fatSlice = Math.round((r.fat100g || 0) * ratio * 10) / 10;
@@ -1993,7 +2131,7 @@ export const RecipeCreatorModal = ({
                                             : 'bg-emerald-500/10 text-emerald-700 border-emerald-200/50'
                                         }`}
                                       >
-                                        {isDrink ? '🥤' : isBread ? '🍞' : r.category === 'salad' ? '🥗' : r.category === 'breakfast' ? '🥣' : r.category === 'snack' ? '🍫' : '🍲'}
+                                        {isCoffee ? '☕' : isDrink ? '🥤' : isBread ? '🍞' : effectiveCategory === 'salad' ? '🥗' : effectiveCategory === 'breakfast' ? '🥣' : effectiveCategory === 'snack' ? '🍫' : '🍲'}
                                       </div>
                                     )}
 
@@ -2089,7 +2227,7 @@ export const RecipeCreatorModal = ({
                                             : 'bg-emerald-500/10 text-emerald-700 border-emerald-200/50'
                                         }`}
                                       >
-                                        {isDrink ? '🥤' : isBread ? '🍞' : r.category === 'salad' ? '🥗' : r.category === 'breakfast' ? '🥣' : r.category === 'snack' ? '🍫' : '🍲'}
+                                        {isCoffee ? '☕' : isDrink ? '🥤' : isBread ? '🍞' : effectiveCategory === 'salad' ? '🥗' : effectiveCategory === 'breakfast' ? '🥣' : effectiveCategory === 'snack' ? '🍫' : '🍲'}
                                       </div>
                                     )}
                                     <div className="min-w-0">
@@ -2130,6 +2268,50 @@ export const RecipeCreatorModal = ({
                                     >
                                       <Trash2 className="w-4 h-4" />
                                     </button>
+                                  </div>
+                                </div>
+
+                                {/* 1-Tap Rubrik / Kategorie Zuordnung */}
+                                <div className="p-2.5 bg-stone-50/90 rounded-2xl border border-stone-200/80 space-y-1.5">
+                                  <div className="flex items-center justify-between text-[11px]">
+                                    <span className="font-bold text-stone-600 flex items-center gap-1">
+                                      <span>🏷️</span>
+                                      <span>Rubrik / Kategorie zuordnen:</span>
+                                    </span>
+                                    {categoryChangeSuccess && categoryChangeSuccess.id === r.id && (
+                                      <span className="text-emerald-800 font-extrabold bg-emerald-100 border border-emerald-300 px-2 py-0.5 rounded-full text-[10px] animate-in fade-in shadow-2xs">
+                                        ✓ Zu „{categoryChangeSuccess.cat}“ verschoben!
+                                      </span>
+                                    )}
+                                  </div>
+                                  <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 scrollbar-none">
+                                    {[
+                                      { key: 'bread' as const, label: 'Brot & Backen', icon: '🍞' },
+                                      { key: 'breakfast' as const, label: 'Frühstück', icon: '🥣' },
+                                      { key: 'meal' as const, label: 'Hauptgericht', icon: '🍲' },
+                                      { key: 'salad' as const, label: 'Salat', icon: '🥗' },
+                                      { key: 'drink' as const, label: 'Getränke', icon: '🥤' },
+                                      { key: 'snack' as const, label: 'Snacks', icon: '🍫' },
+                                    ].map((catItem) => {
+                                      const isCurrent = effectiveCategory === catItem.key;
+                                      return (
+                                        <button
+                                          key={catItem.key}
+                                          type="button"
+                                          onClick={(e) => handleQuickChangeCategory(e, r, catItem.key)}
+                                          className={`py-1 px-2.5 rounded-xl text-[11px] font-bold shrink-0 transition-all flex items-center gap-1 cursor-pointer border ${
+                                            isCurrent
+                                              ? 'bg-emerald-600 text-white border-emerald-700 shadow-2xs'
+                                              : 'bg-white hover:bg-stone-100 text-stone-700 border-stone-200/90'
+                                          }`}
+                                          title={`Rezept zu "${catItem.label}" verschieben`}
+                                        >
+                                          <span>{catItem.icon}</span>
+                                          <span>{catItem.label}</span>
+                                          {isCurrent && <span className="text-[9px] ml-0.5 font-bold opacity-90">• aktiv</span>}
+                                        </button>
+                                      );
+                                    })}
                                   </div>
                                 </div>
 
@@ -2790,73 +2972,81 @@ export const RecipeCreatorModal = ({
                   </div>
                 </div>
 
-                {/* Portion Count */}
-                <div className="space-y-1">
-                  <div className="flex items-center justify-between">
-                    <label className="text-xs font-semibold text-stone-600">Portionsmenge:</label>
-                    <span className="text-xs font-bold text-stone-500">
-                      {Math.round((diaryLogModalRecipe.servingWeightGrams || (diaryLogModalRecipe.category === 'bread' ? 50 : 250)) * diaryLogPortionCount)} g gesamt
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setDiaryLogPortionCount((prev) => Math.max(0.25, Math.round((prev - 0.5) * 100) / 100))}
-                      className="w-9 h-9 rounded-xl bg-stone-100 hover:bg-stone-200 text-stone-700 font-bold flex items-center justify-center text-sm cursor-pointer"
-                    >
-                      <Minus className="w-4 h-4" />
-                    </button>
-                    <div className="flex-1 py-1.5 bg-stone-50 rounded-xl border border-stone-200 text-center font-black text-sm text-stone-900">
-                      {diaryLogPortionCount}x {diaryLogModalRecipe.servingName || (diaryLogModalRecipe.category === 'bread' ? 'Scheibe' : 'Portion')}
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setDiaryLogPortionCount((prev) => Math.min(10, Math.round((prev + 0.5) * 100) / 100))}
-                      className="w-9 h-9 rounded-xl bg-stone-100 hover:bg-stone-200 text-stone-700 font-bold flex items-center justify-center text-sm cursor-pointer"
-                    >
-                      <Plus className="w-4 h-4" />
-                    </button>
-                  </div>
-
-                  {/* Quick portion chips */}
-                  <div className="flex gap-1 pt-1">
-                    {[0.5, 1, 1.5, 2, 3].map((val) => (
-                      <button
-                        key={val}
-                        type="button"
-                        onClick={() => setDiaryLogPortionCount(val)}
-                        className={`flex-1 py-1 rounded-lg border text-[10px] font-bold transition-all cursor-pointer ${
-                          diaryLogPortionCount === val
-                            ? 'border-emerald-500 bg-emerald-50 text-emerald-900'
-                            : 'border-stone-200 text-stone-600 hover:bg-stone-50'
-                        }`}
-                      >
-                        {val}x
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Calculated Macros Box */}
+                {/* Portion Count & Macros */}
                 {(() => {
-                  const baseServing = diaryLogModalRecipe.servingWeightGrams || (diaryLogModalRecipe.category === 'bread' ? 50 : 250);
+                  const effectiveCategory = inferRecipeCategory(diaryLogModalRecipe);
+                  const isDrink = effectiveCategory === 'drink';
+                  const isBread = effectiveCategory === 'bread';
+                  const isCoffee = isDrink && (diaryLogModalRecipe.name.toLowerCase().includes('cortado') || diaryLogModalRecipe.name.toLowerCase().includes('kaffee') || diaryLogModalRecipe.name.toLowerCase().includes('espresso'));
+                  const baseServing = diaryLogModalRecipe.servingWeightGrams || (isCoffee ? 120 : isDrink ? 250 : isBread ? 50 : 250);
                   const totalG = Math.round(baseServing * diaryLogPortionCount);
                   const ratio = totalG / 100;
                   const cals = Math.round(diaryLogModalRecipe.calories100g * ratio);
                   const prot = Math.round((diaryLogModalRecipe.protein100g || 0) * ratio * 10) / 10;
                   const carb = Math.round((diaryLogModalRecipe.carbs100g || 0) * ratio * 10) / 10;
                   const fat = Math.round((diaryLogModalRecipe.fat100g || 0) * ratio * 10) / 10;
+                  const unitWord = diaryLogModalRecipe.servingName || (isCoffee ? 'Tasse' : isDrink ? 'Glas' : isBread ? 'Scheibe' : 'Portion');
+
                   return (
-                    <div className="p-3 bg-emerald-50/70 border border-emerald-200/80 rounded-2xl flex items-center justify-between text-xs">
-                      <div>
-                        <span className="text-[10px] font-bold text-emerald-900 block uppercase">Im Tagebuch:</span>
-                        <span className="text-xl font-black text-emerald-950">{cals} kcal</span>
+                    <>
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between">
+                          <label className="text-xs font-semibold text-stone-600">Portionsmenge:</label>
+                          <span className="text-xs font-bold text-stone-500">
+                            {totalG} {isDrink ? 'ml' : 'g'} gesamt
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setDiaryLogPortionCount((prev) => Math.max(0.25, Math.round((prev - 0.5) * 100) / 100))}
+                            className="w-9 h-9 rounded-xl bg-stone-100 hover:bg-stone-200 text-stone-700 font-bold flex items-center justify-center text-sm cursor-pointer"
+                          >
+                            <Minus className="w-4 h-4" />
+                          </button>
+                          <div className="flex-1 py-1.5 bg-stone-50 rounded-xl border border-stone-200 text-center font-black text-sm text-stone-900">
+                            {diaryLogPortionCount}x {unitWord}
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setDiaryLogPortionCount((prev) => Math.min(10, Math.round((prev + 0.5) * 100) / 100))}
+                            className="w-9 h-9 rounded-xl bg-stone-100 hover:bg-stone-200 text-stone-700 font-bold flex items-center justify-center text-sm cursor-pointer"
+                          >
+                            <Plus className="w-4 h-4" />
+                          </button>
+                        </div>
+
+                        {/* Quick portion chips */}
+                        <div className="flex gap-1 pt-1">
+                          {[0.5, 1, 1.5, 2, 3].map((val) => (
+                            <button
+                              key={val}
+                              type="button"
+                              onClick={() => setDiaryLogPortionCount(val)}
+                              className={`flex-1 py-1 rounded-lg border text-[10px] font-bold transition-all cursor-pointer ${
+                                diaryLogPortionCount === val
+                                  ? 'border-emerald-500 bg-emerald-50 text-emerald-900'
+                                  : 'border-stone-200 text-stone-600 hover:bg-stone-50'
+                              }`}
+                            >
+                              {val}x
+                            </button>
+                          ))}
+                        </div>
                       </div>
-                      <div className="text-right text-[11px] text-emerald-800 space-y-0.5">
-                        <div>P: <strong className="text-stone-900">{prot}g</strong></div>
-                        <div>K: <strong className="text-stone-900">{carb}g</strong> • F: <strong className="text-stone-900">{fat}g</strong></div>
+
+                      {/* Calculated Macros Box */}
+                      <div className="p-3 bg-emerald-50/70 border border-emerald-200/80 rounded-2xl flex items-center justify-between text-xs">
+                        <div>
+                          <span className="text-[10px] font-bold text-emerald-900 block uppercase">Im Tagebuch:</span>
+                          <span className="text-xl font-black text-emerald-950">{cals} kcal</span>
+                        </div>
+                        <div className="text-right text-[11px] text-emerald-800 space-y-0.5">
+                          <div>P: <strong className="text-stone-900">{prot}g</strong></div>
+                          <div>K: <strong className="text-stone-900">{carb}g</strong> • F: <strong className="text-stone-900">{fat}g</strong></div>
+                        </div>
                       </div>
-                    </div>
+                    </>
                   );
                 })()}
 
