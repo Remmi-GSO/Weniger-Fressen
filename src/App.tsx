@@ -22,6 +22,7 @@ import { AiMealModal } from './components/AiMealModal';
 import { EditEntryModal } from './components/EditEntryModal';
 import { NutritionReportModal } from './components/NutritionReportModal';
 import { MorningBriefingModal } from './components/MorningBriefingModal';
+import { VersionUpdateModal } from './components/VersionUpdateModal';
 import { Settings, Maximize, Minimize } from 'lucide-react';
 import { APP_VERSION } from './config/version';
 
@@ -41,6 +42,7 @@ export function App() {
   const [isNutritionReportOpen, setIsNutritionReportOpen] = useState(false);
   const [isMorningBriefingOpen, setIsMorningBriefingOpen] = useState(false);
   const [isMorningBriefingPreview, setIsMorningBriefingPreview] = useState(false);
+  const [isVersionUpdateOpen, setIsVersionUpdateOpen] = useState(false);
   const [editingEntry, setEditingEntry] = useState<DiaryEntry | null>(null);
   const [receivedRecipe, setReceivedRecipe] = useState<Omit<CustomRecipe, 'id'> | null>(null);
   const [activeMealType, setActiveMealType] = useState<MealType>('lunch');
@@ -98,6 +100,30 @@ export function App() {
       setIsMorningBriefingOpen(true);
     }
   }, [userProfile?.isOnboarded, userProfile?.showMorningBriefing, userProfile?.lastMorningBriefingDate]);
+
+  // Auto-show Version 1.7 update message to all users on first load of v1.7
+  useEffect(() => {
+    try {
+      const lastSeenVersion = localStorage.getItem('weniger_fressen_last_seen_version');
+      if (lastSeenVersion !== APP_VERSION) {
+        const timer = setTimeout(() => {
+          setIsVersionUpdateOpen(true);
+        }, 500);
+        return () => clearTimeout(timer);
+      }
+    } catch (e) {
+      console.warn('Could not read last seen version', e);
+    }
+  }, []);
+
+  const handleCloseVersionUpdate = () => {
+    setIsVersionUpdateOpen(false);
+    try {
+      localStorage.setItem('weniger_fressen_last_seen_version', APP_VERSION);
+    } catch (e) {
+      console.warn('Could not store last seen version', e);
+    }
+  };
 
   const handleCloseMorningBriefing = async () => {
     setIsMorningBriefingOpen(false);
@@ -516,6 +542,7 @@ export function App() {
           setIsMorningBriefingPreview(true);
           setIsMorningBriefingOpen(true);
         }}
+        onOpenVersionUpdate={() => setIsVersionUpdateOpen(true)}
       />
 
       {/* Multi-Day Nutrition Report Modal (3, 5, 10, 20 Tage mit UPF, Fetten, Ballaststoffen & WhatsApp) */}
@@ -534,6 +561,16 @@ export function App() {
         userProfile={profile}
         onOpenFullReport={() => setIsNutritionReportOpen(true)}
         isPreview={isMorningBriefingPreview}
+      />
+
+      {/* Version 1.7 Update Announcement Modal */}
+      <VersionUpdateModal
+        isOpen={isVersionUpdateOpen}
+        onClose={handleCloseVersionUpdate}
+        onOpenMagicAssistant={() => {
+          handleCloseVersionUpdate();
+          handleOpenAiMeal('breakfast', '', true);
+        }}
       />
 
       {/* Onboarding Modal for First Time Users or Re-calculation */}

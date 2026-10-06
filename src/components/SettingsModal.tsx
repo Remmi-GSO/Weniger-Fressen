@@ -14,6 +14,7 @@ interface SettingsModalProps {
   onOpenRecipeCreator?: () => void;
   onOpenNutritionReport?: () => void;
   onOpenMorningBriefingPreview?: () => void;
+  onOpenVersionUpdate?: () => void;
 }
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({
@@ -24,6 +25,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onOpenRecipeCreator,
   onOpenNutritionReport,
   onOpenMorningBriefingPreview,
+  onOpenVersionUpdate,
 }) => {
   const [userName, setUserName] = useState(
     userProfile?.name && userProfile.name !== 'Du' ? userProfile.name : ''
@@ -1301,6 +1303,17 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
                 <span className="font-medium">{updateMessage}</span>
               </div>
+            )}
+
+            {onOpenVersionUpdate && (
+              <button
+                type="button"
+                onClick={onOpenVersionUpdate}
+                className="w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-emerald-50 via-teal-50 to-indigo-50 border border-emerald-200/90 hover:bg-emerald-100/70 text-emerald-950 text-xs font-bold transition-all flex items-center justify-center gap-2 shadow-2xs cursor-pointer"
+              >
+                <span>✨</span>
+                <span>Update-Botschaft für Version 1.7 ansehen</span>
+              </button>
             )}
 
             <button
