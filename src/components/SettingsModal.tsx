@@ -1420,14 +1420,49 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             </div>
 
             <div className="space-y-2.5 pt-1">
-              {/* Version 1.6 */}
+              {/* Version 1.7 */}
               <div className="p-3 bg-white rounded-xl border border-emerald-200/90 shadow-2xs space-y-1.5">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-1.5">
                     <span className="px-2 py-0.5 rounded-md bg-emerald-600 text-white text-[11px] font-black">
-                      v1.6
+                      v1.7
                     </span>
                     <span className="text-xs font-bold text-stone-800">Aktuelle Version</span>
+                  </div>
+                  <span className="text-[10px] text-stone-400 font-medium">06.10.2026</span>
+                </div>
+                <ul className="text-xs text-stone-600 space-y-1 pl-1">
+                  <li className="flex items-start gap-1.5">
+                    <span className="text-emerald-600 shrink-0 font-bold">✓</span>
+                    <span><strong>🧠 Universal Magic Assistant Hub (5 Intents):</strong> Der KI-Mikrofon-Button versteht jetzt alles im selben Dialog: Ernährungs- & Wissensfragen (z. B. Johannisbeeren-Zucker), Mahlzeiten tracken, Rezepte kreieren, Workouts eintragen und Snack-Inspirationen nach Restbudget.</span>
+                  </li>
+                  <li className="flex items-start gap-1.5">
+                    <span className="text-emerald-600 shrink-0 font-bold">✓</span>
+                    <span><strong>📖 Vollständige Ernährungs-Wissenskarten:</strong> Wissensfragen werden in einer scrollbaren Wissenskarte mit fundierter Erklärung, Kernaussagen und Praxistipp dargestellt – kein abgeschnittener Text mehr!</span>
+                  </li>
+                  <li className="flex items-start gap-1.5">
+                    <span className="text-emerald-600 shrink-0 font-bold">✓</span>
+                    <span><strong>🎙️ Zweit-Klick-Stopp & Sprachfilter:</strong> Ein zweiter Klick auf den Magic Button beendet das Diktat sauber. Intelligente Textbereinigung verhindert Wortverdopplungen und Stotterer bei Neustarts des Spracherkennungsmoduls.</span>
+                  </li>
+                  <li className="flex items-start gap-1.5">
+                    <span className="text-emerald-600 shrink-0 font-bold">✓</span>
+                    <span><strong>📈 Interaktive Verlaufskurven & Trends:</strong> Im Ernährungs-Bericht (und direkt verlinkt im Gewichts-Tracker) zeigt ein interaktives SVG-Diagramm deine Entwicklung über 7, 14, 30 oder bis zu 90 Tage für <em>Kalorien & Gewicht</em>, <em>Makronährstoffe</em> und <em>Qualität (Ballaststoffe & Zucker)</em> mit Tipp-Inspektor.</span>
+                  </li>
+                  <li className="flex items-start gap-1.5">
+                    <span className="text-emerald-600 shrink-0 font-bold">✓</span>
+                    <span><strong>🌅 Differenzierter Morgen-Rückblick:</strong> Bei einer minimalen Überschreitung des strengen Defizitziels unterhalb deines Gesamtumsatzes (TDEE) lobt dich die App jetzt für dein reales Fettabbau-Defizit statt fälschlicherweise „Erhaltungsmodus“ anzuzeigen.</span>
+                  </li>
+                </ul>
+              </div>
+
+              {/* Version 1.6 */}
+              <div className="p-3 bg-white rounded-xl border border-stone-200/80 shadow-2xs space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5">
+                    <span className="px-2 py-0.5 rounded-md bg-stone-100 text-stone-800 text-[11px] font-black border border-stone-200">
+                      v1.6
+                    </span>
+                    <span className="text-xs font-bold text-stone-700">Smarte Snacks & Menü-Portionierer</span>
                   </div>
                   <span className="text-[10px] text-stone-400 font-medium">05.10.2026</span>
                 </div>

@@ -37,15 +37,21 @@ export const NutritionReportModal = ({
   const [aiReviewText, setAiReviewText] = useState<string | null>(null);
   const [aiError, setAiError] = useState<string | null>(null);
 
+  // Trend graph controls
+  const [chartMetric, setChartMetric] = useState<'calories_weight' | 'macros' | 'quality'>('calories_weight');
+  const [selectedPointIndex, setSelectedPointIndex] = useState<number | null>(null);
+
   const handleSelectDays = (days: number) => {
     const clamped = Math.max(1, Math.min(90, Math.round(days)));
     setSelectedDays(clamped);
     setCustomInput(String(clamped));
     setAiReviewText(null);
+    setSelectedPointIndex(null);
   };
 
-  // Fetch all diary entries from local database
+  // Fetch all diary entries and weight logs from local database
   const allEntries = useLiveQuery(() => db.diaryEntries.toArray()) || [];
+  const allWeightLogs = useLiveQuery(() => db.weightLogs.orderBy('date').toArray()) || [];
 
   // Generate Report Data for the selected timeframe
   const report: NutritionReportData = useMemo(() => {
@@ -56,6 +62,33 @@ export const NutritionReportModal = ({
       entries: allEntries,
     });
   }, [selectedDays, selectedDate, userProfile, allEntries]);
+
+  // Weight mapping & carried-forward progression
+  const weightByDateMap = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const wl of allWeightLogs) {
+      map.set(wl.date, wl.weight);
+    }
+    return map;
+  }, [allWeightLogs]);
+
+  const chartPoints = useMemo(() => {
+    return (report.dailyPoints || []).map((pt) => {
+      const exactWeight = weightByDateMap.get(pt.date);
+      let carriedWeight = exactWeight;
+      if (carriedWeight === undefined) {
+        const prev = allWeightLogs
+          .filter((w) => w.date <= pt.date)
+          .sort((a, b) => b.date.localeCompare(a.date))[0];
+        carriedWeight = prev ? prev.weight : userProfile.weight || 75;
+      }
+      return {
+        ...pt,
+        exactWeight,
+        carriedWeight,
+      };
+    });
+  }, [report.dailyPoints, weightByDateMap, allWeightLogs, userProfile.weight]);
 
   if (!isOpen) return null;
 
@@ -290,6 +323,527 @@ export const NutritionReportModal = ({
                 </div>
 
               </div>
+
+              {/* CARD: INTERAKTIVE VERLAUFSKURVEN & TRENDS (Gewicht, Kalorien, Makros, Qualität) */}
+              {chartPoints.length > 0 && (() => {
+                const N = chartPoints.length;
+                const activeIdx = selectedPointIndex !== null && selectedPointIndex < N ? selectedPointIndex : N - 1;
+                const activePt = chartPoints[activeIdx] || chartPoints[0];
+
+                const svgWidth = 500;
+                const svgHeight = 170;
+                const padLeft = 36;
+                const padRight = 16;
+                const padTop = 20;
+                const padBottom = 26;
+                const plotW = svgWidth - padLeft - padRight;
+                const plotH = svgHeight - padTop - padBottom;
+
+                const getX = (idx: number) => {
+                  if (N <= 1) return padLeft + plotW / 2;
+                  return padLeft + (idx / (N - 1)) * plotW;
+                };
+
+                // Mode 1: Calories & Weight
+                const maxCal = Math.max(...chartPoints.map((p) => p.calories), report.targetCalories * 1.25, 2000);
+                const getYCal = (cal: number) => padTop + plotH - Math.min(plotH, Math.max(0, (cal / maxCal) * plotH));
+
+                const minW = Math.min(...chartPoints.map((p) => p.carriedWeight), userProfile.targetWeight || 68) - 1.5;
+                const maxW = Math.max(...chartPoints.map((p) => p.carriedWeight), userProfile.weight || 75) + 1.5;
+                const rangeW = maxW - minW || 1;
+                const getYWeight = (w: number) => padTop + plotH - Math.min(plotH, Math.max(0, ((w - minW) / rangeW) * plotH));
+
+                // Mode 2: Macros
+                const maxMacro = Math.max(...chartPoints.map((p) => Math.max(p.protein, p.carbs, p.fat)), report.targetProtein * 1.3, 120);
+                const getYMacro = (val: number) => padTop + plotH - Math.min(plotH, Math.max(0, (val / maxMacro) * plotH));
+
+                // Mode 3: Quality (Fiber & Sugar)
+                const maxQual = Math.max(...chartPoints.map((p) => Math.max(p.fiber, p.sugar)), report.targetFiber * 1.3, report.targetSugar * 1.3, 40);
+                const getYQual = (val: number) => padTop + plotH - Math.min(plotH, Math.max(0, (val / maxQual) * plotH));
+
+                const formatLabelDate = (dateStr: string) => {
+                  try {
+                    const parts = dateStr.split('-');
+                    return `${parts[2]}.${parts[1]}.`;
+                  } catch {
+                    return dateStr;
+                  }
+                };
+
+                const formatInspectDate = (dateStr: string) => {
+                  try {
+                    const d = new Date(dateStr + 'T12:00:00');
+                    return d.toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit' });
+                  } catch {
+                    return dateStr;
+                  }
+                };
+
+                return (
+                  <div className="p-4 bg-white rounded-3xl border border-stone-200/80 shadow-2xs space-y-3.5">
+                    {/* Header & Metric Switcher */}
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-600 text-white flex items-center justify-center text-sm shadow-xs font-bold">
+                          📈
+                        </div>
+                        <div>
+                          <h4 className="text-xs font-bold text-stone-900 uppercase tracking-wide">
+                            Verlaufskurven & Dynamik
+                          </h4>
+                          <span className="text-[10px] text-stone-400">
+                            {N} {N === 1 ? 'Tag' : 'Tage'} • Tippe auf einen Punkt zur Detailansicht
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Mode Switcher Tabs */}
+                      <div className="flex items-center gap-1 bg-stone-100 p-1 rounded-xl self-start sm:self-auto text-xs font-bold">
+                        <button
+                          type="button"
+                          onClick={() => setChartMetric('calories_weight')}
+                          className={`py-1 px-2 rounded-lg transition-all cursor-pointer ${
+                            chartMetric === 'calories_weight'
+                              ? 'bg-white text-stone-900 shadow-2xs font-extrabold'
+                              : 'text-stone-500 hover:text-stone-800'
+                          }`}
+                        >
+                          ⚖️ Kalorien & Gewicht
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setChartMetric('macros')}
+                          className={`py-1 px-2 rounded-lg transition-all cursor-pointer ${
+                            chartMetric === 'macros'
+                              ? 'bg-white text-stone-900 shadow-2xs font-extrabold'
+                              : 'text-stone-500 hover:text-stone-800'
+                          }`}
+                        >
+                          🥑 Makros
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setChartMetric('quality')}
+                          className={`py-1 px-2 rounded-lg transition-all cursor-pointer ${
+                            chartMetric === 'quality'
+                              ? 'bg-white text-stone-900 shadow-2xs font-extrabold'
+                              : 'text-stone-500 hover:text-stone-800'
+                          }`}
+                        >
+                          🥦 Qualität
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Point Inspector Badge Box */}
+                    <div className="p-2.5 bg-gradient-to-r from-stone-50 via-emerald-50/30 to-stone-50 rounded-2xl border border-stone-200/80 flex items-center justify-between text-xs">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-extrabold text-stone-500 uppercase tracking-wider bg-white px-2 py-0.5 rounded-lg border border-stone-200">
+                          {formatInspectDate(activePt.date)}
+                        </span>
+                        {!activePt.hasEntries && (
+                          <span className="text-[10px] text-amber-700 font-bold bg-amber-50 px-1.5 py-0.5 rounded-md">
+                            Kein Tagebucheintrag
+                          </span>
+                        )}
+                      </div>
+
+                      {chartMetric === 'calories_weight' && (
+                        <div className="flex items-center gap-3">
+                          <div className="text-right">
+                            <span className="text-stone-400 text-[10px] block">Kalorien</span>
+                            <span className="font-black text-stone-900">
+                              {activePt.calories} <span className="text-[10px] font-normal text-stone-400">kcal</span>
+                            </span>
+                          </div>
+                          <div className="text-right border-l border-stone-200 pl-3">
+                            <span className="text-stone-400 text-[10px] block">Gewicht</span>
+                            <span className="font-black text-emerald-800">
+                              {activePt.exactWeight ? `${activePt.exactWeight} kg` : `~${activePt.carriedWeight} kg`}
+                            </span>
+                          </div>
+                        </div>
+                      )}
+
+                      {chartMetric === 'macros' && (
+                        <div className="flex items-center gap-2 text-[11px] font-bold">
+                          <span className="text-violet-700">P: {activePt.protein}g</span>
+                          <span className="text-amber-700">K: {activePt.carbs}g</span>
+                          <span className="text-cyan-700">F: {activePt.fat}g</span>
+                        </div>
+                      )}
+
+                      {chartMetric === 'quality' && (
+                        <div className="flex items-center gap-3 text-[11px] font-bold">
+                          <span className="text-emerald-700">Ballaststoffe: {activePt.fiber}g</span>
+                          <span className="text-rose-700">Zucker: {activePt.sugar}g</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* SVG Chart */}
+                    <div className="relative w-full overflow-hidden select-none">
+                      <svg
+                        viewBox={`0 0 ${svgWidth} ${svgHeight}`}
+                        className="w-full h-44 overflow-visible"
+                      >
+                        <defs>
+                          <linearGradient id="calGrad" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="#10B981" stopOpacity="0.28" />
+                            <stop offset="100%" stopColor="#10B981" stopOpacity="0.02" />
+                          </linearGradient>
+                        </defs>
+
+                        {/* Horizontal Grid lines */}
+                        <line x1={padLeft} x2={padLeft + plotW} y1={padTop} y2={padTop} stroke="#E2E8F0" strokeDasharray="3 3" />
+                        <line x1={padLeft} x2={padLeft + plotW} y1={padTop + plotH / 2} y2={padTop + plotH / 2} stroke="#E2E8F0" strokeDasharray="3 3" />
+                        <line x1={padLeft} x2={padLeft + plotW} y1={padTop + plotH} y2={padTop + plotH} stroke="#CBD5E1" strokeWidth="1" />
+
+                        {/* Vertical hairline on selected point */}
+                        {activeIdx >= 0 && (
+                          <line
+                            x1={getX(activeIdx)}
+                            x2={getX(activeIdx)}
+                            y1={padTop - 5}
+                            y2={padTop + plotH}
+                            stroke="#64748B"
+                            strokeWidth="1.5"
+                            strokeDasharray="2 2"
+                          />
+                        )}
+
+                        {/* MODE 1: CALORIES & WEIGHT */}
+                        {chartMetric === 'calories_weight' && (
+                          <>
+                            {/* Calorie Target Dashed Line */}
+                            <line
+                              x1={padLeft}
+                              x2={padLeft + plotW}
+                              y1={getYCal(report.targetCalories)}
+                              y2={getYCal(report.targetCalories)}
+                              stroke="#059669"
+                              strokeWidth="1.5"
+                              strokeDasharray="4 4"
+                            />
+                            <text
+                              x={padLeft + 4}
+                              y={getYCal(report.targetCalories) - 3}
+                              fill="#059669"
+                              fontSize="8"
+                              fontWeight="bold"
+                            >
+                              Ziel {report.targetCalories} kcal
+                            </text>
+
+                            {/* Calorie Area Gradient */}
+                            {N > 1 && (
+                              <polygon
+                                points={`
+                                  ${getX(0)},${padTop + plotH}
+                                  ${chartPoints.map((p, i) => `${getX(i)},${getYCal(p.calories)}`).join(' ')}
+                                  ${getX(N - 1)},${padTop + plotH}
+                                `}
+                                fill="url(#calGrad)"
+                              />
+                            )}
+
+                            {/* Calorie Polyline */}
+                            <polyline
+                              fill="none"
+                              stroke="#10B981"
+                              strokeWidth="2.5"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              points={chartPoints.map((p, i) => `${getX(i)},${getYCal(p.calories)}`).join(' ')}
+                            />
+
+                            {/* Weight Polyline (Teal/Indigo) */}
+                            <polyline
+                              fill="none"
+                              stroke="#0284C7"
+                              strokeWidth="2"
+                              strokeDasharray={allWeightLogs.length < N ? '4 3' : 'none'}
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              points={chartPoints.map((p, i) => `${getX(i)},${getYWeight(p.carriedWeight)}`).join(' ')}
+                            />
+
+                            {/* Data Points */}
+                            {chartPoints.map((p, i) => {
+                              const x = getX(i);
+                              const yCal = getYCal(p.calories);
+                              const yW = getYWeight(p.carriedWeight);
+                              const isSelected = i === activeIdx;
+
+                              return (
+                                <g key={i}>
+                                  {/* Calorie Dot */}
+                                  <circle
+                                    cx={x}
+                                    cy={yCal}
+                                    r={isSelected ? '5' : '3'}
+                                    fill={isSelected ? '#059669' : '#10B981'}
+                                    stroke="#FFFFFF"
+                                    strokeWidth="1.5"
+                                  />
+                                  {/* Weight Dot: glowing and prominent if weighed today! */}
+                                  <circle
+                                    cx={x}
+                                    cy={yW}
+                                    r={p.exactWeight ? (isSelected ? '6' : '4.5') : (isSelected ? '3.5' : '2')}
+                                    fill={p.exactWeight ? '#0284C7' : '#94A3B8'}
+                                    stroke="#FFFFFF"
+                                    strokeWidth="1.5"
+                                  />
+                                </g>
+                              );
+                            })}
+                          </>
+                        )}
+
+                        {/* MODE 2: MACRONUTRIENTS */}
+                        {chartMetric === 'macros' && (
+                          <>
+                            {/* Protein Target Dashed Line */}
+                            <line
+                              x1={padLeft}
+                              x2={padLeft + plotW}
+                              y1={getYMacro(report.targetProtein)}
+                              y2={getYMacro(report.targetProtein)}
+                              stroke="#7C3AED"
+                              strokeWidth="1.5"
+                              strokeDasharray="4 4"
+                            />
+                            <text
+                              x={padLeft + 4}
+                              y={getYMacro(report.targetProtein) - 3}
+                              fill="#7C3AED"
+                              fontSize="8"
+                              fontWeight="bold"
+                            >
+                              Protein-Ziel {report.targetProtein}g
+                            </text>
+
+                            {/* Protein Curve (Violet) */}
+                            <polyline
+                              fill="none"
+                              stroke="#8B5CF6"
+                              strokeWidth="2.5"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              points={chartPoints.map((p, i) => `${getX(i)},${getYMacro(p.protein)}`).join(' ')}
+                            />
+
+                            {/* Carbs Curve (Amber) */}
+                            <polyline
+                              fill="none"
+                              stroke="#F59E0B"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              points={chartPoints.map((p, i) => `${getX(i)},${getYMacro(p.carbs)}`).join(' ')}
+                            />
+
+                            {/* Fat Curve (Cyan) */}
+                            <polyline
+                              fill="none"
+                              stroke="#06B6D4"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              points={chartPoints.map((p, i) => `${getX(i)},${getYMacro(p.fat)}`).join(' ')}
+                            />
+
+                            {/* Macro Dots */}
+                            {chartPoints.map((p, i) => {
+                              const x = getX(i);
+                              const isSelected = i === activeIdx;
+                              return (
+                                <g key={i}>
+                                  <circle cx={x} cy={getYMacro(p.protein)} r={isSelected ? '5' : '3'} fill="#8B5CF6" stroke="#FFFFFF" strokeWidth="1.5" />
+                                  <circle cx={x} cy={getYMacro(p.carbs)} r={isSelected ? '4' : '2.5'} fill="#F59E0B" stroke="#FFFFFF" strokeWidth="1" />
+                                  <circle cx={x} cy={getYMacro(p.fat)} r={isSelected ? '4' : '2.5'} fill="#06B6D4" stroke="#FFFFFF" strokeWidth="1" />
+                                </g>
+                              );
+                            })}
+                          </>
+                        )}
+
+                        {/* MODE 3: QUALITY (FIBER & SUGAR) */}
+                        {chartMetric === 'quality' && (
+                          <>
+                            {/* Fiber Target Line (>=30g) */}
+                            <line
+                              x1={padLeft}
+                              x2={padLeft + plotW}
+                              y1={getYQual(report.targetFiber)}
+                              y2={getYQual(report.targetFiber)}
+                              stroke="#059669"
+                              strokeWidth="1.5"
+                              strokeDasharray="4 4"
+                            />
+                            <text
+                              x={padLeft + 4}
+                              y={getYQual(report.targetFiber) - 3}
+                              fill="#059669"
+                              fontSize="8"
+                              fontWeight="bold"
+                            >
+                              Ballaststoff-Ziel ≥ {report.targetFiber}g
+                            </text>
+
+                            {/* Sugar Limit Line (<=35g) */}
+                            <line
+                              x1={padLeft}
+                              x2={padLeft + plotW}
+                              y1={getYQual(report.targetSugar)}
+                              y2={getYQual(report.targetSugar)}
+                              stroke="#E11D48"
+                              strokeWidth="1.5"
+                              strokeDasharray="4 4"
+                            />
+                            <text
+                              x={padLeft + plotW - 95}
+                              y={getYQual(report.targetSugar) - 3}
+                              fill="#E11D48"
+                              fontSize="8"
+                              fontWeight="bold"
+                            >
+                              Zucker-Limit ≤ {report.targetSugar}g
+                            </text>
+
+                            {/* Fiber Polyline (Emerald) */}
+                            <polyline
+                              fill="none"
+                              stroke="#10B981"
+                              strokeWidth="2.5"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              points={chartPoints.map((p, i) => `${getX(i)},${getYQual(p.fiber)}`).join(' ')}
+                            />
+
+                            {/* Sugar Polyline (Rose) */}
+                            <polyline
+                              fill="none"
+                              stroke="#F43F5E"
+                              strokeWidth="2.5"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              points={chartPoints.map((p, i) => `${getX(i)},${getYQual(p.sugar)}`).join(' ')}
+                            />
+
+                            {/* Quality Dots */}
+                            {chartPoints.map((p, i) => {
+                              const x = getX(i);
+                              const isSelected = i === activeIdx;
+                              return (
+                                <g key={i}>
+                                  <circle cx={x} cy={getYQual(p.fiber)} r={isSelected ? '5' : '3'} fill="#10B981" stroke="#FFFFFF" strokeWidth="1.5" />
+                                  <circle cx={x} cy={getYQual(p.sugar)} r={isSelected ? '5' : '3'} fill="#F43F5E" stroke="#FFFFFF" strokeWidth="1.5" />
+                                </g>
+                              );
+                            })}
+                          </>
+                        )}
+
+                        {/* X-Axis Date Labels */}
+                        {chartPoints.map((p, i) => {
+                          const step = N <= 7 ? 1 : N <= 14 ? 2 : Math.ceil(N / 7);
+                          const showLabel = i === 0 || i === N - 1 || i % step === 0;
+                          if (!showLabel) return null;
+
+                          return (
+                            <text
+                              key={`lbl-${i}`}
+                              x={getX(i)}
+                              y={padTop + plotH + 15}
+                              textAnchor="middle"
+                              fill={i === activeIdx ? '#0F172A' : '#94A3B8'}
+                              fontSize="9"
+                              fontWeight={i === activeIdx ? 'bold' : 'normal'}
+                            >
+                              {formatLabelDate(p.date)}
+                            </text>
+                          );
+                        })}
+
+                        {/* Transparent full-height click / touch targets for each day */}
+                        {chartPoints.map((_, i) => {
+                          const colW = N <= 1 ? plotW : plotW / (N - 1);
+                          return (
+                            <rect
+                              key={`hit-${i}`}
+                              x={getX(i) - colW / 2}
+                              y={padTop - 10}
+                              width={colW}
+                              height={plotH + 30}
+                              fill="transparent"
+                              className="cursor-pointer"
+                              onClick={() => setSelectedPointIndex(i)}
+                              onMouseEnter={() => setSelectedPointIndex(i)}
+                            />
+                          );
+                        })}
+                      </svg>
+                    </div>
+
+                    {/* Chart Legend */}
+                    <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-stone-100 text-[10px] text-stone-500 font-medium">
+                      {chartMetric === 'calories_weight' && (
+                        <>
+                          <div className="flex items-center gap-3">
+                            <span className="flex items-center gap-1">
+                              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+                              <strong className="text-stone-700">Kalorien</strong>
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <span className="w-2.5 h-0.5 border-t border-emerald-600 border-dashed" />
+                              <span>Tagesziel</span>
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <span className="w-2.5 h-2.5 rounded-full bg-sky-600" />
+                              <strong className="text-stone-700">Gewicht (kg)</strong>
+                            </span>
+                          </div>
+                          <span className="text-[9px] text-stone-400">
+                            {allWeightLogs.length} Wiegungen erfasst
+                          </span>
+                        </>
+                      )}
+
+                      {chartMetric === 'macros' && (
+                        <div className="flex items-center gap-3">
+                          <span className="flex items-center gap-1">
+                            <span className="w-2.5 h-2.5 rounded-full bg-violet-500" />
+                            <strong className="text-violet-700">Eiweiß</strong>
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <span className="w-2.5 h-2.5 rounded-full bg-amber-500" />
+                            <strong className="text-amber-700">Kohlenhydrate</strong>
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <span className="w-2.5 h-2.5 rounded-full bg-cyan-500" />
+                            <strong className="text-cyan-700">Fett</strong>
+                          </span>
+                        </div>
+                      )}
+
+                      {chartMetric === 'quality' && (
+                        <div className="flex items-center gap-3">
+                          <span className="flex items-center gap-1">
+                            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+                            <strong className="text-emerald-700">Ballaststoffe (≥30g)</strong>
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <span className="w-2.5 h-2.5 rounded-full bg-rose-500" />
+                            <strong className="text-rose-700">Zucker (≤35g)</strong>
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })()}
 
               {/* CARD 1: HOCHVERARBEITETE LEBENSMITTEL (UPF - NOVA 4) */}
               <div className="p-4 bg-white rounded-2xl border border-stone-200/80 shadow-2xs space-y-2.5">

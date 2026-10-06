@@ -56,6 +56,50 @@ export function cleanSpeechRecognitionResults(results: any): string {
   return merged;
 }
 
+/**
+ * Intelligently merges base text with the current speech session transcript.
+ * Prevents repeating cumulative sentences, stutter duplication, and overlapping word boundaries.
+ */
+export function mergeSpeechTranscripts(base: string, session: string): string {
+  if (!base) return session;
+  if (!session) return base;
+
+  const trimmedBase = base.trim();
+  const trimmedSession = session.trim();
+  if (trimmedBase === trimmedSession) return trimmedSession;
+
+  // 1. Direct prefix / extension
+  if (trimmedSession.startsWith(trimmedBase)) return trimmedSession;
+  if (trimmedBase.startsWith(trimmedSession)) return trimmedBase;
+
+  // 2. High word overlap (e.g. browser restart re-emits whole previous utterance with slight variation)
+  const baseWords = trimmedBase.split(/\s+/);
+  const sessionWords = trimmedSession.split(/\s+/);
+  const normWords1 = baseWords.map((w) => w.toLowerCase().replace(/[.,!?;:]/g, '')).filter(Boolean);
+  const normWords2 = sessionWords.map((w) => w.toLowerCase().replace(/[.,!?;:]/g, '')).filter(Boolean);
+  const set2 = new Set(normWords2);
+  let matches = 0;
+  for (const w of normWords1) {
+    if (set2.has(w)) matches++;
+  }
+  const overlapRatio = matches / Math.max(normWords1.length, normWords2.length);
+  if (overlapRatio >= 0.6) {
+    return trimmedSession.length >= trimmedBase.length ? trimmedSession : trimmedBase;
+  }
+
+  // 3. Boundary overlap: check if base ends with the words session begins with
+  const maxCheck = Math.min(baseWords.length, sessionWords.length, 6);
+  for (let len = maxCheck; len >= 1; len--) {
+    const endOfBase = baseWords.slice(baseWords.length - len).map((w) => w.toLowerCase().replace(/[.,!?;:]/g, '')).join(' ');
+    const startOfSession = sessionWords.slice(0, len).map((w) => w.toLowerCase().replace(/[.,!?;:]/g, '')).join(' ');
+    if (endOfBase === startOfSession) {
+      return `${trimmedBase} ${sessionWords.slice(len).join(' ')}`.trim();
+    }
+  }
+
+  return `${trimmedBase} ${trimmedSession}`.trim();
+}
+
 export interface UseSpeechRecognitionOptions {
   onTranscript?: (text: string, isFinal: boolean) => void;
   lang?: string;
@@ -140,7 +184,7 @@ export function useSpeechRecognition(options?: UseSpeechRecognitionOptions) {
       recognition.onresult = (event: any) => {
         const cleanedSession = cleanSpeechRecognitionResults(event.results);
         const base = baseTextRef.current;
-        const fullText = base ? `${base} ${cleanedSession}`.trim() : cleanedSession.trim();
+        const fullText = mergeSpeechTranscripts(base, cleanedSession);
         lastFullTextRef.current = fullText;
 
         let isFinal = false;

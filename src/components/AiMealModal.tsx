@@ -7,6 +7,8 @@ import {
   type AiMealComponent,
   type AiSnackSuggestion,
   type AiSnackResponse,
+  type AiAnswerResult,
+  type AiWorkoutResult,
 } from '../services/geminiApi';
 import { compressImage } from '../utils/imageCompress';
 import {
@@ -27,6 +29,8 @@ import {
   Lightbulb,
   BookmarkPlus,
   Utensils,
+  BookOpen,
+  Flame,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
@@ -42,6 +46,7 @@ interface AiMealModalProps {
   onOpenSettings?: () => void;
   initialDescription?: string;
   autoStartVoice?: boolean;
+  voiceStopSignal?: number;
 }
 
 const mealLabels: Record<MealType, string> = {
@@ -60,15 +65,35 @@ const reasonOptions: Array<{ id: EatingReason; label: string; icon: string }> = 
 
 
 /**
- * Automatically cleans texts that suffered from speech recognition stutter or duplicate snapshots.
+ * Automatically cleans texts that suffered from speech recognition stutter,
+ * repeated phrases, or duplicate snapshot recordings.
  */
 export function recoverCleanSentence(text: string): string {
   if (!text) return '';
   const trimmed = text.trim();
   const words = trimmed.split(/\s+/);
-  if (words.length < 4) return trimmed;
+  if (words.length < 5) return trimmed;
 
-  // Search from the end for the longest trailing statement that was repeated or prefixed earlier
+  // 1. Detect repeating core phrase (4+ words) that appears multiple times (speech stutter / engine restart)
+  for (let windowSize = Math.min(words.length - 2, 16); windowSize >= 4; windowSize--) {
+    for (let i = 0; i <= words.length - windowSize; i++) {
+      const phrase = words.slice(i, i + windowSize).join(' ');
+      const firstIdx = trimmed.indexOf(phrase);
+      const secondIdx = trimmed.lastIndexOf(phrase);
+      if (firstIdx !== -1 && secondIdx !== -1 && secondIdx > firstIdx + phrase.length / 2) {
+        const between = trimmed.substring(firstIdx + phrase.length, secondIdx).trim();
+        const betweenWords = between.split(/\s+/).filter(Boolean);
+        if (betweenWords.length <= 6) {
+          const secondVersion = (between ? `${between} ` : '') + trimmed.substring(secondIdx);
+          if (secondVersion.length >= trimmed.length * 0.35) {
+            return secondVersion.trim();
+          }
+        }
+      }
+    }
+  }
+
+  // 2. Search from the end for trailing statement that was repeated or prefixed earlier
   for (let len = words.length - 1; len >= 3; len--) {
     const candidate = words.slice(words.length - len).join(' ');
     const earlierIndex = trimmed.lastIndexOf(candidate, trimmed.length - candidate.length - 1);
@@ -77,7 +102,7 @@ export function recoverCleanSentence(text: string): string {
     }
   }
 
-  // Fallback: collapse identical consecutive multi-word phrases
+  // 3. Fallback: collapse identical consecutive multi-word phrases
   let cleaned = trimmed;
   const phrasePattern = /\b(.{4,80}?)\s+\1\b/gi;
   let prev = '';
@@ -101,6 +126,7 @@ export const AiMealModal = ({
   onOpenSettings,
   initialDescription,
   autoStartVoice = false,
+  voiceStopSignal = 0,
 }: AiMealModalProps) => {
   const [mealType, setMealType] = useState<MealType>(defaultMealType);
   const [description, setDescription] = useState(initialDescription || '');
@@ -139,10 +165,19 @@ export const AiMealModal = ({
     }
   }, [isOpen, autoStartVoice, speechSupported, startListening]);
 
+  // Stop recording when external voiceStopSignal triggers (e.g. user pressed the Magic Button a second time)
+  useEffect(() => {
+    if (voiceStopSignal > 0 && isRecording) {
+      stopListening();
+      setDescription((prev) => recoverCleanSentence(prev));
+    }
+  }, [voiceStopSignal, isRecording, stopListening]);
+
   // Stop recording when modal is closed
   useEffect(() => {
     if (!isOpen && isRecording) {
       stopListening();
+      setDescription((prev) => recoverCleanSentence(prev));
     }
   }, [isOpen, isRecording, stopListening]);
 
@@ -199,6 +234,14 @@ export const AiMealModal = ({
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Intent & Assistant Q&A / Workout states
+  const [detectedIntent, setDetectedIntent] = useState<'meal' | 'qa' | 'recipe' | 'workout'>('meal');
+  const [qaAnswer, setQaAnswer] = useState<AiAnswerResult | null>(null);
+  const [workoutData, setWorkoutData] = useState<AiWorkoutResult | null>(null);
+  const [isSavingWorkout, setIsSavingWorkout] = useState(false);
+  const [isWorkoutSaved, setIsWorkoutSaved] = useState(false);
+  const [isRecipeSaved, setIsRecipeSaved] = useState(false);
+
   // Sync defaultMealType when opened
   useEffect(() => {
     if (isOpen) {
@@ -208,6 +251,12 @@ export const AiMealModal = ({
       setSnackResponse(null);
       setLoggedSnackId(null);
       setSavedRecipeSnackId(null);
+      setQaAnswer(null);
+      setWorkoutData(null);
+      setDetectedIntent('meal');
+      setIsSavingWorkout(false);
+      setIsWorkoutSaved(false);
+      setIsRecipeSaved(false);
     }
   }, [isOpen, defaultMealType]);
 
@@ -347,6 +396,7 @@ export const AiMealModal = ({
 
     if (isRecording) {
       stopListening();
+      setDescription((prev) => recoverCleanSentence(prev));
     } else {
       const currentClean = recoverCleanSentence(description);
       setDescription(currentClean);
@@ -459,9 +509,12 @@ export const AiMealModal = ({
       setAnalyzedTitle(result.mealTitle);
       setAnalyzedNote(result.summaryNote || null);
       setUsedModel(result.usedModel || null);
-      setComponents(result.items);
+      setDetectedIntent(result.intent || 'meal');
+      setQaAnswer(result.qaAnswer || null);
+      setWorkoutData(result.workoutData || null);
+      setComponents(result.items && result.items.length > 0 ? result.items : null);
     } catch (err: any) {
-      setAnalysisError(err.message || 'Die Mahlzeiten-Analyse ist fehlgeschlagen.');
+      setAnalysisError(err.message || 'Die Analyse ist fehlgeschlagen.');
     } finally {
       setIsAnalyzing(false);
     }
@@ -521,6 +574,96 @@ export const AiMealModal = ({
     setAnalyzedTitle(null);
     setAnalyzedNote(null);
     setUsedModel(null);
+    setDetectedIntent('meal');
+    setQaAnswer(null);
+    setWorkoutData(null);
+    setIsSavingWorkout(false);
+    setIsWorkoutSaved(false);
+    setIsRecipeSaved(false);
+  };
+
+  const handleSaveWorkout = async () => {
+    if (!workoutData) return;
+    setIsSavingWorkout(true);
+    try {
+      await db.activityLogs.add({
+        date: selectedDate,
+        activityId: 'ai_assistant_workout',
+        name: workoutData.activityName,
+        icon: '🔥',
+        durationMinutes: workoutData.durationMinutes,
+        caloriesBurned: workoutData.caloriesBurned,
+        intensity:
+          workoutData.intensity === 'intense'
+            ? 'intense'
+            : workoutData.intensity === 'brisk' || workoutData.intensity === 'moderate'
+            ? 'moderate'
+            : 'light',
+        notes: analyzedNote || 'Über KI-Assistent erfasst',
+        timestamp: Date.now(),
+      });
+      setIsWorkoutSaved(true);
+      confetti({
+        particleCount: 40,
+        spread: 50,
+        origin: { y: 0.6 },
+      });
+    } catch (err: any) {
+      alert('Fehler beim Eintragen der Aktivität: ' + (err.message || err));
+    } finally {
+      setIsSavingWorkout(false);
+    }
+  };
+
+  const handleSaveAsCustomRecipe = async () => {
+    if (!components || components.length === 0) return;
+    try {
+      const totalRawWeight = components.reduce((sum, it) => sum + it.amountGrams, 0);
+      const totalKcal = components.reduce((sum, it) => sum + it.calories, 0);
+      const totalProt = Math.round(components.reduce((sum, it) => sum + it.protein, 0) * 10) / 10;
+      const totalC = Math.round(components.reduce((sum, it) => sum + it.carbs, 0) * 10) / 10;
+      const totalF = Math.round(components.reduce((sum, it) => sum + it.fat, 0) * 10) / 10;
+
+      const calories100g = totalRawWeight > 0 ? Math.round((totalKcal / totalRawWeight) * 100) : totalKcal;
+      const protein100g = totalRawWeight > 0 ? Math.round((totalProt / totalRawWeight) * 100 * 10) / 10 : totalProt;
+      const carbs100g = totalRawWeight > 0 ? Math.round((totalC / totalRawWeight) * 100 * 10) / 10 : totalC;
+      const fat100g = totalRawWeight > 0 ? Math.round((totalF / totalRawWeight) * 100 * 10) / 10 : totalF;
+
+      await db.recipes.add({
+        name: analyzedTitle || 'Mein Rezept',
+        category: (mealType === 'breakfast' ? 'breakfast' : mealType === 'snack' ? 'snack' : 'meal') as any,
+        servingName: '1 Portion',
+        servingWeightGrams: totalRawWeight,
+        totalRawWeight,
+        cookedWeight: totalRawWeight,
+        calories100g,
+        protein100g,
+        carbs100g,
+        fat100g,
+        ingredients: components.map((c) => ({
+          name: c.name,
+          amountGrams: c.amountGrams,
+          calories: c.calories,
+          protein: c.protein,
+          carbs: c.carbs,
+          fat: c.fat,
+          fiber: c.fiber,
+          sugar: c.sugar,
+        })),
+        instructions: analyzedNote ? [analyzedNote] : ['Zutaten zubereiten und genießen.'],
+        tags: ['KI-Assistent', 'Rezept'],
+        createdAt: Date.now(),
+      });
+
+      setIsRecipeSaved(true);
+      confetti({
+        particleCount: 35,
+        spread: 45,
+        origin: { y: 0.6 },
+      });
+    } catch (err: any) {
+      alert('Fehler beim Speichern des Rezepts: ' + (err.message || err));
+    }
   };
 
   const totalCalculatedKcal = components?.reduce((sum, it) => sum + it.calories, 0) || 0;
@@ -859,8 +1002,8 @@ export const AiMealModal = ({
             </div>
           )}
 
-          {/* STEP 1: CAPTURE & INPUT (When no components and no snack suggestions yet) */}
-          {!components && !snackResponse && (
+          {/* STEP 1: CAPTURE & INPUT (When no components, snack suggestions, Q&A or workout yet) */}
+          {!components && !snackResponse && !qaAnswer && !workoutData && (
             <div className="space-y-4">
               
               {/* Photo Upload / Camera Card */}
@@ -984,7 +1127,10 @@ export const AiMealModal = ({
                     </div>
                     <button
                       type="button"
-                      onClick={() => stopListening()}
+                      onClick={() => {
+                        stopListening();
+                        setDescription((prev) => recoverCleanSentence(prev));
+                      }}
                       className="px-2.5 py-1 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-[11px] font-bold shrink-0 cursor-pointer shadow-2xs"
                     >
                       Fertig ⏹️
@@ -1094,6 +1240,158 @@ export const AiMealModal = ({
             </div>
           )}
 
+          {/* STEP: ASSISTANT Q&A KNOWLEDGE CARD (Answer to nutrition questions, no clamped text!) */}
+          {qaAnswer && (
+            <div className="space-y-4 animate-in fade-in">
+              <div className="p-4 bg-gradient-to-br from-indigo-50/90 via-sky-50/70 to-emerald-50/80 border border-indigo-200/80 rounded-2xl space-y-3 shadow-2xs">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-9 h-9 rounded-2xl bg-indigo-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+                      <BookOpen className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-700 bg-indigo-100/90 px-2 py-0.5 rounded-md">
+                        Ernährungs-Wissen
+                      </span>
+                      <h4 className="font-extrabold text-stone-900 text-sm mt-0.5">
+                        {qaAnswer.headline}
+                      </h4>
+                    </div>
+                  </div>
+                  {usedModel && (
+                    <span className="text-[10px] bg-white/90 text-stone-600 font-bold px-2 py-0.5 rounded-full border border-stone-200 shadow-2xs shrink-0">
+                      {usedModel} (0 €)
+                    </span>
+                  )}
+                </div>
+
+                {/* Detailed Answer: Full text, beautifully formatted, never clamped! */}
+                <div className="text-xs text-stone-700 leading-relaxed whitespace-pre-line space-y-2 pt-1 border-t border-indigo-100/80">
+                  {qaAnswer.answerText}
+                </div>
+
+                {/* Key Points */}
+                {qaAnswer.keyPoints && qaAnswer.keyPoints.length > 0 && (
+                  <div className="pt-2 border-t border-indigo-100/80 space-y-1.5">
+                    <span className="text-[11px] font-bold text-indigo-950 block">
+                      Das Wichtigste auf den Punkt:
+                    </span>
+                    <div className="space-y-1">
+                      {qaAnswer.keyPoints.map((pt, idx) => (
+                        <div key={idx} className="flex items-start gap-2 text-xs text-stone-700">
+                          <span className="text-emerald-600 font-bold mt-0.5">✓</span>
+                          <span>{pt}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Practical Action Tip */}
+                {qaAnswer.actionSuggestion && (
+                  <div className="p-3 bg-white/95 rounded-xl border border-indigo-200/70 flex items-start gap-2 text-xs text-indigo-950 shadow-2xs">
+                    <Lightbulb className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+                    <div>
+                      <strong className="font-bold">Praxis-Tipp: </strong>
+                      <span>{qaAnswer.actionSuggestion}</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={handleResetAnalysis}
+                  className="flex-1 py-3 rounded-2xl bg-stone-100 hover:bg-stone-200 font-bold text-xs text-stone-700 transition-colors cursor-pointer"
+                >
+                  Neue Frage oder Mahlzeit
+                </button>
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="flex-1 py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-soft transition-colors cursor-pointer"
+                >
+                  Alles klar, danke!
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* STEP: WORKOUT & ACTIVITY CARD (Direct 1-click log) */}
+          {workoutData && (
+            <div className="space-y-4 animate-in fade-in">
+              <div className="p-4 bg-gradient-to-br from-amber-50/90 via-orange-50/70 to-rose-50/80 border border-orange-200/80 rounded-2xl space-y-3 shadow-2xs">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-9 h-9 rounded-2xl bg-orange-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+                      <Flame className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-orange-800 bg-orange-100/90 px-2 py-0.5 rounded-md">
+                        Aktivität erkannt
+                      </span>
+                      <h4 className="font-extrabold text-stone-900 text-sm mt-0.5">
+                        {workoutData.activityName}
+                      </h4>
+                    </div>
+                  </div>
+                  {usedModel && (
+                    <span className="text-[10px] bg-white/90 text-stone-600 font-bold px-2 py-0.5 rounded-full border border-stone-200 shadow-2xs shrink-0">
+                      {usedModel} (0 €)
+                    </span>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 pt-1 text-center">
+                  <div className="p-2.5 bg-white/90 rounded-xl border border-orange-200/60 shadow-2xs">
+                    <span className="text-[10px] text-stone-400 block font-bold uppercase tracking-wider">Dauer</span>
+                    <span className="text-base font-black text-stone-900">{workoutData.durationMinutes} Min.</span>
+                  </div>
+                  <div className="p-2.5 bg-white/90 rounded-xl border border-orange-200/60 shadow-2xs">
+                    <span className="text-[10px] text-stone-400 block font-bold uppercase tracking-wider">Verbrannt</span>
+                    <span className="text-base font-black text-orange-600">~{workoutData.caloriesBurned} kcal</span>
+                  </div>
+                </div>
+
+                {analyzedNote && (
+                  <p className="text-xs text-stone-600 pt-1 leading-relaxed whitespace-pre-line">
+                    {analyzedNote}
+                  </p>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <button
+                  type="button"
+                  onClick={handleSaveWorkout}
+                  disabled={isSavingWorkout || isWorkoutSaved}
+                  className="w-full py-3.5 rounded-2xl bg-orange-600 hover:bg-orange-700 active:scale-[0.99] text-white font-bold text-sm shadow-soft transition-all flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
+                >
+                  {isWorkoutSaved ? (
+                    <>
+                      <Check className="w-4 h-4" />
+                      <span>In Aktivitäten geloggt!</span>
+                    </>
+                  ) : (
+                    <>
+                      <Flame className="w-4 h-4" />
+                      <span>In Aktivitäten übernehmen ({workoutData.caloriesBurned} kcal)</span>
+                    </>
+                  )}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleResetAnalysis}
+                  className="w-full py-2.5 text-xs text-stone-500 hover:text-stone-800 font-bold text-center transition-colors cursor-pointer"
+                >
+                  Andere Eingabe machen
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* STEP 2: INTERACTIVE PROPOSED ITEMS (Review, tweak grams, remove/add) */}
           {components && (
             <div className="space-y-4">
@@ -1113,7 +1411,7 @@ export const AiMealModal = ({
                       )}
                     </div>
                     {analyzedNote && (
-                      <p className="text-[11px] text-stone-500 line-clamp-2 mt-0.5">
+                      <p className="text-xs text-stone-600 mt-1.5 leading-relaxed whitespace-pre-line">
                         {analyzedNote}
                       </p>
                     )}
@@ -1254,7 +1552,7 @@ export const AiMealModal = ({
                 type="button"
                 onClick={handleSaveToDiary}
                 disabled={isSaved || components.length === 0}
-                className="w-full py-3.5 rounded-2xl bg-emerald-600 hover:bg-emerald-700 active:scale-[0.99] text-white font-bold text-sm shadow-soft transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                className="w-full py-3.5 rounded-2xl bg-emerald-600 hover:bg-emerald-700 active:scale-[0.99] text-white font-bold text-sm shadow-soft transition-all flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
               >
                 {isSaved ? (
                   <>
@@ -1267,6 +1565,26 @@ export const AiMealModal = ({
                     <span>
                       In {mealLabels[mealType]} übernehmen ({totalCalculatedKcal} kcal)
                     </span>
+                  </>
+                )}
+              </button>
+
+              {/* Save as Custom Recipe button */}
+              <button
+                type="button"
+                onClick={handleSaveAsCustomRecipe}
+                disabled={isRecipeSaved || components.length === 0}
+                className="w-full py-2.5 px-4 rounded-2xl bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-900 font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-60"
+              >
+                {isRecipeSaved ? (
+                  <>
+                    <Check className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>Als Rezept im Rezeptbuch gespeichert!</span>
+                  </>
+                ) : (
+                  <>
+                    <BookmarkPlus className="w-3.5 h-3.5 text-amber-700" />
+                    <span>{detectedIntent === 'recipe' ? '⭐ Als neues Rezept speichern' : 'Auch als eigenes Rezept speichern'}</span>
                   </>
                 )}
               </button>

@@ -68,6 +68,9 @@ export async function generateMorningBriefing(userProfile: UserProfile): Promise
   let headline = 'Guten Morgen!';
   let motivationalMessage = '';
 
+  const realDeficitBelowMaintenance = effectiveMaintenance - totalKcal;
+  const overTarget = totalKcal - effectiveBudget;
+
   if (!hasYesterdayEntries) {
     status = 'empty';
     headline = 'Ein neuer Tag voller Möglichkeiten! 🌅';
@@ -76,15 +79,31 @@ export async function generateMorningBriefing(userProfile: UserProfile): Promise
     status = 'deficit';
     const saved = effectiveBudget - totalKcal;
     headline = 'Fantastische Disziplin gestern! 🌟';
-    motivationalMessage = `Du hast gestern dein Kalorienziel perfekt gemeistert und liegst ca. ${saved.toLocaleString('de-DE')} kcal im Defizit. Dein Körper greift zuverlässig auf Energiereserven zurück – genau so geht nachhaltiger Erfolg!`;
-  } else if (totalKcal <= effectiveMaintenance) {
+    motivationalMessage = `Du hast gestern dein Kalorienziel von ${effectiveBudget.toLocaleString('de-DE')} kcal vorbildlich gemeistert (${totalKcal.toLocaleString('de-DE')} kcal gegessen, ${saved.toLocaleString('de-DE')} kcal Puffer) und lagst ganze ${realDeficitBelowMaintenance.toLocaleString('de-DE')} kcal unter deinem Erhaltungsbedarf (${effectiveMaintenance.toLocaleString('de-DE')} kcal). Dein Körper hat verlässlich Fettreserven verbrannt!`;
+  } else if (realDeficitBelowMaintenance >= 75) {
+    // Over the strict deficit target, but STILL in a real deficit below maintenance
+    status = 'deficit';
+    if (overTarget <= 60) {
+      headline = 'Voll im Fettabbau trotz minimaler Abweichung! 🔥';
+      motivationalMessage = `Du lagst gestern mit ${totalKcal.toLocaleString('de-DE')} kcal lediglich winzige ${overTarget.toLocaleString('de-DE')} kcal über deinem strengen Tagesziel (${effectiveBudget.toLocaleString('de-DE')} kcal), warst aber immer noch rund ${realDeficitBelowMaintenance.toLocaleString('de-DE')} kcal unter deinem Erhaltungsbedarf (${effectiveMaintenance.toLocaleString('de-DE')} kcal)! Das bedeutet: Du warst voll im echten Fettverbrennungs-Defizit und hast effektiv abgenommen. Eine minimale Schwankung ändert nichts an deinem starken Ergebnis!`;
+    } else {
+      headline = 'Erfolgreicher Tag mit echtem Kaloriendefizit! 🔥';
+      motivationalMessage = `Du hast dein strenges Abnehmziel gestern zwar um ${overTarget.toLocaleString('de-DE')} kcal überschritten (${totalKcal.toLocaleString('de-DE')} von ${effectiveBudget.toLocaleString('de-DE')} kcal), lagst aber mit ${realDeficitBelowMaintenance.toLocaleString('de-DE')} kcal immer noch spürbar unter deinem Erhaltungsbedarf (${effectiveMaintenance.toLocaleString('de-DE')} kcal). Das bedeutet: Auch gestern war dein Körper aktiv im Fettabbau-Modus. Solche flexiblen Tage machen eine Ernährungsumstellung langfristig durchhaltbar!`;
+    }
+  } else if (Math.abs(realDeficitBelowMaintenance) < 75 || totalKcal <= effectiveMaintenance + 40) {
     status = 'maintenance';
-    headline = 'Perfekter Stoffwechsel-Tag gestern! ⚖️';
-    motivationalMessage = 'Du lagst gestern genau im gesunden Erhaltungsbereich. Solche Tage sind extrem wertvoll: Sie signalisieren deinem Körper Sicherheit, schützen Muskelmasse und kurbeln den Stoffwechsel an. Heute geht es wieder mit frischem Fokus weiter!';
+    headline = 'Wertvoller Stoffwechsel- & Erhaltungstag! ⚖️';
+    motivationalMessage = `Du bist gestern mit ${totalKcal.toLocaleString('de-DE')} kcal punktgenau in deinem Erhaltungsbereich gelandet (Bedarf: ca. ${effectiveMaintenance.toLocaleString('de-DE')} kcal). Solche Tage sind für deinen Körper extrem wertvoll: Sie signalisieren Sicherheit, schützen deine Muskeln und kurbeln den Stoffwechsel an, ohne zuzunehmen. Heute geht es wieder mit frischem Fokus weiter!`;
   } else {
     status = 'surplus';
-    headline = 'Neue Energie getankt! 🔋';
-    motivationalMessage = 'Gestern hat sich dein Körper reichlich Energie geholt. Hake den Tag mit einem Lächeln ab: Fitness und Abnehmen sind ein Marathon, kein Sprint. Heute starten wir wieder frisch und motiviert durch!';
+    const surplus = totalKcal - effectiveMaintenance;
+    if (surplus <= 200) {
+      headline = 'Gestern etwas Extra-Energie getankt! 🔋';
+      motivationalMessage = `Gestern lagst du ca. ${surplus.toLocaleString('de-DE')} kcal über deinem Erhaltungsbedarf (${effectiveMaintenance.toLocaleString('de-DE')} kcal). Das ist völlig normal und wirft dich nicht aus der Bahn. Mit einer kleinen Runde Spazierengehen oder dem heutigen frischen Tagesziel ist das im Handumdrehen wieder ausgeglichen!`;
+    } else {
+      headline = 'Neuer Tag, neuer Fokus! 🌅';
+      motivationalMessage = `Gestern hat sich dein Körper reichlich Energie geholt (${totalKcal.toLocaleString('de-DE')} kcal gegessen). Hake den Tag mit einem Lächeln ab: Fitness und Abnehmen sind ein Marathon, kein Sprint. Heute starten wir wieder frisch und motiviert durch!`;
+    }
   }
 
   // Activity note

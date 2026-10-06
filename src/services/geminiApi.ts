@@ -32,7 +32,22 @@ export interface AiMealComponent {
   sugar100g?: number;
 }
 
+export interface AiAnswerResult {
+  headline: string;
+  answerText: string;
+  keyPoints?: string[];
+  actionSuggestion?: string;
+}
+
+export interface AiWorkoutResult {
+  activityName: string;
+  durationMinutes: number;
+  caloriesBurned: number;
+  intensity?: 'gentle' | 'moderate' | 'brisk' | 'intense';
+}
+
 export interface AiMealAnalysisResult {
+  intent?: 'meal' | 'qa' | 'recipe' | 'workout';
   mealTitle: string;
   summaryNote?: string;
   items: AiMealComponent[];
@@ -43,6 +58,8 @@ export interface AiMealAnalysisResult {
   totalFiber?: number;
   totalSugar?: number;
   usedModel?: string;
+  qaAnswer?: AiAnswerResult;
+  workoutData?: AiWorkoutResult;
 }
 
 export interface ParsedRecipeIngredient {
@@ -269,34 +286,56 @@ WICHTIGE VORRANG-REGEL FÜR SELBSTGEMACHTES / SELBSTGEBACKENES (INSBESONDERE BRO
 - Dasselbe gilt für selbstgekochte Mahlzeiten, Aufläufe oder Smoothies aus der Liste oben: Bevorzuge immer die gespeicherten Rezeptwerte des Nutzers vor Pauschalschätzungen.\n`
     : `\nHinweis zu selbstgebackenem Brot: Falls der Nutzer "selbstgebackenes Brot" erwähnt, gehe von vollwertigem, nahrhaftem Dinkel-/Sauerteigbrot aus (ca. 225 kcal/100g, ca. 50g pro Scheibe), nicht von einfachem Toastbrot.\n`;
 
-  const prompt = `Du bist ein hochentwickelter, feinfühliger deutscher Ernährungs- und Lebensmittelexperte.
-Analysiere die folgende Mahlzeit (anhand des Fotos und/oder der Beschreibung bzw. des Diktats des Nutzers).
+  const prompt = `Du bist ein hochentwickelter deutscher Ernährungs- und Lebensmittelexperte sowie persönlicher KI-Coach ("Universal Magic Assistant").
+Analysiere die Eingabe des Nutzers (Foto und/oder Beschreibung bzw. Diktat):
 ${recipesContext}
-Nutzer-Beschreibung / Diktat: "${description.trim() || 'Keine Notiz vorhanden - bitte analysiere das Foto sorgfältig'}"
+Nutzer-Eingabe / Diktat: "${description.trim() || 'Keine Notiz vorhanden - bitte analysiere das Foto sorgfältig'}"
 
-WICHTIGE ANWEISUNGEN ZUR SPRACH- & INTENTIONS-INTERPRETATION:
-Der Nutzer (und seine Familie) neigen dazu, Eingaben anspruchsvoll, umgangssprachlich, zusammengesetzt oder verschachtelt zu formulieren.
-Du MUSST die eigentliche Intention erschließen und intelligente Umrechnungen vornehmen:
-1. Typische Küchenmaße & Redewendungen:
-   - "ein Schuss" (Milch, Sahne, Öl) -> ca. 15-20 ml / g
-   - "ein Klecks" (Schmand, Quark, Mayo, Butter) -> ca. 20-25 g
-   - "eine Messerspitze" / "eine Prise" -> ca. 1-2 g
-   - "ein Esslöffel (EL)" -> Öl ca. 10g (90 kcal), Joghurt/Quark ca. 15g
-   - "ein Teelöffel (TL)" -> ca. 5g
-   - "eine Handvoll" (Nüsse, Beeren, Spinat) -> ca. 25-30g
-   - "ein halber Becher" (Schmand, Joghurt, Quark) -> ca. 100-125g
-   - "eine halbe Dose" (Thunfisch, Kichererbsen, Tomaten) -> halbes typisches deutsches Abtropfgewicht (z. B. 75g Thunfisch, 120g Kichererbsen)
-   - Obstgrößen: "große Banane" (ca. 130g netto), "kleine Banane" (ca. 90g netto), "mittlere Banane" (ca. 110g netto), "großer Apfel" (ca. 200g)
-2. Implizite Zubereitungszutaten:
-   - Wenn jemand von "Spiegelei", "Rührei", "gebratenem Fleisch/Gemüse" spricht, berücksichtige verwendetes Anbratfett (z. B. 1 TL bis 1 EL Öl/Butter), sofern nicht explizit "fettfrei" angegeben.
-   - Wenn jemand "Brot mit Butter und Käse" sagt, erfasse Brot, Butter (~10g) und Käse (~30g) als separate Komponenten.
-3. Berechne für jede Komponente die Nährwerte (Kalorien, Protein, Kohlenhydrate, Fett, Ballaststoffe, Zucker) sowohl für die geschätzte Portionsmenge als auch pro 100g.
-4. Gib jeder Komponente eine klare Einheitenbezeichnung (z. B. "2 Spiegeleier (ca. 110g)", "1 Scheibe (ca. 50g)", "1 EL (ca. 10g)").
+ERKENNE ZUERST DIE INTENTION DES NUTZERS ("intent"):
+
+FALL 1: "qa" (Ernährungsfrage / Wissensfrage / Beratung / Erklärung)
+Wenn der Nutzer eine Frage stellt oder um Erklärung bittet (z. B. "Wie kommt der Zucker aus meinen Johannisbeeren?", "Warum stagniert mein Gewicht?", "Ist Skyr besser als Magerquark?", "Erkläre mir...", "Was bedeutet...", "Wie viel Eiweiß brauche ich?"):
+- Setze "intent": "qa"
+- Erstelle ein ausführliches "qaAnswer"-Objekt mit klarer Überschrift ("headline"), fundierter, verständlicher und ermutigender Erklärung ("answerText" in Fließtext mit 2-4 Absätzen, verständlich für den Alltag!), 2-4 prägnanten Stichpunkten ("keyPoints") und einem konkreten Praxistipp ("actionSuggestion").
+- "items": [] (keine erfundenen Mahlzeitkomponenten!)
+- "mealTitle": Kurzer Thementitel (z. B. "Zucker in Johannisbeeren erklärt")
+- "summaryNote": Kurze Zusammenfassung
+
+FALL 2: "workout" (Sport- & Aktivitäts-Erfassung)
+Wenn der Nutzer eine Trainingseinheit beschreibt (z. B. "40 Minuten zügig auf dem Crosstrainer", "5 km Joggen in 30 Minuten", "1 Stunde Krafttraining"):
+- Setze "intent": "workout"
+- Erstelle "workoutData" mit { activityName, durationMinutes, caloriesBurned, intensity: "gentle"|"moderate"|"brisk"|"intense" }
+- "items": []
+
+FALL 3: "recipe" (Rezept-Kreations-Wunsch)
+Wenn der Nutzer ein neues Rezept kreieren möchte (z. B. "Erstelle ein Rezept mit...", "Schnelles Rezept für 400 kcal..."):
+- Setze "intent": "recipe"
+- Berechne die Zutaten als "items", gib Zubereitungsschritte in "summaryNote"
+
+FALL 4: "meal" (Standard: Mahlzeit gegessen oder Foto analysieren)
+Wenn der Nutzer beschreibt, was er gegessen/getrunken hat oder ein Foto vorliegt:
+- Setze "intent": "meal"
+- Schätze Küchenmaße & Redewendungen (ein Schuss ~15ml, Klecks ~20g, Handvoll ~25g, EL ~10-15g, TL ~5g...)
+- Vorrangregel: Selbstgebackenes Brot & gespeicherte Rezepte zwingend verwenden!
+- Berechne für jede Komponente Portionsmengen und Nährwerte.
 
 Antworte ausschließlich im angegebenen JSON-Format:
 {
-  "mealTitle": "Treffender Mahlzeitentitel (z.B. Frühstück mit Dinkelbrot, Gouda und 2 Spiegeleiern)",
-  "summaryNote": "Kurze, feinfühlige Zusammenfassung deiner Schätzung und Umrechnung (1-2 Sätze)",
+  "intent": "qa" | "meal" | "recipe" | "workout",
+  "mealTitle": "Treffender Titel",
+  "summaryNote": "Ausführliche Erklärung oder Zusammenfassung",
+  "qaAnswer": {
+    "headline": "Prägnante Überschrift (z.B. 'Natürlicher Fruchtzucker in Johannisbeeren')",
+    "answerText": "Ausführliche, gut lesbare und fundierte Antwort mit Absätzen.",
+    "keyPoints": ["Punkt 1", "Punkt 2", "Punkt 3"],
+    "actionSuggestion": "Konkreter Tipp für die Praxis"
+  },
+  "workoutData": {
+    "activityName": "Crosstrainer",
+    "durationMinutes": 40,
+    "caloriesBurned": 320,
+    "intensity": "brisk"
+  },
   "items": [
     {
       "name": "Dinkel-Vollkornbrot",
@@ -388,9 +427,15 @@ Antworte ausschließlich im angegebenen JSON-Format:
     const totalFiber = Math.round(items.reduce((sum, it) => sum + (it.fiber || 0), 0) * 10) / 10;
     const totalSugar = Math.round(items.reduce((sum, it) => sum + (it.sugar || 0), 0) * 10) / 10;
 
+    const parsedIntent: 'meal' | 'qa' | 'recipe' | 'workout' =
+      parsed.intent === 'qa' || parsed.intent === 'recipe' || parsed.intent === 'workout'
+        ? parsed.intent
+        : (parsed.qaAnswer ? 'qa' : parsed.workoutData ? 'workout' : 'meal');
+
     return {
-      mealTitle: parsed.mealTitle || 'Analysierte Mahlzeit',
-      summaryNote: parsed.summaryNote,
+      intent: parsedIntent,
+      mealTitle: parsed.mealTitle || (parsedIntent === 'qa' ? (parsed.qaAnswer?.headline || 'Ernährungs-Antwort') : 'Analysierte Mahlzeit'),
+      summaryNote: parsed.summaryNote || (parsedIntent === 'qa' ? parsed.qaAnswer?.answerText : undefined),
       items,
       totalCalories,
       totalProtein,
@@ -399,6 +444,18 @@ Antworte ausschließlich im angegebenen JSON-Format:
       totalFiber,
       totalSugar,
       usedModel: model,
+      qaAnswer: parsed.qaAnswer ? {
+        headline: String(parsed.qaAnswer.headline || 'Antwort deines Ernährungs-Assistenten'),
+        answerText: String(parsed.qaAnswer.answerText || parsed.summaryNote || ''),
+        keyPoints: Array.isArray(parsed.qaAnswer.keyPoints) ? parsed.qaAnswer.keyPoints.map(String) : [],
+        actionSuggestion: parsed.qaAnswer.actionSuggestion ? String(parsed.qaAnswer.actionSuggestion) : undefined,
+      } : undefined,
+      workoutData: parsed.workoutData ? {
+        activityName: String(parsed.workoutData.activityName || 'Workout'),
+        durationMinutes: Math.max(1, Number(parsed.workoutData.durationMinutes) || 30),
+        caloriesBurned: Math.max(1, Math.round(Number(parsed.workoutData.caloriesBurned) || 200)),
+        intensity: parsed.workoutData.intensity || 'moderate',
+      } : undefined,
     };
   } catch (err: any) {
     console.error('Gemini meal analysis failed:', err);

@@ -133,6 +133,7 @@ export function App() {
 
   const [aiMealInitialText, setAiMealInitialText] = useState<string>('');
   const [aiMealAutoStartVoice, setAiMealAutoStartVoice] = useState(false);
+  const [aiMealVoiceStopSignal, setAiMealVoiceStopSignal] = useState(0);
 
   const handleOpenAiMeal = (
     mealType: MealType = 'breakfast',
@@ -146,6 +147,12 @@ export function App() {
   };
 
   const handleVoiceMealFromNav = () => {
+    if (isAiMealModalOpen) {
+      // Tapping the central Magic Button a second time cleanly stops/finishes recording!
+      setAiMealVoiceStopSignal((prev) => prev + 1);
+      return;
+    }
+
     const currentHour = new Date().getHours();
     let defaultMeal: MealType = 'lunch';
     if (currentHour < 11) defaultMeal = 'breakfast';
@@ -285,7 +292,11 @@ export function App() {
 
         {currentTab === 'weight' && (
           <div className="space-y-4 pb-24">
-            <WeightTracker logs={weightLogs} userProfile={profile} />
+            <WeightTracker
+              logs={weightLogs}
+              userProfile={profile}
+              onOpenNutritionReport={() => setIsNutritionReportOpen(true)}
+            />
           </div>
         )}
 
@@ -477,6 +488,7 @@ export function App() {
         onOpenSettings={() => setShowSettings(true)}
         initialDescription={aiMealInitialText}
         autoStartVoice={aiMealAutoStartVoice}
+        voiceStopSignal={aiMealVoiceStopSignal}
       />
 
       {/* Edit Existing Diary Entry Modal */}

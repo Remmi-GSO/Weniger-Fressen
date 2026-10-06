@@ -20,11 +20,23 @@ export interface FoodOccurrence {
   isUpf?: boolean;
 }
 
+export interface DailyNutritionPoint {
+  date: string;
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+  fiber: number;
+  sugar: number;
+  hasEntries: boolean;
+}
+
 export interface NutritionReportData {
   daysCount: number; // 3, 5, 10, or 20
   trackedDaysCount: number;
   startDate: string;
   endDate: string;
+  dailyPoints: DailyNutritionPoint[];
 
   // Averages per tracked day
   avgCalories: number;
@@ -241,9 +253,17 @@ export function buildNutritionReport({
   const targetSugar = profile.targetSugar || 35;
 
   // Status evaluations
+  const isMaintainGoal = profile.goalType === 'maintain_weight' || profile.goalDeficit === 0;
+  const maintenanceCalories = profile.maintenanceCalories || (targetCalories + (profile.goalDeficit || (isMaintainGoal ? 0 : 500)));
+  const deficitBelowMaintenance = maintenanceCalories - avgCalories;
+
   const calorieDifference = avgCalories - targetCalories;
   const calorieStatus: 'deficit' | 'maintenance' | 'surplus' =
-    calorieDifference <= 0 ? 'deficit' : calorieDifference <= 250 ? 'maintenance' : 'surplus';
+    calorieDifference <= 0 || deficitBelowMaintenance >= 75
+      ? 'deficit'
+      : Math.abs(deficitBelowMaintenance) < 75 || avgCalories <= maintenanceCalories + 40
+      ? 'maintenance'
+      : 'surplus';
 
   const proteinPercent = Math.round((avgProtein / targetProtein) * 100);
   const proteinStatus: 'low' | 'good' | 'high' =
@@ -343,11 +363,45 @@ export function buildNutritionReport({
     overallSummary = `Solide ${daysCount}-Tage-Auswertung mit starker Tendenz: Du bist auf einem sehr guten Weg!`;
   }
 
+  // Daily breakdown for visual graphs and trend analysis
+  const dailyPoints: DailyNutritionPoint[] = dates.map((d) => {
+    const dayEntries = entriesByDate[d] || [];
+    let dayKcal = 0;
+    let dayProtein = 0;
+    let dayCarbs = 0;
+    let dayFat = 0;
+    let dayFiber = 0;
+    let daySugar = 0;
+
+    for (const e of dayEntries) {
+      const kcal = e.calories || 0;
+      const carbs = e.carbs || 0;
+      dayKcal += kcal;
+      dayProtein += e.protein || 0;
+      dayCarbs += carbs;
+      dayFat += e.fat || 0;
+      dayFiber += e.fiber !== undefined ? e.fiber : estimateFiber(e.name, e.amount || 100, kcal);
+      daySugar += e.sugar !== undefined ? e.sugar : estimateSugar(e.name, e.amount || 100, carbs);
+    }
+
+    return {
+      date: d,
+      calories: Math.round(dayKcal),
+      protein: Math.round(dayProtein * 10) / 10,
+      carbs: Math.round(dayCarbs * 10) / 10,
+      fat: Math.round(dayFat * 10) / 10,
+      fiber: Math.round(dayFiber * 10) / 10,
+      sugar: Math.round(daySugar * 10) / 10,
+      hasEntries: dayEntries.length > 0,
+    };
+  });
+
   return {
     daysCount,
     trackedDaysCount,
     startDate,
     endDate,
+    dailyPoints,
     avgCalories,
     targetCalories,
     calorieStatus,

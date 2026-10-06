@@ -5,9 +5,10 @@ import { Scale, Plus, TrendingDown, Target } from 'lucide-react';
 interface WeightTrackerProps {
   logs: WeightLog[];
   userProfile?: UserProfile | null;
+  onOpenNutritionReport?: () => void;
 }
 
-export const WeightTracker: React.FC<WeightTrackerProps> = ({ logs, userProfile }) => {
+export const WeightTracker: React.FC<WeightTrackerProps> = ({ logs, userProfile, onOpenNutritionReport }) => {
   const [newWeight, setNewWeight] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -231,12 +232,24 @@ export const WeightTracker: React.FC<WeightTrackerProps> = ({ logs, userProfile 
         <button
           type="submit"
           disabled={!newWeight || isSubmitting}
-          className="py-2.5 px-4 rounded-2xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-bold text-sm shadow-soft transition-all flex items-center gap-1.5"
+          className="py-2.5 px-4 rounded-2xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-bold text-sm shadow-soft transition-all flex items-center gap-1.5 cursor-pointer"
         >
           <Plus className="w-4 h-4" />
           <span>Speichern</span>
         </button>
       </form>
+
+      {/* Direct link to Multi-Day Interactive Trend Graphs */}
+      {onOpenNutritionReport && (
+        <button
+          type="button"
+          onClick={onOpenNutritionReport}
+          className="w-full py-3 px-4 rounded-2xl bg-gradient-to-r from-emerald-50 via-teal-50 to-emerald-50 border border-emerald-200/80 hover:bg-emerald-100/60 text-emerald-900 font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer shadow-2xs"
+        >
+          <span>📈</span>
+          <span>Interaktive Verlaufskurven (Gewicht, Kalorien & Makros) ansehen</span>
+        </button>
+      )}
     </div>
   );
 };
