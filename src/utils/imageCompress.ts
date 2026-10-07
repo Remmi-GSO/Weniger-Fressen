@@ -56,3 +56,69 @@ export async function compressImage(
     reader.readAsDataURL(file);
   });
 }
+
+/**
+ * Compresses an existing Data URL down to a compact, URL-safe thumbnail (~3-6KB)
+ * for seamless sharing via WhatsApp links, SMS, or QR codes.
+ */
+export async function compressDataUrl(
+  dataUrl: string,
+  maxDimension = 280,
+  quality = 0.65
+): Promise<string> {
+  return new Promise((resolve) => {
+    if (!dataUrl || !dataUrl.startsWith('data:image/')) {
+      resolve(dataUrl);
+      return;
+    }
+
+    const img = new Image();
+    img.onerror = () => resolve(dataUrl);
+    img.onload = () => {
+      let width = img.width;
+      let height = img.height;
+
+      if (width > height) {
+        if (width > maxDimension) {
+          height = Math.round((height * maxDimension) / width);
+          width = maxDimension;
+        }
+      } else {
+        if (height > maxDimension) {
+          width = Math.round((width * maxDimension) / height);
+          height = maxDimension;
+        }
+      }
+
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        resolve(dataUrl);
+        return;
+      }
+
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'medium';
+      ctx.drawImage(img, 0, 0, width, height);
+
+      // Try image/webp first for superior compression
+      try {
+        const webpUrl = canvas.toDataURL('image/webp', quality);
+        if (webpUrl && webpUrl.startsWith('data:image/webp') && webpUrl.length < dataUrl.length) {
+          resolve(webpUrl);
+          return;
+        }
+      } catch {
+        // webp export unsupported/failed, fallback to jpeg
+      }
+
+      const jpegUrl = canvas.toDataURL('image/jpeg', quality);
+      resolve(jpegUrl.length < dataUrl.length ? jpegUrl : dataUrl);
+    };
+    img.src = dataUrl;
+  });
+}
+

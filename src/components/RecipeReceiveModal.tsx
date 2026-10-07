@@ -69,17 +69,31 @@ export const RecipeReceiveModal = ({
         {/* Content */}
         <div className="p-5 overflow-y-auto space-y-4 text-left">
           
-          <div className="text-center py-2">
-            <div className={`w-16 h-16 rounded-3xl border flex items-center justify-center text-3xl mx-auto shadow-sm ${
-              isDrink
-                ? 'bg-blue-500/10 border-blue-200/60 text-blue-700'
-                : isBread
-                ? 'bg-amber-500/10 border-amber-200/60 text-amber-700'
-                : 'bg-emerald-500/10 border-emerald-200/60 text-emerald-700'
-            }`}>
-              {isDrink ? '🥤' : isBread ? '🍞' : '🍲'}
-            </div>
-            <h4 className="font-black text-stone-900 text-base mt-2">{receivedRecipe.name}</h4>
+          <div className="text-center py-1">
+            {receivedRecipe.imageUrl ? (
+              <div className="relative w-full h-44 rounded-2xl overflow-hidden border border-stone-200/80 shadow-xs mb-2.5 bg-stone-100">
+                <img
+                  src={receivedRecipe.imageUrl}
+                  alt={receivedRecipe.name}
+                  className="w-full h-full object-cover"
+                />
+                <span className="absolute top-2.5 right-2.5 bg-stone-900/70 backdrop-blur-xs text-white text-[10px] font-bold px-2.5 py-0.5 rounded-full shadow-xs flex items-center gap-1">
+                  <span>📸</span>
+                  <span>Mit Rezeptfoto</span>
+                </span>
+              </div>
+            ) : (
+              <div className={`w-16 h-16 rounded-3xl border flex items-center justify-center text-3xl mx-auto shadow-sm ${
+                isDrink
+                  ? 'bg-blue-500/10 border-blue-200/60 text-blue-700'
+                  : isBread
+                  ? 'bg-amber-500/10 border-amber-200/60 text-amber-700'
+                  : 'bg-emerald-500/10 border-emerald-200/60 text-emerald-700'
+              }`}>
+                {isDrink ? '🥤' : isBread ? '🍞' : '🍲'}
+              </div>
+            )}
+            <h4 className="font-black text-stone-900 text-base mt-1.5">{receivedRecipe.name}</h4>
             <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full inline-block mt-1 ${
               isDrink
                 ? 'text-blue-800 bg-blue-100'

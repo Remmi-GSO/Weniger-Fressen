@@ -1,5 +1,6 @@
 import LZString from 'lz-string';
 import { type CustomRecipe } from '../db/db';
+import { compressDataUrl } from './imageCompress';
 
 interface MinifiedIngredient {
   n: string; // name
@@ -26,12 +27,21 @@ interface MinifiedRecipePayload {
   pt?: number; // prepTimeMinutes
   ins?: string[]; // instructions
   ing?: MinifiedIngredient[];
+  img?: string; // compressed recipe photo thumbnail
+}
+
+export interface EncodeRecipeOptions {
+  includeImage?: boolean;
 }
 
 /**
- * Encodes a CustomRecipe into a tiny, URL-safe LZ-String token
+ * Encodes a CustomRecipe into a tiny, URL-safe LZ-String token.
+ * Includes the recipe photo if present (and not explicitly disabled).
  */
-export function encodeRecipeToPayload(recipe: CustomRecipe): string {
+export function encodeRecipeToPayload(
+  recipe: CustomRecipe,
+  options: EncodeRecipeOptions = { includeImage: true }
+): string {
   const minified: MinifiedRecipePayload = {
     n: recipe.name,
     c: recipe.category,
@@ -55,12 +65,13 @@ export function encodeRecipeToPayload(recipe: CustomRecipe): string {
       cb: i.carbs,
       f: i.fat,
     })),
+    img: options.includeImage !== false ? recipe.imageUrl : undefined,
   };
   return LZString.compressToEncodedURIComponent(JSON.stringify(minified));
 }
 
 /**
- * Decodes a compressed token back into a CustomRecipe
+ * Decodes a compressed token back into a CustomRecipe including its photo.
  */
 export function decodePayloadToRecipe(compressed: string): Omit<CustomRecipe, 'id'> | null {
   try {
@@ -103,6 +114,7 @@ export function decodePayloadToRecipe(compressed: string): Omit<CustomRecipe, 'i
         : [],
       instructions: min.ins || [],
       prepTimeMinutes: min.pt || undefined,
+      imageUrl: min.img || undefined,
       createdAt: Date.now(),
     };
   } catch (err) {
@@ -112,10 +124,40 @@ export function decodePayloadToRecipe(compressed: string): Omit<CustomRecipe, 'i
 }
 
 /**
- * Generates an easy shareable link (works via WhatsApp, SMS, or QR code)
+ * Generates an easy shareable link (works via WhatsApp, SMS, or QR code).
+ * Automatically optimizes and compresses the photo if present.
  */
-export function generateShareUrl(recipe: CustomRecipe): string {
-  const token = encodeRecipeToPayload(recipe);
+export async function generateShareUrl(
+  recipe: CustomRecipe,
+  options: EncodeRecipeOptions = { includeImage: true }
+): Promise<string> {
+  let recipeToEncode = recipe;
+
+  if (options.includeImage !== false && recipe.imageUrl) {
+    try {
+      const compressedThumb = await compressDataUrl(recipe.imageUrl, 260, 0.65);
+      recipeToEncode = {
+        ...recipe,
+        imageUrl: compressedThumb,
+      };
+    } catch {
+      recipeToEncode = recipe;
+    }
+  }
+
+  const token = encodeRecipeToPayload(recipeToEncode, options);
+  const baseUrl = window.location.origin + window.location.pathname;
+  return `${baseUrl}#recipe=${token}`;
+}
+
+/**
+ * Synchronous variant without on-the-fly compression (used as fast fallback).
+ */
+export function generateShareUrlSync(
+  recipe: CustomRecipe,
+  options: EncodeRecipeOptions = { includeImage: true }
+): string {
+  const token = encodeRecipeToPayload(recipe, options);
   const baseUrl = window.location.origin + window.location.pathname;
   return `${baseUrl}#recipe=${token}`;
 }
