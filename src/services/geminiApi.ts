@@ -1,4 +1,5 @@
 import { type FoodProduct } from './foodApi';
+import { sanitizeMealComponents } from '../utils/portionSanitizer';
 
 export interface GeminiNutritionResponse {
   name: string;
@@ -315,8 +316,20 @@ Wenn der Nutzer ein neues Rezept kreieren möchte (z. B. "Erstelle ein Rezept mi
 FALL 4: "meal" (Standard: Mahlzeit gegessen oder Foto analysieren)
 Wenn der Nutzer beschreibt, was er gegessen/getrunken hat oder ein Foto vorliegt:
 - Setze "intent": "meal"
-- Schätze Küchenmaße & Redewendungen (ein Schuss ~15ml, Klecks ~20g, Handvoll ~25g, EL ~10-15g, TL ~5g...)
 - Vorrangregel: Selbstgebackenes Brot & gespeicherte Rezepte zwingend verwenden!
+- VERBINDLICHE DEUTSCHE KÜCHEN- UND HAUSHALTSMASSE (EXTREM WICHTIG - VERMEIDE 3-FACHE ÜBERSCHÄTZUNGEN!):
+  * Haferflocken / Müsli / Getreideflocken: 1 Esslöffel (EL) = ca. 10g (3 EL = 30g, NIEMALS 90g!)
+  * Chiasamen / Leinsamen / Flohsamenschalen / Sesam: 1 Esslöffel (EL) = ca. 10g, 1 TL = ca. 4-5g (2 EL = 20g, NIEMALS 60g!)
+  * Eiweißpulver / Proteinpulver:
+    - 1 normaler Esslöffel (EL) aus dem Besteckkasten = ca. 10-12g (2 EL = ca. 20-24g, NIEMALS 60g!)
+    - 1 Dosier-Scoop / Messlöffel = ca. 25-30g (NUR wenn der Nutzer explizit "Scoop" oder "Messlöffel" sagt!)
+  * Magerquark / Quark / Skyr:
+    - "ein Päckchen Quark" / "eine Packung Magerquark" (im Frühstück / Müsli): Standard ist 250g (das klassische kleine Päckchen / 250g-Schale oder halbe Packung). Nimm 500g NUR wenn der Nutzer explizit "500g" oder "eine große 500g Packung" sagt!
+  * Nüsse / Kerne: 1 EL = ca. 12-15g, 1 Handvoll = ca. 25-30g
+  * Beeren / Obst: 1 Handvoll Beeren = ca. 40-50g, 1 Apfel = ca. 150g, 1 Banane = ca. 115g
+  * Öle (Olivenöl, Rapsöl): 1 TL = 4g, 1 EL = 10-12g
+  * Joghurt / Quark auf dem Löffel: 1 gehäufter EL = ca. 25-30g
+  * Milch im Kaffee / Müsli: ein Schuss = 15-20ml, Glas = 200ml
 - Berechne für jede Komponente Portionsmengen und Nährwerte.
 
 Antworte ausschließlich im angegebenen JSON-Format:
@@ -420,12 +433,14 @@ Antworte ausschließlich im angegebenen JSON-Format:
       };
     });
 
-    const totalCalories = items.reduce((sum, it) => sum + it.calories, 0);
-    const totalProtein = Math.round(items.reduce((sum, it) => sum + it.protein, 0) * 10) / 10;
-    const totalCarbs = Math.round(items.reduce((sum, it) => sum + it.carbs, 0) * 10) / 10;
-    const totalFat = Math.round(items.reduce((sum, it) => sum + it.fat, 0) * 10) / 10;
-    const totalFiber = Math.round(items.reduce((sum, it) => sum + (it.fiber || 0), 0) * 10) / 10;
-    const totalSugar = Math.round(items.reduce((sum, it) => sum + (it.sugar || 0), 0) * 10) / 10;
+    const sanitizedItems = sanitizeMealComponents(items, description);
+
+    const totalCalories = sanitizedItems.reduce((sum, it) => sum + it.calories, 0);
+    const totalProtein = Math.round(sanitizedItems.reduce((sum, it) => sum + it.protein, 0) * 10) / 10;
+    const totalCarbs = Math.round(sanitizedItems.reduce((sum, it) => sum + it.carbs, 0) * 10) / 10;
+    const totalFat = Math.round(sanitizedItems.reduce((sum, it) => sum + it.fat, 0) * 10) / 10;
+    const totalFiber = Math.round(sanitizedItems.reduce((sum, it) => sum + (it.fiber || 0), 0) * 10) / 10;
+    const totalSugar = Math.round(sanitizedItems.reduce((sum, it) => sum + (it.sugar || 0), 0) * 10) / 10;
 
     const parsedIntent: 'meal' | 'qa' | 'recipe' | 'workout' =
       parsed.intent === 'qa' || parsed.intent === 'recipe' || parsed.intent === 'workout'
@@ -436,7 +451,7 @@ Antworte ausschließlich im angegebenen JSON-Format:
       intent: parsedIntent,
       mealTitle: parsed.mealTitle || (parsedIntent === 'qa' ? (parsed.qaAnswer?.headline || 'Ernährungs-Antwort') : 'Analysierte Mahlzeit'),
       summaryNote: parsed.summaryNote || (parsedIntent === 'qa' ? parsed.qaAnswer?.answerText : undefined),
-      items,
+      items: sanitizedItems,
       totalCalories,
       totalProtein,
       totalCarbs,
@@ -491,9 +506,13 @@ WICHTIGE ANWEISUNGEN:
 2. Bestimme die Kategorie: "bread" (wenn es ein Brot, Brötchen oder Teiglaib ist), "meal" (gekochtes/gebackenes Hauptgericht), oder "snack".
 3. Zerlege das Rezept in ALLE Zutaten:
    - Wandle Küchenmaße exakt in Gramm um:
+     * "Haferflocken / Müsli": 1 EL = 10g (3 EL = 30g, NIEMALS 90g!)
+     * "Chiasamen / Leinsamen / Flohsamenschalen": 1 EL = 10g, 1 TL = 4-5g (2 EL = 20g, NIEMALS 60g!)
+     * "Proteinpulver / Eiweißpulver": 1 EL = 10-12g, 1 Messlöffel/Scoop = 25-30g
+     * "Magerquark / Quark": "1 Päckchen / Becher" = 250g (falls nicht 500g genannt)
      * "1 Kopf Blumenkohl" -> ca. 800g (oder wie im Text genannt)
      * "3 Eier" -> ca. 165g (ca. 55g pro Ei M)
-     * "2 EL Rapsöl / Olivenöl" -> 20g
+     * "2 EL Rapsöl / Olivenöl" -> 20-24g
      * "1 TL Salz" -> 5g (0 kcal)
      * "350 ml Wasser" -> 350g (0 kcal)
      * "1 Würfel Hefe" -> 42g (ca. 45 kcal)

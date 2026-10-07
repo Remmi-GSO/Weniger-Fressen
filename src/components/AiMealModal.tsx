@@ -1513,12 +1513,49 @@ export const AiMealModal = ({
                         <button
                           type="button"
                           onClick={() => handleUpdateGrams(index, item.amountGrams + 10)}
-                          className="w-6 h-6 rounded-lg bg-stone-100 hover:bg-stone-200 text-stone-700 font-bold flex items-center justify-center text-xs"
+                          className="w-6 h-6 rounded-lg bg-stone-100 hover:bg-stone-200 text-stone-700 font-bold flex items-center justify-center text-xs cursor-pointer"
                         >
                           +
                         </button>
                       </div>
                     </div>
+
+                    {/* Quick Gram Presets based on food type */}
+                    {(() => {
+                      const n = item.name.toLowerCase();
+                      let quickOptions: number[] = [];
+                      if (n.includes('quark') || n.includes('skyr') || n.includes('joghurt')) {
+                        quickOptions = [125, 250, 500];
+                      } else if (n.includes('haferflocke') || n.includes('müsli') || n.includes('flocken')) {
+                        quickOptions = [20, 30, 50, 80];
+                      } else if (n.includes('chia') || n.includes('samen') || n.includes('protein') || n.includes('eiweiß')) {
+                        quickOptions = [10, 20, 30];
+                      } else if (n.includes('beere') || n.includes('obst') || n.includes('beeren')) {
+                        quickOptions = [50, 100, 150];
+                      }
+
+                      if (quickOptions.length === 0) return null;
+
+                      return (
+                        <div className="flex items-center gap-1.5 pt-0.5 flex-wrap">
+                          <span className="text-[10px] text-stone-400 font-medium">Schnellwahl:</span>
+                          {quickOptions.map((gVal) => (
+                            <button
+                              key={gVal}
+                              type="button"
+                              onClick={() => handleUpdateGrams(index, gVal)}
+                              className={`py-0.5 px-2 rounded-lg text-[10px] font-bold transition-all cursor-pointer border ${
+                                item.amountGrams === gVal
+                                  ? 'bg-emerald-600 text-white border-emerald-700 shadow-2xs'
+                                  : 'bg-stone-50 hover:bg-stone-100 text-stone-600 border-stone-200'
+                              }`}
+                            >
+                              {gVal}g
+                            </button>
+                          ))}
+                        </div>
+                      );
+                    })()}
                   </div>
                 ))}
               </div>
