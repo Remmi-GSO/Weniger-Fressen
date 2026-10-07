@@ -16,6 +16,11 @@ export interface FoodProduct {
   imageUrl?: string;
   barcode?: string;
   source?: 'local' | 'supermarket' | 'online' | 'ai' | 'recipe';
+  recipeData?: any;
+  totalDishWeight?: number;
+  cookedWeight?: number;
+  totalRawWeight?: number;
+  recipeCategory?: 'bread' | 'breakfast' | 'meal' | 'salad' | 'drink' | 'snack';
 }
 
 // Master unified catalog for instant zero-latency local lookups

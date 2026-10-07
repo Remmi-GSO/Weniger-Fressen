@@ -157,20 +157,34 @@ export const FoodSearchModal = ({
 
   const recipeToFoodProduct = (r: CustomRecipe): FoodProduct => {
     const isBread = r.category === 'bread' || r.name.toLowerCase().includes('brot');
-    const servName = r.servingName || (isBread ? '1 Scheibe' : '1 Portion');
-    const servWeight = r.servingWeightGrams || (isBread ? 50 : 100);
+    const isDrink = r.category === 'drink';
+    const totalWeight = r.cookedWeight || r.totalRawWeight || (isDrink ? 250 : isBread ? 500 : 350);
+    const servName = r.servingName || (isBread ? '1 Scheibe' : isDrink ? '1 Glas' : '1 Portion');
+    const servWeight = r.servingWeightGrams || (isDrink ? 250 : isBread ? 50 : totalWeight);
 
     return {
       id: `recipe-${r.id}`,
       name: r.name,
-      brand: `Selbstgemacht (${servName} ${servWeight}g)`,
+      brand: isBread
+        ? `Selbstgebacken (Laib: ${totalWeight}g)`
+        : isDrink
+        ? `Selbstgemacht (Gesamt: ${totalWeight}ml)`
+        : `Selbstgekocht (Gesamt: ${totalWeight}g)`,
       calories100g: r.calories100g,
       protein100g: r.protein100g,
       carbs100g: r.carbs100g,
       fat100g: r.fat100g,
+      fiber100g: r.fiber100g,
+      sugar100g: r.sugar100g,
+      imageUrl: r.imageUrl,
       servingSize: `${servName} (${servWeight}g)`,
       servingWeightGrams: servWeight,
+      totalDishWeight: totalWeight,
+      cookedWeight: r.cookedWeight,
+      totalRawWeight: r.totalRawWeight,
+      recipeCategory: r.category,
       source: 'recipe',
+      recipeData: r,
     };
   };
 

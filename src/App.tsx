@@ -445,20 +445,34 @@ export function App() {
           setIsRecipeCreatorOpen(false);
           // Convert newly created recipe into FoodProduct and open PortionCalculator immediately
           const isBread = recipe.category === 'bread' || recipe.name.toLowerCase().includes('brot');
-          const servName = recipe.servingName || (isBread ? '1 Scheibe' : '1 Portion');
-          const servWeight = recipe.servingWeightGrams || (isBread ? 50 : 100);
+          const isDrink = recipe.category === 'drink';
+          const totalWeight = recipe.cookedWeight || recipe.totalRawWeight || (isDrink ? 250 : isBread ? 500 : 350);
+          const servName = recipe.servingName || (isBread ? '1 Scheibe' : isDrink ? '1 Glas' : '1 Portion');
+          const servWeight = recipe.servingWeightGrams || (isDrink ? 250 : isBread ? 50 : totalWeight);
 
           const product: FoodProduct = {
             id: `recipe-${recipe.id || Date.now()}`,
             name: recipe.name,
-            brand: `Selbstgemacht (${servName} ${servWeight}g)`,
+            brand: isBread
+              ? `Selbstgebacken (Laib: ${totalWeight}g)`
+              : isDrink
+              ? `Selbstgemacht (Gesamt: ${totalWeight}ml)`
+              : `Selbstgekocht (Gesamt: ${totalWeight}g)`,
             calories100g: recipe.calories100g,
             protein100g: recipe.protein100g,
             carbs100g: recipe.carbs100g,
             fat100g: recipe.fat100g,
+            fiber100g: recipe.fiber100g,
+            sugar100g: recipe.sugar100g,
+            imageUrl: recipe.imageUrl,
             servingSize: `${servName} (${servWeight}g)`,
             servingWeightGrams: servWeight,
+            totalDishWeight: totalWeight,
+            cookedWeight: recipe.cookedWeight,
+            totalRawWeight: recipe.totalRawWeight,
+            recipeCategory: recipe.category,
             source: 'recipe',
+            recipeData: recipe,
           };
           setSelectedProduct(product);
           setIsPortionCalcOpen(true);

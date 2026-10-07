@@ -21,6 +21,50 @@ export function getPortionPresets(product: FoodProduct | null | undefined): Port
   const id = (product.id || '').toLowerCase();
   const servingSize = (product.servingSize || '').toLowerCase();
 
+  // 0. SELBSTGEMACHTE REZEPTE (Gerichte, Mahlzeiten, Aufläufe, Drinks, Brote)
+  if (product.source === 'recipe' || product.recipeData || id.startsWith('recipe-')) {
+    const isBread = product.recipeCategory === 'bread' || name.includes('brot') || servingSize.includes('scheibe');
+    const isDrink = product.recipeCategory === 'drink' || name.includes('shake') || name.includes('smoothie');
+    const totalWeight = Math.round(
+      product.totalDishWeight ||
+      product.cookedWeight ||
+      product.recipeData?.cookedWeight ||
+      product.recipeData?.totalRawWeight ||
+      product.servingWeightGrams ||
+      1000
+    );
+
+    if (isBread) {
+      const sliceG = product.servingWeightGrams || 50;
+      return [
+        { id: 'rec_bread_1', label: '1 Scheibe', subtitle: `ca. ${sliceG}g`, grams: sliceG, icon: '🍞', isDefault: true },
+        { id: 'rec_bread_2', label: '2 Scheiben', subtitle: `ca. ${sliceG * 2}g`, grams: sliceG * 2, icon: '🍞' },
+        { id: 'rec_bread_3', label: '3 Scheiben', subtitle: `ca. ${sliceG * 3}g`, grams: sliceG * 3, icon: '🍞' },
+        { id: 'rec_bread_half', label: '1/2 Laib', subtitle: `ca. ${Math.round(totalWeight / 2)}g`, grams: Math.round(totalWeight / 2), icon: '🍞' },
+        { id: 'rec_bread_full', label: 'Ganzer Laib', subtitle: `ca. ${totalWeight}g`, grams: totalWeight, icon: '🍞' },
+      ];
+    }
+
+    if (isDrink) {
+      return [
+        { id: 'rec_drink_glass', label: '1 Glas', subtitle: 'ca. 250ml', grams: 250, icon: '🥤', isDefault: true },
+        { id: 'rec_drink_mug', label: '1 großer Becher', subtitle: 'ca. 350ml', grams: 350, icon: '🥤' },
+        { id: 'rec_drink_half', label: 'Halbe Menge (1/2)', subtitle: `ca. ${Math.round(totalWeight / 2)}ml`, grams: Math.round(totalWeight / 2), icon: '🥤' },
+        { id: 'rec_drink_full', label: 'Ganze Menge (1/1)', subtitle: `ca. ${totalWeight}ml`, grams: totalWeight, icon: '🥤' },
+      ];
+    }
+
+    // Gekochte Gerichte / Pfannen / Mahlzeiten:
+    return [
+      { id: 'rec_dish_third', label: '1/3 Drittel', subtitle: `ca. ${Math.round(totalWeight / 3)}g`, grams: Math.round(totalWeight / 3), icon: '🍲', isDefault: true },
+      { id: 'rec_dish_half', label: '1/2 Halb', subtitle: `ca. ${Math.round(totalWeight / 2)}g`, grams: Math.round(totalWeight / 2), icon: '🍲' },
+      { id: 'rec_dish_quarter', label: '1/4 Viertel', subtitle: `ca. ${Math.round(totalWeight / 4)}g`, grams: Math.round(totalWeight / 4), icon: '🍲' },
+      { id: 'rec_dish_full', label: '1/1 Ganz', subtitle: `ca. ${totalWeight}g (Gesamtrezept)`, grams: totalWeight, icon: '🍲' },
+      { id: 'rec_dish_fifth', label: '1/5 Fünftel', subtitle: `ca. ${Math.round(totalWeight / 5)}g`, grams: Math.round(totalWeight / 5), icon: '🍲' },
+      { id: 'rec_dish_sixth', label: '1/6 Sechstel', subtitle: `ca. ${Math.round(totalWeight / 6)}g`, grams: Math.round(totalWeight / 6), icon: '🍲' },
+    ];
+  }
+
   // 1. BANANE (Klein, Mittel, Groß, Sehr groß)
   if (name.includes('banane') || id.includes('banane')) {
     return [
@@ -94,7 +138,7 @@ export function getPortionPresets(product: FoodProduct | null | undefined): Port
   }
 
   // 8. BROT (Scheiben)
-  if (name.includes('brot') || product.source === 'recipe' || servingSize.includes('scheibe')) {
+  if (name.includes('brot') || servingSize.includes('scheibe')) {
     const isToast = name.includes('toast');
     if (isToast) {
       return [
