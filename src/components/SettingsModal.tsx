@@ -5,6 +5,7 @@ import { X, Key, Download, Upload, Trash2, Sliders, Check, RefreshCw, CheckCircl
 import { APP_VERSION, APP_BUILD_DATE, APP_DB_VERSION, APP_CACHE_VERSION } from '../config/version';
 import { calculateNutritionTargets, type DailyStepLevel, type WorkoutIntensity } from '../utils/nutrition';
 import { triggerAppUpdate } from '../utils/appUpdate';
+import { BackupManagerModal } from './BackupManagerModal';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -68,6 +69,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
   const [updateMessage, setUpdateMessage] = useState<string | null>(null);
   const [showGuide, setShowGuide] = useState(false);
+  const [showBackupModal, setShowBackupModal] = useState(false);
+  const [backupModalMode, setBackupModalMode] = useState<'export' | 'import'>('export');
 
   const effectiveDeficit = goalType === 'maintain_weight' ? 0 : (goalDeficit || 500);
 
@@ -255,70 +258,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     }
   };
 
-  const handleExportData = async () => {
-    const profile = await db.userProfile.toArray();
-    const diary = await db.diaryEntries.toArray();
-    const water = await db.waterLogs.toArray();
-    const weights = await db.weightLogs.toArray();
-    const fasts = await db.fastingSessions.toArray();
-    const recipes = await db.recipes.toArray();
-    const favoriteItems = await db.favoriteItems.toArray();
-    const activityLogs = await db.activityLogs.toArray();
-    const customActivities = await db.customActivities.toArray();
-
-    const backup = {
-      version: 3,
-      appName: 'Weniger Fressen',
-      exportDate: new Date().toISOString(),
-      data: {
-        profile,
-        diary,
-        water,
-        weights,
-        fasts,
-        recipes,
-        favoriteItems,
-        activityLogs,
-        customActivities,
-      },
-    };
-
-    const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `weniger-fressen-backup-${new Date().toISOString().split('T')[0]}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-
-  const handleImportData = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = async (event) => {
-      try {
-        const json = JSON.parse(event.target?.result as string);
-        if (json.data) {
-          if (json.data.profile?.length) await db.userProfile.bulkPut(json.data.profile);
-          if (json.data.diary?.length) await db.diaryEntries.bulkPut(json.data.diary);
-          if (json.data.water?.length) await db.waterLogs.bulkPut(json.data.water);
-          if (json.data.weights?.length) await db.weightLogs.bulkPut(json.data.weights);
-          if (json.data.fasts?.length) await db.fastingSessions.bulkPut(json.data.fasts);
-          if (json.data.recipes?.length) await db.recipes.bulkPut(json.data.recipes);
-          if (json.data.favoriteItems?.length) await db.favoriteItems.bulkPut(json.data.favoriteItems);
-          if (json.data.activityLogs?.length) await db.activityLogs.bulkPut(json.data.activityLogs);
-          if (json.data.customActivities?.length) await db.customActivities.bulkPut(json.data.customActivities);
-          alert('Backup erfolgreich wiederhergestellt! Alle Mahlzeiten, Rezepte und Aktivitäten wurden geladen.');
-          window.location.reload();
-        }
-      } catch (err) {
-        alert('Fehler beim Einlesen der Backup-Datei.');
-      }
-    };
-    reader.readAsText(file);
-  };
 
   const handleResetData = async () => {
     if (confirm('Möchtest du wirklich alle lokalen Daten löschen? Dies kann nicht rückgängig gemacht werden.')) {
@@ -1209,26 +1148,51 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             </div>
           )}
 
-          {/* Data Backup & Export */}
+          {/* Datensicherung, Gerätewechsel & Smart-Merge */}
           <div className="space-y-2">
             <label className="text-xs font-semibold uppercase tracking-wider text-stone-500 block">
-              Datensicherung & Import
+              Datensicherung & Gerätewechsel
             </label>
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={handleExportData}
-                className="py-2.5 px-3 rounded-2xl border border-stone-200 hover:bg-stone-50 text-stone-700 text-xs font-bold transition-all flex items-center justify-center gap-2"
-              >
-                <Download className="w-4 h-4 text-emerald-600" />
-                <span>JSON Backup exportieren</span>
-              </button>
+            <div className="p-4 bg-gradient-to-br from-emerald-50/70 via-stone-50 to-blue-50/50 rounded-2xl border border-stone-200/80 space-y-3 shadow-2xs">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center text-lg shrink-0">
+                    📱
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-bold text-stone-800">Handy-Austausch & Datensicherung</h4>
+                    <p className="text-[11px] text-stone-500 leading-tight">
+                      Sichern, per WhatsApp teilen oder nach Reparatur intelligent ohne Datenverlust zusammenführen.
+                    </p>
+                  </div>
+                </div>
+              </div>
 
-              <label className="py-2.5 px-3 rounded-2xl border border-stone-200 hover:bg-stone-50 text-stone-700 text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer text-center">
-                <Upload className="w-4 h-4 text-blue-600" />
-                <span>Backup einspielen</span>
-                <input type="file" accept=".json" onChange={handleImportData} className="hidden" />
-              </label>
+              <div className="grid grid-cols-2 gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setBackupModalMode('export');
+                    setShowBackupModal(true);
+                  }}
+                  className="py-2.5 px-3 rounded-xl bg-white border border-stone-200 hover:border-emerald-300 hover:bg-emerald-50/50 text-stone-800 text-xs font-bold transition-all flex items-center justify-center gap-2 shadow-2xs cursor-pointer active:scale-98"
+                >
+                  <Download className="w-4 h-4 text-emerald-600" />
+                  <span>Sichern (Export)</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setBackupModalMode('import');
+                    setShowBackupModal(true);
+                  }}
+                  className="py-2.5 px-3 rounded-xl bg-blue-600 hover:bg-blue-700 active:scale-98 text-white text-xs font-bold transition-all flex items-center justify-center gap-2 shadow-xs cursor-pointer"
+                >
+                  <Upload className="w-4 h-4 text-white" />
+                  <span>Einspielen (Merge)</span>
+                </button>
+              </div>
             </div>
           </div>
 
@@ -1744,6 +1708,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           </button>
         </form>
       </div>
+
+      {showBackupModal && (
+        <BackupManagerModal
+          isOpen={showBackupModal}
+          onClose={() => setShowBackupModal(false)}
+          initialMode={backupModalMode}
+        />
+      )}
     </div>
   );
 };

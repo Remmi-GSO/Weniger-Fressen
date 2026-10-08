@@ -1,7 +1,8 @@
 import { useState, useMemo, type FormEvent } from 'react';
 import { db, type UserProfile } from '../db/db';
 import { calculateNutritionTargets, type DailyStepLevel, type WorkoutIntensity } from '../utils/nutrition';
-import { Sparkles, ArrowRight, ShieldCheck, Dumbbell, Footprints, X } from 'lucide-react';
+import { Sparkles, ArrowRight, ShieldCheck, Dumbbell, Footprints, X, Upload } from 'lucide-react';
+import { BackupManagerModal } from './BackupManagerModal';
 
 interface OnboardingModalProps {
   onComplete: () => void;
@@ -30,6 +31,7 @@ export const OnboardingModal = ({ onComplete, initialProfile }: OnboardingModalP
   const [goalDeficit, setGoalDeficit] = useState<number>(initialProfile?.goalDeficit || 500);
 
   const effectiveDeficit = goalType === 'maintain_weight' ? 0 : (goalDeficit || 500);
+  const [showBackupModal, setShowBackupModal] = useState(false);
 
   // Live calculation of targets using Mifflin-St. Jeor with fine-grained movement
   const calculation = useMemo(() => {
@@ -117,7 +119,27 @@ export const OnboardingModal = ({ onComplete, initialProfile }: OnboardingModalP
         </div>
 
         <form onSubmit={handleSave} className="p-6 overflow-y-auto space-y-6 flex-1">
-          
+          {/* Handywechsel / Migration Banner */}
+          <div className="p-3.5 bg-gradient-to-r from-blue-50 via-indigo-50/50 to-blue-50 border border-blue-200/80 rounded-2xl flex items-center justify-between gap-3 shadow-2xs">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="w-8 h-8 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center text-base shrink-0">
+                📱
+              </div>
+              <div className="min-w-0">
+                <div className="text-xs font-bold text-blue-900 truncate">Handy gewechselt?</div>
+                <div className="text-[11px] text-blue-700/80 leading-tight">Backup mit 1 Klick einspielen</div>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowBackupModal(true)}
+              className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white text-xs font-bold rounded-xl shadow-xs transition-all flex items-center gap-1.5 shrink-0 cursor-pointer"
+            >
+              <Upload className="w-3.5 h-3.5" />
+              <span>Backup laden</span>
+            </button>
+          </div>
+
           {/* Dein Vorname */}
           <div className="p-4 bg-emerald-50/60 rounded-2xl border border-emerald-100/90 space-y-2">
             <label className="text-xs font-bold uppercase tracking-wider text-emerald-800 flex items-center gap-1.5">
@@ -552,6 +574,18 @@ export const OnboardingModal = ({ onComplete, initialProfile }: OnboardingModalP
           </button>
         </form>
       </div>
+
+      {showBackupModal && (
+        <BackupManagerModal
+          isOpen={showBackupModal}
+          onClose={() => setShowBackupModal(false)}
+          initialMode="import"
+          onSuccess={() => {
+            setShowBackupModal(false);
+            onComplete();
+          }}
+        />
+      )}
     </div>
   );
 };
