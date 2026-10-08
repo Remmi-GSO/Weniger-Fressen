@@ -10,6 +10,7 @@ export interface BackupSummary {
   favoriteCount: number;
   activityCount: number;
   customActivityCount: number;
+  customSnackCount?: number;
   earliestDate?: string;
   latestDate?: string;
 }
@@ -56,6 +57,7 @@ export async function createBackupData(): Promise<{ backupJson: string; fileName
   const favoriteItems = await db.favoriteItems.toArray();
   const activityLogs = await db.activityLogs.toArray();
   const customActivities = await db.customActivities.toArray();
+  const customSnacks = await db.customSnacks.toArray();
 
   const dates = diary.map((d) => d.date).filter(Boolean).sort();
   const earliestDate = dates[0];
@@ -71,12 +73,13 @@ export async function createBackupData(): Promise<{ backupJson: string; fileName
     favoriteCount: favoriteItems.length,
     activityCount: activityLogs.length,
     customActivityCount: customActivities.length,
+    customSnackCount: customSnacks.length,
     earliestDate,
     latestDate,
   };
 
   const backup = {
-    version: 3,
+    version: 4,
     appName: 'Weniger Fressen',
     exportDate: new Date().toISOString(),
     summary,
@@ -90,6 +93,7 @@ export async function createBackupData(): Promise<{ backupJson: string; fileName
       favoriteItems,
       activityLogs,
       customActivities,
+      customSnacks,
     },
   };
 
@@ -469,7 +473,25 @@ export async function executeSmartMerge(backupData: any): Promise<MergeResult> {
         }
       }
 
-      // 9. PROFILE SYNC (keep current profile settings, but update weight if newer)
+      // 9. CUSTOM SNACKS (Standard- & eigene Naschereien)
+      if (Array.isArray(backupData.customSnacks)) {
+        const existing = await db.customSnacks.toArray();
+        const toAdd: any[] = [];
+        for (const cs of backupData.customSnacks) {
+          const isDupe = existing.some(
+            (e) => e.name.trim().toLowerCase() === String(cs.name || '').trim().toLowerCase()
+          );
+          if (!isDupe) {
+            const { id, ...csWithoutId } = cs;
+            toAdd.push(csWithoutId);
+          }
+        }
+        if (toAdd.length > 0) {
+          await db.customSnacks.bulkAdd(toAdd);
+        }
+      }
+
+      // 10. PROFILE SYNC (keep current profile settings, but update weight if newer)
       const allWeightLogs = await db.weightLogs.orderBy('timestamp').reverse().toArray();
       if (allWeightLogs.length > 0) {
         const latestWeight = allWeightLogs[0].weight;
@@ -499,6 +521,7 @@ export async function executeFullOverwrite(backupData: any): Promise<void> {
       db.favoriteItems,
       db.activityLogs,
       db.customActivities,
+      db.customSnacks,
       db.userProfile,
     ],
     async () => {
@@ -510,6 +533,7 @@ export async function executeFullOverwrite(backupData: any): Promise<void> {
       await db.favoriteItems.clear();
       await db.activityLogs.clear();
       await db.customActivities.clear();
+      await db.customSnacks.clear();
 
       if (backupData.profile?.length) await db.userProfile.bulkPut(backupData.profile);
       if (backupData.diary?.length) await db.diaryEntries.bulkAdd(backupData.diary.map(({ id, ...rest }: any) => rest));
@@ -520,6 +544,7 @@ export async function executeFullOverwrite(backupData: any): Promise<void> {
       if (backupData.favoriteItems?.length) await db.favoriteItems.bulkAdd(backupData.favoriteItems.map(({ id, ...rest }: any) => rest));
       if (backupData.activityLogs?.length) await db.activityLogs.bulkAdd(backupData.activityLogs.map(({ id, ...rest }: any) => rest));
       if (backupData.customActivities?.length) await db.customActivities.bulkAdd(backupData.customActivities.map(({ id, ...rest }: any) => rest));
+      if (backupData.customSnacks?.length) await db.customSnacks.bulkAdd(backupData.customSnacks.map(({ id, ...rest }: any) => rest));
     }
   );
 }

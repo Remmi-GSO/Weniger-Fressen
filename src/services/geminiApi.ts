@@ -47,8 +47,24 @@ export interface AiWorkoutResult {
   intensity?: 'gentle' | 'moderate' | 'brisk' | 'intense';
 }
 
+export interface AiStandardSnackResult {
+  name: string;
+  category: 'chocolate' | 'cheese' | 'cookies' | 'nuts' | 'sweets' | 'salty' | 'fruit';
+  icon: string;
+  defaultServingName: string;
+  defaultGrams: number;
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+  fiber?: number;
+  sugar?: number;
+  isStandard: boolean;
+  presets?: { label: string; grams: number; multiplier: number }[];
+}
+
 export interface AiMealAnalysisResult {
-  intent?: 'meal' | 'qa' | 'recipe' | 'workout';
+  intent?: 'meal' | 'qa' | 'recipe' | 'workout' | 'standard_snack';
   mealTitle: string;
   summaryNote?: string;
   items: AiMealComponent[];
@@ -61,6 +77,7 @@ export interface AiMealAnalysisResult {
   usedModel?: string;
   qaAnswer?: AiAnswerResult;
   workoutData?: AiWorkoutResult;
+  snackData?: AiStandardSnackResult;
 }
 
 export interface ParsedRecipeIngredient {
@@ -332,11 +349,35 @@ Wenn der Nutzer beschreibt, was er gegessen/getrunken hat oder ein Foto vorliegt
   * Milch im Kaffee / Müsli: ein Schuss = 15-20ml, Glas = 200ml
 - Berechne für jede Komponente Portionsmengen und Nährwerte.
 
+FALL 5: "standard_snack" (Neue Standard-Nascherei anlegen / als Standard speichern)
+Wenn der Nutzer eine Nascherei als Standard-Nascherei, Standard-Snack, Vorlage oder zur schnellen Auswahl hinzufügen oder anlegen möchte (z. B. "Füge 2 Riegel Kinderschokolade als neue Standard-Nascherei hinzu", "Speichere 1 Kugel Vanilleeis mit 120 kcal als Standard-Nascherei", "Neue Standard-Nascherei anlegen: Protein-Cookie 220 kcal", "Als Standard-Nascherei speichern: 3 Toffifee", "Kinderschokolade zu meinen Standard-Naschereien hinzufügen"):
+- Setze "intent": "standard_snack"
+- Erstelle ein vollständiges "snackData"-Objekt mit realistischen Nährwerten für die beschriebene Portionsgröße.
+- "items": []
+- "mealTitle": "Neue Standard-Nascherei: [Name]"
+- "summaryNote": "Kurze Bestätigung und Erklärung zu Portionsgröße und Kalorien."
+
 Antworte ausschließlich im angegebenen JSON-Format:
 {
-  "intent": "qa" | "meal" | "recipe" | "workout",
+  "intent": "qa" | "meal" | "recipe" | "workout" | "standard_snack",
   "mealTitle": "Treffender Titel",
   "summaryNote": "Ausführliche Erklärung oder Zusammenfassung",
+  "snackData": {
+    "name": "Kinderschokolade",
+    "category": "chocolate",
+    "icon": "🍫",
+    "defaultServingName": "1 Riegel",
+    "defaultGrams": 21,
+    "calories": 118,
+    "protein": 1.8,
+    "carbs": 11.2,
+    "fat": 7.3,
+    "isStandard": true,
+    "presets": [
+      { "label": "1 Riegel (21g)", "grams": 21, "multiplier": 1 },
+      { "label": "2 Riegel (42g)", "grams": 42, "multiplier": 2 }
+    ]
+  },
   "qaAnswer": {
     "headline": "Prägnante Überschrift (z.B. 'Natürlicher Fruchtzucker in Johannisbeeren')",
     "answerText": "Ausführliche, gut lesbare und fundierte Antwort mit Absätzen.",
@@ -442,14 +483,14 @@ Antworte ausschließlich im angegebenen JSON-Format:
     const totalFiber = Math.round(sanitizedItems.reduce((sum, it) => sum + (it.fiber || 0), 0) * 10) / 10;
     const totalSugar = Math.round(sanitizedItems.reduce((sum, it) => sum + (it.sugar || 0), 0) * 10) / 10;
 
-    const parsedIntent: 'meal' | 'qa' | 'recipe' | 'workout' =
-      parsed.intent === 'qa' || parsed.intent === 'recipe' || parsed.intent === 'workout'
+    const parsedIntent: 'meal' | 'qa' | 'recipe' | 'workout' | 'standard_snack' =
+      parsed.intent === 'qa' || parsed.intent === 'recipe' || parsed.intent === 'workout' || parsed.intent === 'standard_snack'
         ? parsed.intent
-        : (parsed.qaAnswer ? 'qa' : parsed.workoutData ? 'workout' : 'meal');
+        : (parsed.snackData ? 'standard_snack' : parsed.qaAnswer ? 'qa' : parsed.workoutData ? 'workout' : 'meal');
 
     return {
       intent: parsedIntent,
-      mealTitle: parsed.mealTitle || (parsedIntent === 'qa' ? (parsed.qaAnswer?.headline || 'Ernährungs-Antwort') : 'Analysierte Mahlzeit'),
+      mealTitle: parsed.mealTitle || (parsedIntent === 'qa' ? (parsed.qaAnswer?.headline || 'Ernährungs-Antwort') : (parsedIntent === 'standard_snack' ? (parsed.snackData?.name ? `Standard-Nascherei: ${parsed.snackData.name}` : 'Neue Standard-Nascherei') : 'Analysierte Mahlzeit')),
       summaryNote: parsed.summaryNote || (parsedIntent === 'qa' ? parsed.qaAnswer?.answerText : undefined),
       items: sanitizedItems,
       totalCalories,
@@ -470,6 +511,29 @@ Antworte ausschließlich im angegebenen JSON-Format:
         durationMinutes: Math.max(1, Number(parsed.workoutData.durationMinutes) || 30),
         caloriesBurned: Math.max(1, Math.round(Number(parsed.workoutData.caloriesBurned) || 200)),
         intensity: parsed.workoutData.intensity || 'moderate',
+      } : undefined,
+      snackData: parsed.snackData ? {
+        name: String(parsed.snackData.name || 'Nascherei'),
+        category: (['chocolate', 'cheese', 'cookies', 'nuts', 'sweets', 'salty', 'fruit'].includes(parsed.snackData.category)
+          ? parsed.snackData.category
+          : 'sweets') as any,
+        icon: String(parsed.snackData.icon || '🍫'),
+        defaultServingName: String(parsed.snackData.defaultServingName || '1 Portion'),
+        defaultGrams: Math.max(1, Math.round(Number(parsed.snackData.defaultGrams) || 30)),
+        calories: Math.max(1, Math.round(Number(parsed.snackData.calories) || 100)),
+        protein: Math.round((Number(parsed.snackData.protein) || 1) * 10) / 10,
+        carbs: Math.round((Number(parsed.snackData.carbs) || 10) * 10) / 10,
+        fat: Math.round((Number(parsed.snackData.fat) || 5) * 10) / 10,
+        fiber: parsed.snackData.fiber ? Math.round(Number(parsed.snackData.fiber) * 10) / 10 : undefined,
+        sugar: parsed.snackData.sugar ? Math.round(Number(parsed.snackData.sugar) * 10) / 10 : undefined,
+        isStandard: true,
+        presets: Array.isArray(parsed.snackData.presets)
+          ? parsed.snackData.presets.map((p: any) => ({
+              label: String(p.label || `${p.multiplier}x`),
+              grams: Number(p.grams) || 30,
+              multiplier: Number(p.multiplier) || 1,
+            }))
+          : undefined,
       } : undefined,
     };
   } catch (err: any) {

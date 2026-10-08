@@ -145,6 +145,21 @@ export const VersionUpdateModal: React.FC<VersionUpdateModalProps> = ({
                 </p>
               </div>
             </div>
+
+            {/* 6. Standard-Naschereien & Löschen */}
+            <div className="p-3 bg-pink-50/70 border border-pink-200/80 rounded-2xl flex items-start gap-3">
+              <div className="w-8 h-8 rounded-xl bg-pink-600 text-white flex items-center justify-center shrink-0 shadow-2xs font-bold text-sm">
+                ⭐
+              </div>
+              <div className="text-xs space-y-0.5">
+                <span className="font-extrabold text-pink-950 block">
+                  „Eigene Standard-Naschereien & Löschen unerwünschter Snacks“
+                </span>
+                <p className="text-stone-600 leading-snug">
+                  Entfernt ungeliebte Vorgaben mit 1 Klick aus der Schnellauswahl oder sagt dem Magic Button einfach: <em>„Füge 2 Riegel Kinderschokolade als neue Standard-Nascherei hinzu“</em>!
+                </p>
+              </div>
+            </div>
           </div>
 
           <div className="p-3 bg-gradient-to-r from-emerald-500/10 via-teal-500/10 to-indigo-500/10 rounded-2xl border border-emerald-200/80 text-center text-xs font-bold text-emerald-900">

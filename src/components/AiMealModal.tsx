@@ -9,6 +9,7 @@ import {
   type AiSnackResponse,
   type AiAnswerResult,
   type AiWorkoutResult,
+  type AiStandardSnackResult,
 } from '../services/geminiApi';
 import { compressImage } from '../utils/imageCompress';
 import {
@@ -234,13 +235,16 @@ export const AiMealModal = ({
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Intent & Assistant Q&A / Workout states
-  const [detectedIntent, setDetectedIntent] = useState<'meal' | 'qa' | 'recipe' | 'workout'>('meal');
+  // Intent & Assistant Q&A / Workout / Standard Snack states
+  const [detectedIntent, setDetectedIntent] = useState<'meal' | 'qa' | 'recipe' | 'workout' | 'standard_snack'>('meal');
   const [qaAnswer, setQaAnswer] = useState<AiAnswerResult | null>(null);
   const [workoutData, setWorkoutData] = useState<AiWorkoutResult | null>(null);
+  const [snackData, setSnackData] = useState<AiStandardSnackResult | null>(null);
   const [isSavingWorkout, setIsSavingWorkout] = useState(false);
   const [isWorkoutSaved, setIsWorkoutSaved] = useState(false);
   const [isRecipeSaved, setIsRecipeSaved] = useState(false);
+  const [isSavingSnack, setIsSavingSnack] = useState(false);
+  const [isSnackSaved, setIsSnackSaved] = useState(false);
 
   // Sync defaultMealType when opened
   useEffect(() => {
@@ -253,10 +257,13 @@ export const AiMealModal = ({
       setSavedRecipeSnackId(null);
       setQaAnswer(null);
       setWorkoutData(null);
+      setSnackData(null);
       setDetectedIntent('meal');
       setIsSavingWorkout(false);
       setIsWorkoutSaved(false);
       setIsRecipeSaved(false);
+      setIsSavingSnack(false);
+      setIsSnackSaved(false);
     }
   }, [isOpen, defaultMealType]);
 
@@ -512,6 +519,7 @@ export const AiMealModal = ({
       setDetectedIntent(result.intent || 'meal');
       setQaAnswer(result.qaAnswer || null);
       setWorkoutData(result.workoutData || null);
+      setSnackData(result.snackData || null);
       setComponents(result.items && result.items.length > 0 ? result.items : null);
     } catch (err: any) {
       setAnalysisError(err.message || 'Die Analyse ist fehlgeschlagen.');
@@ -612,6 +620,58 @@ export const AiMealModal = ({
       alert('Fehler beim Eintragen der Aktivität: ' + (err.message || err));
     } finally {
       setIsSavingWorkout(false);
+    }
+  };
+
+  const handleSaveStandardSnack = async (alsoLogToDiary: boolean = false) => {
+    if (!snackData) return;
+    setIsSavingSnack(true);
+    try {
+      await db.customSnacks.add({
+        name: snackData.name,
+        category: snackData.category,
+        icon: snackData.icon,
+        defaultServingName: snackData.defaultServingName,
+        defaultGrams: snackData.defaultGrams,
+        calories: snackData.calories,
+        protein: snackData.protein,
+        carbs: snackData.carbs,
+        fat: snackData.fat,
+        fiber: snackData.fiber,
+        sugar: snackData.sugar,
+        isStandard: true,
+        presets: snackData.presets,
+        createdAt: Date.now(),
+      });
+
+      if (alsoLogToDiary) {
+        await db.diaryEntries.add({
+          date: selectedDate,
+          mealType: 'snack',
+          name: `${snackData.icon} ${snackData.name}`,
+          calories: snackData.calories,
+          protein: snackData.protein,
+          carbs: snackData.carbs,
+          fat: snackData.fat,
+          amount: snackData.defaultGrams,
+          unit: `${snackData.defaultServingName} (${snackData.defaultGrams}g)`,
+          reason: reason,
+          isSnackNibble: true,
+          timestamp: Date.now(),
+        });
+      }
+
+      setIsSnackSaved(true);
+      confetti({
+        particleCount: 50,
+        spread: 60,
+        origin: { y: 0.6 },
+        colors: ['#EC4899', '#F43F5E', '#F59E0B'],
+      });
+    } catch (err: any) {
+      alert('Fehler beim Speichern der Standard-Nascherei: ' + (err.message || err));
+    } finally {
+      setIsSavingSnack(false);
     }
   };
 
@@ -1381,6 +1441,102 @@ export const AiMealModal = ({
                     </>
                   )}
                 </button>
+                <button
+                  type="button"
+                  onClick={handleResetAnalysis}
+                  className="w-full py-2.5 text-xs text-stone-500 hover:text-stone-800 font-bold text-center transition-colors cursor-pointer"
+                >
+                  Andere Eingabe machen
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* STEP: STANDARD-NASCHEREI CARD (Speichern als Standard / Schnellauswahl) */}
+          {snackData && (
+            <div className="space-y-4 animate-in fade-in">
+              <div className="p-4 bg-gradient-to-br from-pink-50/90 via-rose-50/70 to-purple-50/80 border border-pink-200/80 rounded-2xl space-y-3 shadow-2xs">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-10 h-10 rounded-2xl bg-pink-600 text-white flex items-center justify-center text-xl shrink-0 shadow-xs">
+                      {snackData.icon || '🍫'}
+                    </div>
+                    <div>
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-pink-800 bg-pink-100/90 px-2 py-0.5 rounded-md flex items-center gap-1 w-fit">
+                        <span>⭐</span> Neue Standard-Nascherei
+                      </span>
+                      <h4 className="font-extrabold text-stone-900 text-sm mt-0.5">
+                        {snackData.name}
+                      </h4>
+                    </div>
+                  </div>
+                  {usedModel && (
+                    <span className="text-[10px] bg-white/90 text-stone-600 font-bold px-2 py-0.5 rounded-full border border-stone-200 shadow-2xs shrink-0">
+                      {usedModel} (0 €)
+                    </span>
+                  )}
+                </div>
+
+                <div className="p-3 bg-white/90 rounded-xl border border-pink-200/60 shadow-2xs space-y-1.5">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-bold text-stone-700">Portionsgröße:</span>
+                    <span className="font-extrabold text-stone-900">
+                      {snackData.defaultServingName} ({snackData.defaultGrams}g)
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-bold text-stone-700">Kalorien:</span>
+                    <span className="text-base font-black text-pink-700">
+                      {snackData.calories} kcal
+                    </span>
+                  </div>
+                  <div className="pt-1 border-t border-stone-100 text-[11px] text-stone-500 flex items-center justify-between">
+                    <span>Makros pro Portion:</span>
+                    <span className="font-semibold text-stone-700">
+                      P: {snackData.protein}g • K: {snackData.carbs}g • F: {snackData.fat}g
+                    </span>
+                  </div>
+                </div>
+
+                {analyzedNote && (
+                  <p className="text-xs text-stone-600 pt-0.5 leading-relaxed whitespace-pre-line">
+                    {analyzedNote}
+                  </p>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <button
+                  type="button"
+                  onClick={() => handleSaveStandardSnack(false)}
+                  disabled={isSavingSnack || isSnackSaved}
+                  className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-pink-600 to-rose-600 hover:from-pink-700 hover:to-rose-700 active:scale-[0.99] text-white font-bold text-sm shadow-soft transition-all flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
+                >
+                  {isSnackSaved ? (
+                    <>
+                      <Check className="w-4 h-4" />
+                      <span>Als Standard-Nascherei gespeichert! ⭐</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>⭐</span>
+                      <span>Als Standard-Nascherei speichern</span>
+                    </>
+                  )}
+                </button>
+
+                {!isSnackSaved && (
+                  <button
+                    type="button"
+                    onClick={() => handleSaveStandardSnack(true)}
+                    disabled={isSavingSnack}
+                    className="w-full py-2.5 rounded-2xl bg-pink-50 hover:bg-pink-100 text-pink-900 font-bold text-xs border border-pink-200 transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <span>⭐</span>
+                    <span>Speichern & heute direkt eintragen (+{snackData.calories} kcal)</span>
+                  </button>
+                )}
+
                 <button
                   type="button"
                   onClick={handleResetAnalysis}

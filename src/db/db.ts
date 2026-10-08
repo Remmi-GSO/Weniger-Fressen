@@ -66,6 +66,7 @@ export interface UserProfile {
   showMorningBriefing?: boolean; // Täglicher Motivations-Rückblick am Morgen (default: true)
   lastMorningBriefingDate?: string; // Format: YYYY-MM-DD
   geminiApiKey?: string;
+  hiddenSnackIds?: string[]; // IDs ausgeblendeter oder gelöschter Standard-Naschereien
   isOnboarded: boolean;
   createdAt: string;
 }
@@ -188,6 +189,26 @@ export interface CustomActivity {
   createdAt: number;
 }
 
+export type SnackCategory = 'chocolate' | 'cheese' | 'cookies' | 'nuts' | 'sweets' | 'salty' | 'fruit';
+
+export interface CustomSnack {
+  id?: number;
+  name: string;
+  category: SnackCategory;
+  icon: string;
+  defaultServingName: string; // e.g. "1 Stück", "1 Riegel", "1 Kugel", "1 Handvoll"
+  defaultGrams: number;
+  calories: number; // berechnet für defaultGrams
+  protein: number;
+  carbs: number;
+  fat: number;
+  fiber?: number;
+  sugar?: number;
+  isStandard: boolean; // True = gehört zu den direkt anwählbaren Standard-Naschereien
+  presets?: { label: string; grams: number; multiplier: number }[];
+  createdAt: number;
+}
+
 export class WenigerFressenDB extends Dexie {
   userProfile!: Table<UserProfile, string>;
   diaryEntries!: Table<DiaryEntry, number>;
@@ -198,6 +219,7 @@ export class WenigerFressenDB extends Dexie {
   recipes!: Table<CustomRecipe, number>;
   activityLogs!: Table<ActivityLog, number>;
   customActivities!: Table<CustomActivity, number>;
+  customSnacks!: Table<CustomSnack, number>;
 
   constructor() {
     super('WenigerFressenDB');
@@ -215,6 +237,9 @@ export class WenigerFressenDB extends Dexie {
     this.version(3).stores({
       activityLogs: '++id, date, timestamp',
       customActivities: '++id, name, createdAt',
+    });
+    this.version(4).stores({
+      customSnacks: '++id, name, isStandard, createdAt',
     });
   }
 }

@@ -10,6 +10,8 @@ export interface PresetSnack {
   carbs: number;
   fat: number;
   presets: { label: string; grams: number; multiplier: number }[];
+  isCustom?: boolean;
+  customId?: number;
 }
 
 export const PRESET_SNACKS: PresetSnack[] = [
