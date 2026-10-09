@@ -1463,7 +1463,22 @@ export const AiMealModal = ({
                     </div>
                     <div>
                       <span className="text-[10px] font-bold uppercase tracking-wider text-pink-800 bg-pink-100/90 px-2 py-0.5 rounded-md flex items-center gap-1 w-fit">
-                        <span>⭐</span> Neue Standard-Nascherei
+                        <span>⭐</span>
+                        {snackData.category === 'chocolate'
+                          ? 'Behälter: Schokolade'
+                          : snackData.category === 'cheese'
+                          ? 'Behälter: Käsehappen'
+                          : snackData.category === 'cookies'
+                          ? 'Behälter: Kekse & Gebäck'
+                          : snackData.category === 'nuts'
+                          ? 'Behälter: Nüsse & Kerne'
+                          : snackData.category === 'sweets'
+                          ? 'Behälter: Süßes & Riegel'
+                          : snackData.category === 'salty'
+                          ? 'Behälter: Salziges & Chips'
+                          : snackData.category === 'fruit'
+                          ? 'Behälter: Obst & Frisches'
+                          : `Behälter: ${snackData.category}`}
                       </span>
                       <h4 className="font-extrabold text-stone-900 text-sm mt-0.5">
                         {snackData.name}
@@ -1515,12 +1530,28 @@ export const AiMealModal = ({
                   {isSnackSaved ? (
                     <>
                       <Check className="w-4 h-4" />
-                      <span>Als Standard-Nascherei gespeichert! ⭐</span>
+                      <span>In deinen Standard-Naschereien gespeichert! ⭐</span>
                     </>
                   ) : (
                     <>
                       <span>⭐</span>
-                      <span>Als Standard-Nascherei speichern</span>
+                      <span>
+                        {snackData.category === 'chocolate'
+                          ? 'Im Schokoladen-Behälter speichern'
+                          : snackData.category === 'cheese'
+                          ? 'Im Käse-Behälter speichern'
+                          : snackData.category === 'cookies'
+                          ? 'Im Keks-Behälter speichern'
+                          : snackData.category === 'nuts'
+                          ? 'Im Nüsse-Behälter speichern'
+                          : snackData.category === 'sweets'
+                          ? 'Im Süßes-Behälter speichern'
+                          : snackData.category === 'salty'
+                          ? 'Im Salziges-Behälter speichern'
+                          : snackData.category === 'fruit'
+                          ? 'Im Obst-Behälter speichern'
+                          : `Im Behälter "${snackData.category}" speichern`}
+                      </span>
                     </>
                   )}
                 </button>

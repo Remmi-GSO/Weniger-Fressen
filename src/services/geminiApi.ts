@@ -349,13 +349,50 @@ Wenn der Nutzer beschreibt, was er gegessen/getrunken hat oder ein Foto vorliegt
   * Milch im Kaffee / Müsli: ein Schuss = 15-20ml, Glas = 200ml
 - Berechne für jede Komponente Portionsmengen und Nährwerte.
 
-FALL 5: "standard_snack" (Neue Standard-Nascherei anlegen / als Standard speichern)
-Wenn der Nutzer eine Nascherei als Standard-Nascherei, Standard-Snack, Vorlage oder zur schnellen Auswahl hinzufügen oder anlegen möchte (z. B. "Füge 2 Riegel Kinderschokolade als neue Standard-Nascherei hinzu", "Speichere 1 Kugel Vanilleeis mit 120 kcal als Standard-Nascherei", "Neue Standard-Nascherei anlegen: Protein-Cookie 220 kcal", "Als Standard-Nascherei speichern: 3 Toffifee", "Kinderschokolade zu meinen Standard-Naschereien hinzufügen"):
-- Setze "intent": "standard_snack"
-- Erstelle ein vollständiges "snackData"-Objekt mit realistischen Nährwerten für die beschriebene Portionsgröße.
+FALL 5: "standard_snack" (Neue Standard-Nascherei anlegen / in Behälter oder Rubrik speichern)
+Wenn der Nutzer eine Nascherei als Standard-Nascherei, Standard-Snack, Vorlage, Rubrik, Kategorie oder zu einem Behälter hinzufügen möchte:
+Typische Beispiele:
+- "Erstelle bitte einen Behälter oder eine Rubrik in der Nascherei rund um Kekse, beginne mit der Prinzenrolle" (oder "Füge zu meinen Keksen bitte Prinzenrolle hinzu", "Keks-Behälter mit Prinzenrolle", "Neuer Keks: Prinzenrolle"):
+  -> Setze "intent": "standard_snack"
+  -> "category": "cookies", "icon": "🍪"
+  -> "name": "Prinzenrolle (Doppelkeks)", "defaultServingName": "1 Keks", "defaultGrams": 20
+  -> Berechne exakte Kalorien für 1 Keks: ca. 95 kcal, 4.3g Fett, 12.8g KH, 1.3g Protein
+  -> "presets": [
+       { "label": "1 Keks (20g)", "grams": 20, "multiplier": 1 },
+       { "label": "2 Kekse (40g)", "grams": 40, "multiplier": 2 },
+       { "label": "3 Kekse (60g)", "grams": 60, "multiplier": 3 },
+       { "label": "4 Kekse (80g)", "grams": 80, "multiplier": 4 }
+     ]
+  -> "mealTitle": "Keks-Behälter: Prinzenrolle angelegt"
+  -> "summaryNote": "Dein Keks-Behälter wurde mit der Prinzenrolle vorbereitet (1 Keks = ca. 20g, ~95 kcal). Du kannst sie mit 1 Klick im Keks-Behälter speichern!"
+
+- "Erstelle bitte einen Behälter oder eine Rubrik für Kekse" (ohne dass sofort eine Sorte genannt wurde):
+  -> Setze "intent": "standard_snack"
+  -> "category": "cookies", "icon": "🍪"
+  -> Bereite als erste klassische Standard-Vorlage "Butterkeks / Keks" oder "Prinzenrolle" vor (1 Keks, ca. 15g, 65 kcal)
+  -> "mealTitle": "Keks-Behälter vorbereitet"
+  -> "summaryNote": "Keks-Behälter steht bereit! Wir haben eine erste Keks-Vorlage hinterlegt. Du kannst sie speichern und jederzeit weitere Kekssorten hineinlegen."
+
+- "Füge zur Schokolade bitte Milka-Haselnuss hinzu" (oder "Zu meiner Schokolade hinzufügen: Ritter Sport Nuss", "Neue Schokolade: Lindt 70%"):
+  -> Setze "intent": "standard_snack"
+  -> "category": "chocolate", "icon": "🍫"
+  -> "defaultServingName": "1 Stückchen" (oder "1 Riegel"), "defaultGrams": z.B. 4-6g pro Stückchen (bei Milka ca. 4.2g, Ritter Sport 6.25g, Lindt 10g, Kinderriegel 21g)
+  -> Berechne exakte Kalorien pro Stückchen (ca. 22-35 kcal)
+  -> "presets": [ { "label": "1 Stück", "grams": 4, "multiplier": 1 }, { "label": "2 Stücke", "grams": 8, "multiplier": 2 }, { "label": "3 Stücke", "grams": 12, "multiplier": 3 }, { "label": "1 Rippe (4 Stk.)", "grams": 16, "multiplier": 4 } ]
+
+- "Füge zum Käse bitte Bergkäse hinzu" (oder "Zu meinem Käse hinzufügen: Gouda mittelalt", "Neuer Käse: Parmesan"):
+  -> Setze "intent": "standard_snack"
+  -> "category": "cheese", "icon": "🧀"
+  -> "defaultServingName": "1 Happen / Würfel (15g)", "defaultGrams": 15
+  -> Berechne Kalorien & Makros für 15g Happen (z. B. Gouda/Bergkäse ca. 55-60 kcal, 4.5g Fett, 4g Protein)
+  -> "presets": [ { "label": "10g (Probier-Happen)", "grams": 10, "multiplier": 0.67 }, { "label": "15g (1 Würfel)", "grams": 15, "multiplier": 1 }, { "label": "20g (2 Würfel)", "grams": 20, "multiplier": 1.33 }, { "label": "30g (1 Scheibe)", "grams": 30, "multiplier": 2 } ]
+
+- Neue freie Rubriken & Behälter (z. B. "Behälter für Eiscreme", "Pralinen", "Nüsse"):
+  -> Setze "intent": "standard_snack", passende Kategorie ("cookies", "chocolate", "cheese", "nuts", "sweets", "salty", "fruit")
+  -> Berechne typische Portionsgröße und Nährwerte.
 - "items": []
-- "mealTitle": "Neue Standard-Nascherei: [Name]"
-- "summaryNote": "Kurze Bestätigung und Erklärung zu Portionsgröße und Kalorien."
+- "mealTitle": Treffender Titel, z. B. "Schokolade hinzugefügt: Milka Haselnuss" oder "Käsehappen hinzugefügt: Bergkäse" oder "Keks-Behälter: Prinzenrolle"
+- "summaryNote": Kurze Bestätigung mit Portionsgewicht und Kalorien pro Portion/Stückchen/Würfel.
 
 Antworte ausschließlich im angegebenen JSON-Format:
 {
