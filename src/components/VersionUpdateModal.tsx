@@ -47,10 +47,10 @@ export const VersionUpdateModal: React.FC<VersionUpdateModalProps> = ({
                 🚀 MEILENSTEIN • VERSION {APP_VERSION}
               </span>
               <h3 className="text-xl font-black tracking-tight leading-tight pt-1">
-                Das gigantische Behälter-Update ist da! 🍫🧀🍪
+                Jetzt macht weniger fressen noch mehr Spaß! 🥳🎉
               </h3>
-              <p className="text-xs text-white/90 font-medium">
-                Schokolade ohne Waage, die Käsehappen-Schule, Keks-Dosen & pure KI-Magie!
+              <p className="text-xs text-white/95 font-medium">
+                Das gigantische Behälter-Update ist da: Schokolade ohne Waage, die Käsehappen-Schule & Keks-Dosen!
               </p>
             </div>
 

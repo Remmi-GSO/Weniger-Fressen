@@ -1277,7 +1277,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 className="w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-emerald-50 via-teal-50 to-indigo-50 border border-emerald-200/90 hover:bg-emerald-100/70 text-emerald-950 text-xs font-bold transition-all flex items-center justify-center gap-2 shadow-2xs cursor-pointer"
               >
                 <span>✨</span>
-                <span>Update-Botschaft für Version 1.7 ansehen</span>
+                <span>Update-Botschaft für Version {APP_VERSION} ansehen</span>
               </button>
             )}
 
