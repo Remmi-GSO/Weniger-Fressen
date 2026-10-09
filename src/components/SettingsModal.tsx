@@ -71,6 +71,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [showGuide, setShowGuide] = useState(false);
   const [showBackupModal, setShowBackupModal] = useState(false);
   const [backupModalMode, setBackupModalMode] = useState<'export' | 'import'>('export');
+  const [showQrCodeModal, setShowQrCodeModal] = useState(false);
 
   const effectiveDeficit = goalType === 'maintain_weight' ? 0 : (goalDeficit || 500);
 
@@ -1365,15 +1366,22 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   </p>
                 </div>
 
-                {/* 4. Naschereien & Sport */}
+                {/* 4. Smarte Nascherei-Behälter & Standards (v1.8) */}
                 <div className="p-3 bg-white rounded-xl border border-amber-100 space-y-1.5 shadow-2xs">
                   <div className="font-bold text-stone-900 flex items-center gap-1.5 text-xs">
-                    <span>🍪</span>
-                    <span>Naschereien & Sport-Verrechnung</span>
+                    <span>🍫</span>
+                    <span>Smarte Nascherei-Behälter & Standards (Neu in v1.8)</span>
                   </div>
                   <p className="text-[11px] text-stone-600 leading-relaxed">
-                    Süßigkeiten und Snacks können separat getrackt werden, um das Defizit im Auge zu behalten. Workouts und Schritte fließen über den wissenschaftlichen Netto-Mehrverbrauch ein, ohne den Grundumsatz doppelt anzurechnen.
+                    Naschereien werden separat außerhalb der 3 Hauptmahlzeiten erfasst, um Heißhunger- und Knabbermuster bewusst zu steuern:
                   </p>
+                  <ul className="text-[11px] text-stone-600 space-y-1 pl-1 list-disc list-inside">
+                    <li><strong>🍫 Schokolade ohne Küchenwaage:</strong> Tracke bequem nach kleinsten Einheiten (1, 2 oder 3 Stückchen oder Rippen). Die KI kennt die echten Stückgewichte der Hersteller (Milka ca. 4,2g, Ritter Sport ca. 6,25g, Lindt ca. 10g) – kein Abwiegen mehr nötig!</li>
+                    <li><strong>🧀 Käsehappen-Augenmaß-Schule:</strong> Trainiere dein Gespür für Käsemengen mit festen Gramm-Stufen (10g Probier-Happen, 15g Würfel, Scheiben) inklusive Warnung vor dem hohen Fettgehalt (30–45% Fett i. Tr.).</li>
+                    <li><strong>🍪 Keks-Dose:</strong> Zähle Kekse direkt nach Stückzahl (1 Prinzenrolle = ca. 95 kcal, 2 Kekse, 3 Kekse).</li>
+                    <li><strong>⭐ Eigene Standards & Papierkorb:</strong> Verankere deine Lieblingssnacks dauerhaft in den Behältern oder blende ungeliebte Vorgaben mit 1 Klick auf den Papierkorb aus.</li>
+                    <li><strong>🎙️ Magic Voice:</strong> Sag einfach <em>„Erstelle einen Behälter für Kekse, beginne mit Prinzenrolle“</em> oder <em>„Füge zur Schokolade Milka-Haselnuss hinzu“</em>!</li>
+                  </ul>
                 </div>
               </div>
             )}
@@ -1397,14 +1405,57 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             </div>
 
             <div className="space-y-2.5 pt-1">
-              {/* Version 1.7 */}
-              <div className="p-3 bg-white rounded-xl border border-emerald-200/90 shadow-2xs space-y-1.5">
+              {/* Version 1.8 */}
+              <div className="p-3 bg-white rounded-xl border border-emerald-300 shadow-2xs space-y-1.5">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-1.5">
                     <span className="px-2 py-0.5 rounded-md bg-emerald-600 text-white text-[11px] font-black">
-                      v1.7
+                      v1.8
                     </span>
                     <span className="text-xs font-bold text-stone-800">Aktuelle Version</span>
+                  </div>
+                  <span className="text-[10px] text-stone-400 font-medium">09.10.2026</span>
+                </div>
+                <ul className="text-xs text-stone-600 space-y-1 pl-1">
+                  <li className="flex items-start gap-1.5">
+                    <span className="text-emerald-600 shrink-0 font-bold">✓</span>
+                    <span><strong>🍫 Smarte Schokoladen-Behälter:</strong> Schokolade nach Stücken & Rippen tracken ohne Küchenwaage – automatische Grammberechnung für Milka, Ritter Sport, Lindt etc.</span>
+                  </li>
+                  <li className="flex items-start gap-1.5">
+                    <span className="text-emerald-600 shrink-0 font-bold">✓</span>
+                    <span><strong>🧀 Käsehappen-Augenmaß-Schule:</strong> Gramm-Lernstufen (10g, 15g Würfel, Scheiben) mit Live-Fettgehalt für ein intuitives Gefühl beim Snacken.</span>
+                  </li>
+                  <li className="flex items-start gap-1.5">
+                    <span className="text-emerald-600 shrink-0 font-bold">✓</span>
+                    <span><strong>🍪 Keks-Dose & Prinzenrollen-Tracker:</strong> Eigene Keks-Rubrik mit Stückzähler für Prinzenrolle (~95 kcal) und Gebäck.</span>
+                  </li>
+                  <li className="flex items-start gap-1.5">
+                    <span className="text-emerald-600 shrink-0 font-bold">✓</span>
+                    <span><strong>🎙️ Magic Voice Behälter-Assistent:</strong> Sprachbefehle wie <em>„Erstelle einen Behälter für Kekse, beginne mit Prinzenrolle“</em> legen den Behälter samt Portionsstufen blitzschnell an.</span>
+                  </li>
+                  <li className="flex items-start gap-1.5">
+                    <span className="text-emerald-600 shrink-0 font-bold">✓</span>
+                    <span><strong>🗑️ Eigene Standards & Vorgaben aufräumen:</strong> Unerwünschte Standard-Snacks per Papierkorb ausblenden, eigene Standards flexibel merken.</span>
+                  </li>
+                  <li className="flex items-start gap-1.5">
+                    <span className="text-emerald-600 shrink-0 font-bold">✓</span>
+                    <span><strong>🔄 Sicherer 10-Tage-Gerätewechsel & Smart Merge:</strong> Daten für Austauschhandys exportieren und später ohne Überschreiben oder Datenverlust zusammenführen.</span>
+                  </li>
+                  <li className="flex items-start gap-1.5">
+                    <span className="text-emerald-600 shrink-0 font-bold">✓</span>
+                    <span><strong>📱 Offizieller Vektor-QR-Code:</strong> Zum blitzschnellen Scannen und Teilen der App auf neuen Smartphones.</span>
+                  </li>
+                </ul>
+              </div>
+
+              {/* Version 1.7 */}
+              <div className="p-3 bg-white rounded-xl border border-stone-200 shadow-2xs space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5">
+                    <span className="px-2 py-0.5 rounded-md bg-stone-600 text-white text-[11px] font-black">
+                      v1.7
+                    </span>
+                    <span className="text-xs font-bold text-stone-700">Vorherige Version</span>
                   </div>
                   <span className="text-[10px] text-stone-400 font-medium">06.10.2026</span>
                 </div>
@@ -1638,6 +1689,57 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 </ul>
               </div>
             </div>
+          </div>
+
+          {/* App teilen & QR-Code anzeigen */}
+          <div className="p-4 bg-gradient-to-br from-indigo-50/80 via-teal-50/40 to-emerald-50/60 border border-indigo-200/80 rounded-2xl space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="w-8 h-8 rounded-xl bg-indigo-600 text-white flex items-center justify-center text-sm shadow-2xs">
+                  📱
+                </span>
+                <div>
+                  <h4 className="text-xs font-bold text-stone-900">App teilen per QR-Code</h4>
+                  <p className="text-[11px] text-stone-500">Für Leihhandy, Partnerin oder Freunde</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowQrCodeModal(!showQrCodeModal)}
+                className="py-1 px-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] font-bold shadow-2xs transition-all cursor-pointer"
+              >
+                {showQrCodeModal ? 'Ausblenden' : 'QR-Code anzeigen'}
+              </button>
+            </div>
+
+            {showQrCodeModal && (
+              <div className="pt-2 border-t border-indigo-100 space-y-3 text-center animate-in fade-in duration-200">
+                <div className="p-3 bg-white rounded-2xl border border-indigo-100 shadow-sm inline-block mx-auto">
+                  <img
+                    src="/qr-code.svg"
+                    alt="Weniger Fressen QR-Code"
+                    className="w-48 h-48 mx-auto rounded-xl"
+                  />
+                </div>
+                <p className="text-xs text-stone-600 leading-snug">
+                  Einfach mit der Kamera des Smartphones abscannen, um die App sofort zu öffnen und als App auf dem Homescreen zu speichern!
+                </p>
+                <div className="p-2 bg-white/90 rounded-xl border border-indigo-100 text-[11px] font-mono text-stone-600 break-all select-all">
+                  https://remmi-gso.github.io/Weniger-Fressen/
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigator.clipboard?.writeText('https://remmi-gso.github.io/Weniger-Fressen/');
+                    alert('Link in die Zwischenablage kopiert!');
+                  }}
+                  className="w-full py-2.5 rounded-xl bg-white border border-indigo-200 hover:bg-indigo-50 text-indigo-950 font-bold text-xs shadow-2xs transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  <span>📋</span>
+                  <span>Link in Zwischenablage kopieren</span>
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Besucher-Statistiken (Nur für Admin / Dich) */}

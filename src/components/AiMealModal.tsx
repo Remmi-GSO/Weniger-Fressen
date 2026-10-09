@@ -235,11 +235,12 @@ export const AiMealModal = ({
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Intent & Assistant Q&A / Workout / Standard Snack states
-  const [detectedIntent, setDetectedIntent] = useState<'meal' | 'qa' | 'recipe' | 'workout' | 'standard_snack'>('meal');
+  // Intent & Assistant Q&A / Workout / Standard Snack / QR states
+  const [detectedIntent, setDetectedIntent] = useState<'meal' | 'qa' | 'recipe' | 'workout' | 'standard_snack' | 'show_qr'>('meal');
   const [qaAnswer, setQaAnswer] = useState<AiAnswerResult | null>(null);
   const [workoutData, setWorkoutData] = useState<AiWorkoutResult | null>(null);
   const [snackData, setSnackData] = useState<AiStandardSnackResult | null>(null);
+  const [copiedLink, setCopiedLink] = useState(false);
   const [isSavingWorkout, setIsSavingWorkout] = useState(false);
   const [isWorkoutSaved, setIsWorkoutSaved] = useState(false);
   const [isRecipeSaved, setIsRecipeSaved] = useState(false);
@@ -585,9 +586,13 @@ export const AiMealModal = ({
     setDetectedIntent('meal');
     setQaAnswer(null);
     setWorkoutData(null);
+    setSnackData(null);
+    setCopiedLink(false);
     setIsSavingWorkout(false);
     setIsWorkoutSaved(false);
     setIsRecipeSaved(false);
+    setIsSavingSnack(false);
+    setIsSnackSaved(false);
   };
 
   const handleSaveWorkout = async () => {
@@ -1062,8 +1067,8 @@ export const AiMealModal = ({
             </div>
           )}
 
-          {/* STEP 1: CAPTURE & INPUT (When no components, snack suggestions, Q&A or workout yet) */}
-          {!components && !snackResponse && !qaAnswer && !workoutData && (
+          {/* STEP 1: CAPTURE & INPUT (When no components, snack suggestions, Q&A, workout, snackData or QR yet) */}
+          {!components && !snackResponse && !qaAnswer && !workoutData && !snackData && detectedIntent !== 'show_qr' && (
             <div className="space-y-4">
               
               {/* Photo Upload / Camera Card */}
@@ -1575,6 +1580,74 @@ export const AiMealModal = ({
                 >
                   Andere Eingabe machen
                 </button>
+              </div>
+            </div>
+          )}
+
+          {/* STEP: QR-CODE CARD (App teilen per QR-Code) */}
+          {detectedIntent === 'show_qr' && (
+            <div className="space-y-4 animate-in fade-in">
+              <div className="p-5 bg-gradient-to-br from-indigo-50/90 via-teal-50/70 to-emerald-50/80 border border-indigo-200/80 rounded-3xl text-center space-y-4 shadow-soft">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-800 bg-indigo-100/90 px-2.5 py-0.5 rounded-md flex items-center gap-1 shadow-2xs">
+                    <span>📱</span> Offizieller App-QR-Code
+                  </span>
+                  <span className="text-[10px] text-stone-500 font-bold bg-white/80 px-2 py-0.5 rounded-full border border-stone-200/60 shadow-2xs">
+                    Version 1.8
+                  </span>
+                </div>
+
+                <div>
+                  <h4 className="font-extrabold text-stone-900 text-base">
+                    {analyzedTitle || 'Weniger Fressen teilen'}
+                  </h4>
+                  <p className="text-xs text-stone-600 mt-1 max-w-xs mx-auto leading-relaxed">
+                    {analyzedNote || 'Einfach mit der Kamera des Smartphones abscannen, um die App auf jedem Gerät sofort zu öffnen und als App auf dem Homescreen zu speichern.'}
+                  </p>
+                </div>
+
+                <div className="p-3.5 bg-white rounded-3xl border border-indigo-100 shadow-md inline-block mx-auto">
+                  <img
+                    src="/qr-code.svg"
+                    alt="Weniger Fressen QR-Code"
+                    className="w-52 h-52 sm:w-60 sm:h-60 mx-auto rounded-2xl"
+                  />
+                </div>
+
+                <div className="p-2.5 bg-white/90 rounded-xl border border-indigo-100/80 text-xs font-mono text-stone-600 break-all select-all">
+                  https://remmi-gso.github.io/Weniger-Fressen/
+                </div>
+
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigator.clipboard?.writeText('https://remmi-gso.github.io/Weniger-Fressen/');
+                      setCopiedLink(true);
+                      setTimeout(() => setCopiedLink(false), 2500);
+                    }}
+                    className="flex-1 py-3.5 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-soft transition-all flex items-center justify-center gap-1.5 cursor-pointer active:scale-[0.99]"
+                  >
+                    {copiedLink ? (
+                      <>
+                        <Check className="w-4 h-4 text-emerald-300" />
+                        <span>Link kopiert! ✓</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>📋</span>
+                        <span>Link kopieren</span>
+                      </>
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleResetAnalysis}
+                    className="py-3.5 px-4 rounded-2xl bg-stone-100 hover:bg-stone-200 text-stone-700 font-bold text-xs transition-colors cursor-pointer"
+                  >
+                    Schließen
+                  </button>
+                </div>
               </div>
             </div>
           )}

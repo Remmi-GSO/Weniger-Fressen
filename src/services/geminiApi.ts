@@ -64,7 +64,7 @@ export interface AiStandardSnackResult {
 }
 
 export interface AiMealAnalysisResult {
-  intent?: 'meal' | 'qa' | 'recipe' | 'workout' | 'standard_snack';
+  intent?: 'meal' | 'qa' | 'recipe' | 'workout' | 'standard_snack' | 'show_qr';
   mealTitle: string;
   summaryNote?: string;
   items: AiMealComponent[];
@@ -311,12 +311,15 @@ Nutzer-Eingabe / Diktat: "${description.trim() || 'Keine Notiz vorhanden - bitte
 
 ERKENNE ZUERST DIE INTENTION DES NUTZERS ("intent"):
 
-FALL 1: "qa" (Ernährungsfrage / Wissensfrage / Beratung / Erklärung)
-Wenn der Nutzer eine Frage stellt oder um Erklärung bittet (z. B. "Wie kommt der Zucker aus meinen Johannisbeeren?", "Warum stagniert mein Gewicht?", "Ist Skyr besser als Magerquark?", "Erkläre mir...", "Was bedeutet...", "Wie viel Eiweiß brauche ich?"):
+FALL 1: "qa" (Ernährungsfrage / Wissensfrage / Beratung / App-Anleitung)
+Wenn der Nutzer eine Frage stellt oder um Erklärung bittet (z. B. "Wie kommt der Zucker aus meinen Johannisbeeren?", "Warum stagniert mein Gewicht?", "Ist Skyr besser als Magerquark?", "Erkläre mir...", "Was bedeutet...", "Wie viel Eiweiß brauche ich?" ODER nach einer Anleitung/Erklärung fragt wie "Zeig mal bitte die Erklärung bzw. Anleitung rund um die Naschereien!", "Wie funktionieren die Nascherei-Behälter?"):
 - Setze "intent": "qa"
 - Erstelle ein ausführliches "qaAnswer"-Objekt mit klarer Überschrift ("headline"), fundierter, verständlicher und ermutigender Erklärung ("answerText" in Fließtext mit 2-4 Absätzen, verständlich für den Alltag!), 2-4 prägnanten Stichpunkten ("keyPoints") und einem konkreten Praxistipp ("actionSuggestion").
+- Wenn nach der Nascherei-Anleitung gefragt wurde:
+  * "headline": "Anleitung: Smarte Nascherei-Behälter (v1.8)"
+  * Erkläre: 1. Schokolade nach Stücken/Rippen ohne Küchenwaage (KI kennt Stückgewichte), 2. Käsehappen-Augenmaß-Schule nach Gramm & Fettgehalt (10g Happen, 15g Würfel), 3. Keks-Dose (Kekse zählen wie Prinzenrolle ~95 kcal), 4. Eigene Standards & Papierkorb zum Ausmisten, 5. Sprachbefehle wie 'Erstelle Behälter für Kekse, beginne mit Prinzenrolle'.
 - "items": [] (keine erfundenen Mahlzeitkomponenten!)
-- "mealTitle": Kurzer Thementitel (z. B. "Zucker in Johannisbeeren erklärt")
+- "mealTitle": Kurzer Thementitel (z. B. "Zucker in Johannisbeeren erklärt" oder "Anleitung: Nascherei-Behälter")
 - "summaryNote": Kurze Zusammenfassung
 
 FALL 2: "workout" (Sport- & Aktivitäts-Erfassung)
@@ -394,9 +397,16 @@ Typische Beispiele:
 - "mealTitle": Treffender Titel, z. B. "Schokolade hinzugefügt: Milka Haselnuss" oder "Käsehappen hinzugefügt: Bergkäse" oder "Keks-Behälter: Prinzenrolle"
 - "summaryNote": Kurze Bestätigung mit Portionsgewicht und Kalorien pro Portion/Stückchen/Würfel.
 
+FALL 6: "show_qr" (QR-Code zum Teilen der App anzeigen)
+Wenn der Nutzer nach dem QR-Code fragt oder die App teilen möchte (z. B. "Zeig mal bitte den QR-Code, um die App zu teilen!", "QR-Code anzeigen", "QR Code", "App teilen", "QR-Code für meine Frau"):
+- Setze "intent": "show_qr"
+- "mealTitle": "📱 App teilen per QR-Code"
+- "summaryNote": "Hier ist euer offizieller QR-Code für 'Weniger Fressen'! Einfach mit der Smartphone-Kamera scannen, um die App auf jedem Gerät sofort zu öffnen und als App auf dem Homescreen zu speichern."
+- "items": []
+
 Antworte ausschließlich im angegebenen JSON-Format:
 {
-  "intent": "qa" | "meal" | "recipe" | "workout" | "standard_snack",
+  "intent": "qa" | "meal" | "recipe" | "workout" | "standard_snack" | "show_qr",
   "mealTitle": "Treffender Titel",
   "summaryNote": "Ausführliche Erklärung oder Zusammenfassung",
   "snackData": {
