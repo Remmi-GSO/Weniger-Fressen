@@ -23,7 +23,9 @@ dist-ssr
 *.sln
 *.sw?
 
-# User screenshots
+# User screenshots and source data
 WhatsApp*.jpeg
 WhatsApp*.jpg
 WhatsApp*.png
+/Data/
+/data/

@@ -37,9 +37,9 @@ export const VersionUpdateModal: React.FC<VersionUpdateModalProps> = ({
       <div className="w-full max-w-md bg-white rounded-3xl shadow-soft-xl border border-stone-100 overflow-hidden flex flex-col max-h-[92vh]">
         
         {/* Celebration Header */}
-        <div className="relative p-6 bg-gradient-to-br from-emerald-600 via-teal-600 to-indigo-700 text-white overflow-hidden shrink-0">
+        <div className="relative p-6 bg-gradient-to-br from-amber-500 via-orange-500 to-rose-600 text-white overflow-hidden shrink-0">
           <div className="absolute -right-6 -bottom-6 w-32 h-32 rounded-full bg-white/10 blur-xl pointer-events-none" />
-          <div className="absolute top-2 left-10 w-20 h-20 rounded-full bg-emerald-300/20 blur-lg pointer-events-none" />
+          <div className="absolute top-2 left-10 w-20 h-20 rounded-full bg-amber-300/20 blur-lg pointer-events-none" />
 
           <div className="relative z-10 flex items-start justify-between">
             <div className="space-y-1">
@@ -47,10 +47,10 @@ export const VersionUpdateModal: React.FC<VersionUpdateModalProps> = ({
                 🚀 MEILENSTEIN • VERSION {APP_VERSION}
               </span>
               <h3 className="text-xl font-black tracking-tight leading-tight pt-1">
-                Jetzt macht weniger fressen noch mehr Spaß! 🥳🎉
+                Weniger fressen trifft Mehr fressen! 🥳🎉
               </h3>
               <p className="text-xs text-white/95 font-medium">
-                Das gigantische Behälter-Update ist da: Schokolade ohne Waage, die Käsehappen-Schule & Keks-Dosen!
+                Das gigantische Doppel-Update: Tracker & Rezeptbuch vereint, 39 Paprika-Rezepte, Gebinde-Rechner & Community!
               </p>
             </div>
 
@@ -64,106 +64,91 @@ export const VersionUpdateModal: React.FC<VersionUpdateModalProps> = ({
           </div>
         </div>
 
-        {/* Scrollable Content Body with Version 1.8 Highlights */}
+        {/* Scrollable Content Body with Version 2.0 Highlights */}
         <div className="p-5 overflow-y-auto space-y-3 text-stone-700 flex-1">
-          <p className="text-xs font-semibold text-stone-600 leading-relaxed bg-stone-50 p-3 rounded-2xl border border-stone-200/80">
-            Wir haben das Tracken von Zwischenmahlzeiten revolutioniert: Organisiert eure Snacks in <strong>speziellen Behältern</strong>, lernt spielend Gramm-Größen und sprecht neue Sorten einfach mit der Stimme ein!
+          <p className="text-xs font-semibold text-stone-600 leading-relaxed bg-amber-50/80 p-3 rounded-2xl border border-amber-200/80">
+            Willkommen zur <strong>Version 2.0</strong>! Wir vereinen zwei Welten: Euren smarten Kalorien- & Fastentracker (<strong>Weniger fressen</strong>) und eure große Rezept-Datenbank & Backstube (<strong>Mehr fressen</strong>) mit vollem Startzustands-Gedächtnis!
           </p>
 
           <div className="space-y-2.5">
-            {/* 1. Schokoladen-Behälter */}
+            {/* 1. Doppel-Header & Modus-Gedächtnis */}
+            <div className="p-3 bg-gradient-to-r from-emerald-50 via-teal-50 to-amber-50 border border-emerald-200/90 rounded-2xl flex items-start gap-3">
+              <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-emerald-600 to-amber-500 text-white flex items-center justify-center shrink-0 shadow-2xs font-bold text-base">
+                🔄
+              </div>
+              <div className="text-xs space-y-0.5">
+                <span className="font-extrabold text-stone-900 block">
+                  Der neue Doppel-Header: Weniger fressen ↔ Mehr fressen
+                </span>
+                <p className="text-stone-600 leading-snug">
+                  Schaltet ganz oben mit einem Fingertipp zwischen Tracker und Rezeptdatenbank um. Die App merkt sich euren letzten Zustand und startet beim nächsten Mal exakt dort, wo ihr wart!
+                </p>
+              </div>
+            </div>
+
+            {/* 2. Paprika-Rezepte & Original-Fotos */}
+            <div className="p-3 bg-amber-50/80 border border-amber-200/90 rounded-2xl flex items-start gap-3">
+              <div className="w-8 h-8 rounded-xl bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-2xs font-bold text-base">
+                🍰
+              </div>
+              <div className="text-xs space-y-0.5">
+                <span className="font-extrabold text-amber-950 block">
+                  39 Paprika-Meisterwerke mit Fotos & Gesamtkalorien
+                </span>
+                <p className="text-stone-600 leading-snug">
+                  Schwarzwälder Kirschtorte, Sachertorte, Tiramisu, Auberginen-Auflauf, Paella, Waffeln und Butterbier – alle Rezepte sind mit Original-Foto, Zubereitung und berechneten Gesamtkalorien da! Verbucht sie grammgenau oder nach Portionen (1 Stück, 1/2, 1/4).
+                </p>
+              </div>
+            </div>
+
+            {/* 3. Smarte Gebinde- & Glas-Logik */}
+            <div className="p-3 bg-emerald-50/80 border border-emerald-200/90 rounded-2xl flex items-start gap-3">
+              <div className="w-8 h-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-2xs font-bold text-base">
+                🫙
+              </div>
+              <div className="text-xs space-y-0.5">
+                <span className="font-extrabold text-emerald-950 block">
+                  Smarte Gebinde-Logik: Rote-Bete-Gläser, Pizzen & Dosen
+                </span>
+                <p className="text-stone-600 leading-snug">
+                  Nie wieder rechnen: Die App zeigt das <strong>Ganze Gebinde (1/1)</strong> mit Gesamtkalorien und bietet direkte Anteile: <strong>1/2 Halbes Glas</strong>, <strong>2/3 Zwei Drittel (1/3 übrig)</strong>, <strong>1/3 Ein Drittel</strong> oder 1 Klick zur <strong>Küchenwaage (g)</strong>!
+                </p>
+              </div>
+            </div>
+
+            {/* 4. Das neue Community-Register */}
+            <div className="p-3 bg-indigo-50/80 border border-indigo-200/90 rounded-2xl flex items-start gap-3">
+              <div className="w-8 h-8 rounded-xl bg-indigo-600 text-white flex items-center justify-center shrink-0 shadow-2xs font-bold text-base">
+                🌐
+              </div>
+              <div className="text-xs space-y-0.5">
+                <span className="font-extrabold text-indigo-950 block">
+                  Neues Register „Community“ mit 1-Klick-Import
+                </span>
+                <p className="text-stone-600 leading-snug">
+                  Entdeckt leckere Rezepte anderer Nutzer (inkl. Ersteller wie <em>„Philipp“</em>, <em>„Markus“</em> oder <em>„Oma Hilde“</em>), lest euch die Kurz-Info durch und übernehmt sie mit einem Fingertipp in euer eigenes Rezeptbuch!
+                </p>
+              </div>
+            </div>
+
+            {/* 5. Smarte Naschereien & Behälter */}
             <div className="p-3 bg-pink-50/80 border border-pink-200/90 rounded-2xl flex items-start gap-3">
               <div className="w-8 h-8 rounded-xl bg-pink-600 text-white flex items-center justify-center shrink-0 shadow-2xs font-bold text-base">
                 🍫
               </div>
               <div className="text-xs space-y-0.5">
                 <span className="font-extrabold text-pink-950 block">
-                  Schokolade ohne Küchenwaage!
+                  Smarte Snack-Behälter (Schokolade & Käse)
                 </span>
                 <p className="text-stone-600 leading-snug">
-                  Nie wieder Schokolade abwiegen: Trackt einfach nach kleinsten Einheiten (1, 2, 3 Stückchen oder Rippen). Ob Milka (~4,2g), Ritter Sport (~6,25g) oder Lindt (~10g) – Stück-Gewichte und Kalorien stimmen auf den Punkt!
-                </p>
-              </div>
-            </div>
-
-            {/* 2. Käsehappen-Schule */}
-            <div className="p-3 bg-amber-50/80 border border-amber-200/90 rounded-2xl flex items-start gap-3">
-              <div className="w-8 h-8 rounded-xl bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-2xs font-bold text-base">
-                🧀
-              </div>
-              <div className="text-xs space-y-0.5">
-                <span className="font-extrabold text-amber-950 block">
-                  Die neue Käsehappen-Augenmaß-Schule!
-                </span>
-                <p className="text-stone-600 leading-snug">
-                  Entwickelt spielerisch ein echtes Gespür für Käse-Mengen: Schnelle Gramm-Schritte (10g Probier-Happen, 15g Würfel, Scheiben) mit Sofort-Feedback zu Fett und Eiweiß!
-                </p>
-              </div>
-            </div>
-
-            {/* 3. Keks-Dose & Prinzenrolle */}
-            <div className="p-3 bg-orange-50/80 border border-orange-200/90 rounded-2xl flex items-start gap-3">
-              <div className="w-8 h-8 rounded-xl bg-orange-500 text-white flex items-center justify-center shrink-0 shadow-2xs font-bold text-base">
-                🍪
-              </div>
-              <div className="text-xs space-y-0.5">
-                <span className="font-extrabold text-orange-950 block">
-                  Eigene Keks-Dose & Prinzenrollen-Tracker!
-                </span>
-                <p className="text-stone-600 leading-snug">
-                  Zählt Kekse ab sofort direkt nach Stückzahl – 1 Prinzenrolle (~95 kcal), 2 Kekse oder Schoko-Cookies mit einem einzigen Fingertipp verbuchen!
-                </p>
-              </div>
-            </div>
-
-            {/* 4. Magic Voice Behälter-Assistent */}
-            <div className="p-3 bg-indigo-50/80 border border-indigo-200/90 rounded-2xl flex items-start gap-3">
-              <div className="w-8 h-8 rounded-xl bg-indigo-600 text-white flex items-center justify-center shrink-0 shadow-2xs font-bold text-base">
-                🎙️
-              </div>
-              <div className="text-xs space-y-0.5">
-                <span className="font-extrabold text-indigo-950 block">
-                  Magic Voice: „Erstelle einen Behälter rund um Kekse...“
-                </span>
-                <p className="text-stone-600 leading-snug">
-                  Sprecht einfach: <em>„Erstelle einen Behälter für Kekse, beginne mit der Prinzenrolle“</em> oder <em>„Füge zur Schokolade Milka-Haselnuss hinzu“</em> – die KI ordnet den Behälter zu, berechnet die Grammzahlen und speichert alles sofort!
-                </p>
-              </div>
-            </div>
-
-            {/* 5. Eigene Standards & Ausblenden */}
-            <div className="p-3 bg-rose-50/80 border border-rose-200/90 rounded-2xl flex items-start gap-3">
-              <div className="w-8 h-8 rounded-xl bg-rose-500 text-white flex items-center justify-center shrink-0 shadow-2xs font-bold text-base">
-                ⭐
-              </div>
-              <div className="text-xs space-y-0.5">
-                <span className="font-extrabold text-rose-950 block">
-                  Eigene Standards merken & Vorgaben aufräumen
-                </span>
-                <p className="text-stone-600 leading-snug">
-                  Eigene Naschereien mit 1 Klick als Standard festlegen oder ungeliebte Vorgaben einfach über den Papierkorb aus eurer Übersicht entfernen!
-                </p>
-              </div>
-            </div>
-
-            {/* 6. Sicherer Gerätewechsel & Notfall-Backup */}
-            <div className="p-3 bg-emerald-50/80 border border-emerald-200/90 rounded-2xl flex items-start gap-3">
-              <div className="w-8 h-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-2xs font-bold text-base">
-                🔄
-              </div>
-              <div className="text-xs space-y-0.5">
-                <span className="font-extrabold text-emerald-950 block">
-                  Sicherer 10-Tage-Gerätewechsel & Smart Merge
-                </span>
-                <p className="text-stone-600 leading-snug">
-                  Handy in Reparatur? Exportiert den aktuellen Stand aufs Leihgerät und führt die neuen Tage später zerstörungsfrei und ohne Datenverlust wieder zusammen!
+                  Schokolade nach Rippchen/Stückchen ohne Küchenwaage und Käsehappen zum spielerischen Gramm-Lernen mit sofortigem Fett- & Eiweiß-Feedback!
                 </p>
               </div>
             </div>
           </div>
 
-          <div className="p-3 bg-gradient-to-r from-emerald-500/10 via-teal-500/10 to-indigo-500/10 rounded-2xl border border-emerald-200/80 text-center text-xs font-bold text-emerald-900">
-            🎉 Viel Spaß mit der nagelneuen Version 1.8!
+          <div className="p-3 bg-gradient-to-r from-amber-500/10 via-orange-500/10 to-rose-500/10 rounded-2xl border border-amber-200/80 text-center text-xs font-bold text-amber-950">
+            🎉 Viel Freude mit der meisterhaften Version 2.0!
           </div>
         </div>
 
@@ -172,17 +157,17 @@ export const VersionUpdateModal: React.FC<VersionUpdateModalProps> = ({
           <button
             type="button"
             onClick={handleTryMagic}
-            className="flex-1 py-3 px-4 rounded-2xl bg-gradient-to-r from-emerald-600 via-teal-600 to-indigo-600 hover:from-emerald-700 hover:to-indigo-700 text-white font-bold text-xs shadow-soft transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-[0.99]"
+            className="py-3 px-4 rounded-2xl bg-stone-100 hover:bg-stone-200 text-stone-700 font-extrabold text-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer"
           >
-            <Sparkles className="w-4 h-4" />
-            <span>Magic Button jetzt ausprobieren!</span>
+            <span>🎙️ Magic Button</span>
           </button>
           <button
             type="button"
             onClick={onClose}
-            className="py-3 px-4 rounded-2xl bg-white border border-stone-200 hover:bg-stone-100 text-stone-700 font-bold text-xs transition-colors cursor-pointer"
+            className="flex-1 py-3 px-4 rounded-2xl bg-gradient-to-r from-amber-500 via-orange-500 to-rose-600 hover:from-amber-600 hover:to-rose-700 text-white font-extrabold text-xs shadow-soft transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-[0.99]"
           >
-            Verstanden & Los!
+            <Sparkles className="w-4 h-4" />
+            <span>Jetzt loslegen & entdecken!</span>
           </button>
         </div>
 

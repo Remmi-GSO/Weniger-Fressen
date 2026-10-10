@@ -362,7 +362,52 @@ export function getPortionPresets(product: FoodProduct | null | undefined): Port
     ];
   }
 
-  // 28. PRODUCT HAS PRE-CONFIGURED SERVING WEIGHT (from OpenFoodFacts or Supermarket Catalog)
+  // 28. PRODUCT HAS TOTAL PACKAGE / CONTAINER WEIGHT (Glas, Dose, Pizza, Packung, etc.)
+  if (product.packageWeightGrams && product.packageWeightGrams > 0) {
+    const pw = product.packageWeightGrams;
+    const type = product.containerType || 'general';
+
+    let unitWord = 'Packung';
+    let icon = '📦';
+    if (type === 'jar') {
+      unitWord = 'Glas';
+      icon = '🫙';
+    } else if (type === 'can') {
+      unitWord = 'Dose';
+      icon = '🥫';
+    } else if (type === 'pizza') {
+      unitWord = 'Pizza';
+      icon = '🍕';
+    } else if (type === 'cup') {
+      unitWord = 'Becher';
+      icon = '🥣';
+    } else if (type === 'bottle') {
+      unitWord = 'Flasche';
+      icon = '🍾';
+    }
+
+    if (type === 'pizza') {
+      return [
+        { id: 'pkg_full', label: `1/1 Ganze ${unitWord}`, subtitle: `ca. ${pw}g (100%)`, grams: pw, icon, isDefault: true },
+        { id: 'pkg_half', label: `1/2 Halbe ${unitWord}`, subtitle: `ca. ${Math.round(pw * 0.5)}g (50%)`, grams: Math.round(pw * 0.5), icon },
+        { id: 'pkg_three_quarter', label: `3/4 Drei Viertel`, subtitle: `ca. ${Math.round(pw * 0.75)}g (75%)`, grams: Math.round(pw * 0.75), icon },
+        { id: 'pkg_quarter', label: `1/4 Ein Viertel`, subtitle: `ca. ${Math.round(pw * 0.25)}g (25%)`, grams: Math.round(pw * 0.25), icon },
+      ];
+    }
+
+    const articleGanz = unitWord === 'Dose' || unitWord === 'Flasche' || unitWord === 'Pizza' || unitWord === 'Packung' ? 'Ganze' : 'Ganzes';
+    const articleHalb = unitWord === 'Dose' || unitWord === 'Flasche' || unitWord === 'Pizza' || unitWord === 'Packung' ? 'Halbe' : 'Halbes';
+
+    return [
+      { id: 'pkg_full', label: `1/1 ${articleGanz} ${unitWord}`, subtitle: `ca. ${pw}g (Komplett)`, grams: pw, icon },
+      { id: 'pkg_half', label: `1/2 ${articleHalb} ${unitWord}`, subtitle: `ca. ${Math.round(pw * 0.5)}g (50%)`, grams: Math.round(pw * 0.5), icon, isDefault: true },
+      { id: 'pkg_two_third', label: `2/3 Zwei Drittel`, subtitle: `ca. ${Math.round(pw * (2 / 3))}g (1/3 übrig)`, grams: Math.round(pw * (2 / 3)), icon },
+      { id: 'pkg_one_third', label: `1/3 Ein Drittel`, subtitle: `ca. ${Math.round(pw * (1 / 3))}g (33%)`, grams: Math.round(pw * (1 / 3)), icon },
+      { id: 'pkg_quarter', label: `1/4 Ein Viertel`, subtitle: `ca. ${Math.round(pw * 0.25)}g (25%)`, grams: Math.round(pw * 0.25), icon },
+    ];
+  }
+
+  // 29. PRODUCT HAS PRE-CONFIGURED SERVING WEIGHT (from OpenFoodFacts or Supermarket Catalog)
   if (product.servingWeightGrams && product.servingWeightGrams > 0) {
     const sw = product.servingWeightGrams;
     const label = product.servingSize || '1 Portion';
@@ -374,7 +419,7 @@ export function getPortionPresets(product: FoodProduct | null | undefined): Port
     ];
   }
 
-  // 29. UNIVERSAL FALLBACK
+  // 30. UNIVERSAL FALLBACK
   return [
     { id: 'gen_s', label: 'Kleine Portion', subtitle: 'ca. 100g', grams: 100, icon: '🥗' },
     { id: 'gen_m', label: 'Normale Portion', subtitle: 'ca. 200g', grams: 200, icon: '🥗', isDefault: true },

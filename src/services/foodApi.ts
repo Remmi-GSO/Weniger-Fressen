@@ -12,7 +12,10 @@ export interface FoodProduct {
   fiber100g?: number;
   sugar100g?: number;
   servingSize?: string;
+  servingName?: string;
   servingWeightGrams?: number;
+  packageWeightGrams?: number; // Gesamtgewicht der Packung/des Glases/der Pizza/Dose
+  containerType?: 'jar' | 'can' | 'pack' | 'pizza' | 'bottle' | 'cup' | 'general';
   imageUrl?: string;
   barcode?: string;
   source?: 'local' | 'supermarket' | 'online' | 'ai' | 'recipe';
@@ -40,6 +43,69 @@ export function parseServingGrams(servingStr?: string): number | undefined {
     return val > 0 ? val : undefined;
   }
   return undefined;
+}
+
+/**
+ * Parses total package weight and container type from raw product data
+ */
+export function parsePackageGrams(quantityStr?: string, raw?: any): { weight?: number; type: 'jar' | 'can' | 'pack' | 'pizza' | 'bottle' | 'cup' | 'general' } {
+  const name = (raw?.product_name_de || raw?.product_name || raw?.generic_name || '').toLowerCase();
+  const packaging = (raw?.packaging || raw?.packaging_text || '').toLowerCase();
+  const fullText = `${quantityStr || ''} ${packaging} ${name}`;
+
+  let type: 'jar' | 'can' | 'pack' | 'pizza' | 'bottle' | 'cup' | 'general' = 'general';
+  if (fullText.includes('glas') || fullText.includes('jar') || fullText.includes('gläschen')) {
+    type = 'jar';
+  } else if (fullText.includes('dose') || fullText.includes('can') || fullText.includes('büchse') || fullText.includes('konserve') || fullText.includes('tuna') || fullText.includes('thunfisch')) {
+    type = 'can';
+  } else if (fullText.includes('pizza') || fullText.includes('flammkuchen')) {
+    type = 'pizza';
+  } else if (fullText.includes('becher') || fullText.includes('cup') || fullText.includes('tasse') || fullText.includes('joghurt')) {
+    type = 'cup';
+  } else if (fullText.includes('flasche') || fullText.includes('bottle')) {
+    type = 'bottle';
+  } else if (fullText.includes('beutel') || fullText.includes('packung') || fullText.includes('tüte') || fullText.includes('bag') || fullText.includes('pack')) {
+    type = 'pack';
+  }
+
+  // 1. Drained weight (Abtropfgewicht) for pickled items / jars / canned veggies
+  if (raw?.drained_weight) {
+    const drained = parseServingGrams(String(raw.drained_weight));
+    if (drained && drained > 0) {
+      return { weight: Math.round(drained), type };
+    }
+  }
+
+  // 2. Specific product quantity in numbers
+  if (raw?.product_quantity && Number(raw.product_quantity) > 0) {
+    return { weight: Math.round(Number(raw.product_quantity)), type };
+  }
+  if (raw?.net_weight_value && Number(raw.net_weight_value) > 0) {
+    return { weight: Math.round(Number(raw.net_weight_value)), type };
+  }
+
+  // 3. Parse string e.g. "340 g", "340g", "0.5 kg", "385 g (1 Pizza)"
+  if (quantityStr) {
+    const kgMatch = quantityStr.match(/(\d+(?:[.,]\d+)?)\s*kg/i);
+    if (kgMatch && kgMatch[1]) {
+      return { weight: Math.round(parseFloat(kgMatch[1].replace(',', '.')) * 1000), type };
+    }
+    const gMatch = quantityStr.match(/(\d+(?:[.,]\d+)?)\s*(?:g|ml|gramm)/i);
+    if (gMatch && gMatch[1]) {
+      return { weight: Math.round(parseFloat(gMatch[1].replace(',', '.'))), type };
+    }
+  }
+
+  // 4. Fallback: Parse weight from product name itself e.g. "Rote Bete 340g" or "Pizza 380g"
+  const nameGMatch = name.match(/(\d+(?:[.,]\d+)?)\s*(?:g|ml|gramm)/i);
+  if (nameGMatch && nameGMatch[1]) {
+    const val = parseFloat(nameGMatch[1].replace(',', '.'));
+    if (val >= 25 && val <= 5000) {
+      return { weight: Math.round(val), type };
+    }
+  }
+
+  return { weight: undefined, type };
 }
 
 /**
@@ -78,6 +144,9 @@ export function normalizeProduct(raw: any, barcode?: string): FoodProduct | null
   const servingSize = raw.serving_size || undefined;
   const servingWeightGrams = parseServingGrams(servingSize) || (raw.serving_quantity ? Number(raw.serving_quantity) : undefined);
 
+  // Extract package weight and container type
+  const { weight: packageWeightGrams, type: containerType } = parsePackageGrams(raw.quantity, raw);
+
   const imageUrl =
     raw.image_front_small_url ||
     raw.image_small_url ||
@@ -97,6 +166,8 @@ export function normalizeProduct(raw: any, barcode?: string): FoodProduct | null
     sugar100g: sugar,
     servingSize,
     servingWeightGrams,
+    packageWeightGrams,
+    containerType,
     imageUrl,
     barcode: barcode || raw.code,
     source: 'online',

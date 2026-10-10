@@ -65,8 +65,23 @@ export const PortionCalculatorModal = ({
   );
   const rawDishWeight = recipe?.totalRawWeight || product?.totalRawWeight;
 
+  // States for package / container (Glas, Dose, Pizza, Packung)
+  const [packageWeight, setPackageWeight] = useState<number | undefined>(product?.packageWeightGrams);
+  const [isEditingPackageWeight, setIsEditingPackageWeight] = useState<boolean>(false);
+  const [packageWeightInput, setPackageWeightInput] = useState<string>(
+    product?.packageWeightGrams ? String(product.packageWeightGrams) : ''
+  );
+
+  const effectiveProduct = useMemo(() => {
+    if (!product) return null;
+    return {
+      ...product,
+      packageWeightGrams: packageWeight,
+    };
+  }, [product, packageWeight]);
+
   // Compute available intuitive portion presets for standard foods
-  const presets = useMemo(() => getPortionPresets(product), [product]);
+  const presets = useMemo(() => getPortionPresets(effectiveProduct), [effectiveProduct]);
   const defaultPreset = useMemo(() => {
     return presets.find((p) => p.isDefault) || presets[0] || null;
   }, [presets]);
@@ -99,7 +114,14 @@ export const PortionCalculatorModal = ({
   // Sync state whenever selected product or defaultMealType changes
   useEffect(() => {
     if (product) {
-      const pList = getPortionPresets(product);
+      setPackageWeight(product.packageWeightGrams);
+      setPackageWeightInput(product.packageWeightGrams ? String(product.packageWeightGrams) : '');
+      setIsEditingPackageWeight(false);
+
+      const pList = getPortionPresets({
+        ...product,
+        packageWeightGrams: product.packageWeightGrams,
+      });
       const def = pList.find((p) => p.isDefault) || pList[0] || null;
       setSelectedPreset(def);
       setMode('preset');
@@ -127,6 +149,19 @@ export const PortionCalculatorModal = ({
       setReason(undefined);
     }
   }, [product, defaultMealType, totalDishWeight]);
+
+  // Keep selectedPreset in sync if packageWeight is edited
+  useEffect(() => {
+    if (effectiveProduct && packageWeight) {
+      const pList = getPortionPresets(effectiveProduct);
+      if (pList.length > 0) {
+        if (!selectedPreset || selectedPreset.id.startsWith('pkg_')) {
+          const match = pList.find((p) => p.id === selectedPreset?.id) || pList[0];
+          setSelectedPreset(match);
+        }
+      }
+    }
+  }, [packageWeight, effectiveProduct]);
 
   if (!isOpen || !product) return null;
 
@@ -381,6 +416,82 @@ export const PortionCalculatorModal = ({
               </span>
             </div>
           </div>
+
+          {/* DEDICATED PACKAGE / CONTAINER INFO BOX (Ganzes Glas, Ganze Packung, Ganze Pizza, Ganze Dose) */}
+          {!isRecipe && packageWeight && packageWeight > 0 && (
+            <div className="bg-emerald-50/90 border border-emerald-200/90 rounded-2xl p-3.5 space-y-1.5 text-left">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-black text-emerald-950 uppercase tracking-wider flex items-center gap-1.5">
+                  <span>
+                    {product.containerType === 'jar' ? '🫙' :
+                     product.containerType === 'can' ? '🥫' :
+                     product.containerType === 'pizza' ? '🍕' :
+                     product.containerType === 'cup' ? '🥣' :
+                     product.containerType === 'bottle' ? '🍾' : '📦'}
+                  </span>
+                  <span>
+                    {product.containerType === 'jar' ? 'Ganzes Glas (1/1)' :
+                     product.containerType === 'can' ? 'Ganze Dose (1/1)' :
+                     product.containerType === 'pizza' ? 'Ganze Pizza (1/1)' :
+                     product.containerType === 'cup' ? 'Ganzer Becher (1/1)' :
+                     product.containerType === 'bottle' ? 'Ganze Flasche (1/1)' : 'Ganze Packung (1/1)'}
+                  </span>
+                </span>
+                <span className="text-xs font-black text-emerald-950 bg-emerald-200/90 px-2.5 py-0.5 rounded-full">
+                  {packageWeight}g • {Math.round(product.calories100g * (packageWeight / 100))} kcal
+                </span>
+              </div>
+              <div className="flex items-center justify-between text-[11px] text-emerald-900/80 pt-0.5 font-medium">
+                <span>Basis: {product.calories100g} kcal / 100g</span>
+                <button
+                  type="button"
+                  onClick={() => setIsEditingPackageWeight(!isEditingPackageWeight)}
+                  className="text-emerald-700 hover:text-emerald-800 font-bold underline cursor-pointer"
+                >
+                  {isEditingPackageWeight ? 'Schließen' : '✏️ Gebindegröße anpassen'}
+                </button>
+              </div>
+              {isEditingPackageWeight && (
+                <div className="pt-2 flex items-center gap-2">
+                  <span className="text-xs text-stone-600 font-semibold">Inhalt / Abtropfgewicht:</span>
+                  <input
+                    type="number"
+                    min="1"
+                    max="5000"
+                    value={packageWeightInput}
+                    onChange={(e) => {
+                      setPackageWeightInput(e.target.value);
+                      const val = parseFloat(e.target.value);
+                      if (val && val > 0) {
+                        setPackageWeight(val);
+                      }
+                    }}
+                    className="w-24 px-2 py-1 bg-white border border-emerald-300 rounded-lg text-xs font-bold text-center"
+                    placeholder="z.B. 340"
+                    autoFocus
+                  />
+                  <span className="text-xs text-stone-500">Gramm</span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Quick prompt to set container weight if missing on scanned items */}
+          {!isRecipe && !packageWeight && (
+            <button
+              type="button"
+              onClick={() => {
+                const guessed = product.servingWeightGrams ? Math.round(product.servingWeightGrams * 2) : 340;
+                setPackageWeight(guessed);
+                setPackageWeightInput(String(guessed));
+                setIsEditingPackageWeight(true);
+              }}
+              className="w-full py-2 px-3 rounded-xl bg-stone-50 border border-stone-200 hover:bg-emerald-50 hover:border-emerald-200 text-stone-600 hover:text-emerald-800 text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+            >
+              <span>🫙</span>
+              <span>Gesamtgebinde (Glas, Dose, Pizza, Packung) erfassen</span>
+            </button>
+          )}
 
           {/* DEDICATED RECIPE INFO BOX (Transparent Cooked Amount) */}
           {isRecipe && (

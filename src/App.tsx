@@ -23,12 +23,32 @@ import { EditEntryModal } from './components/EditEntryModal';
 import { NutritionReportModal } from './components/NutritionReportModal';
 import { MorningBriefingModal } from './components/MorningBriefingModal';
 import { VersionUpdateModal } from './components/VersionUpdateModal';
+import { RecipeDatabaseView } from './components/RecipeDatabaseView';
+import { PAPRIKA_RECIPES } from './data/paprikaRecipes';
 import { Settings, Maximize, Minimize } from 'lucide-react';
-import { APP_VERSION } from './config/version';
+import { APP_VERSION, RECIPES_VERSION } from './config/version';
 
 export function App() {
   const [selectedDate, setSelectedDate] = useState<string>(getTodayDateString());
   const [currentTab, setCurrentTab] = useState<NavTab>('diary');
+
+  // Master App Mode: 'tracker' (Weniger fressen) vs 'recipes' (Mehr fressen)
+  const [appMode, setAppMode] = useState<'tracker' | 'recipes'>(() => {
+    try {
+      return (localStorage.getItem('weniger_fressen_app_mode') as 'tracker' | 'recipes') || 'tracker';
+    } catch {
+      return 'tracker';
+    }
+  });
+
+  const handleSwitchAppMode = (mode: 'tracker' | 'recipes') => {
+    setAppMode(mode);
+    try {
+      localStorage.setItem('weniger_fressen_app_mode', mode);
+    } catch (e) {
+      console.warn('Could not store app mode', e);
+    }
+  };
   
   // Modals state
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -157,6 +177,47 @@ export function App() {
     setIsRecipeCreatorOpen(true);
   };
 
+  // Seed Master Paprika Recipes into local Dexie database if not already present
+  useEffect(() => {
+    const seedMasterRecipes = async () => {
+      try {
+        const existing = await db.recipes.toArray();
+        const existingNames = new Set(existing.map((r) => r.name.toLowerCase().trim()));
+        const toAdd = PAPRIKA_RECIPES.filter((pr) => !existingNames.has(pr.name.toLowerCase().trim()));
+        if (toAdd.length > 0) {
+          await db.recipes.bulkAdd(toAdd);
+        }
+      } catch (err) {
+        console.warn('Could not seed Paprika recipes:', err);
+      }
+    };
+    seedMasterRecipes();
+  }, []);
+
+  const handleOpenPortionCalcForRecipe = (recipe: CustomRecipe) => {
+    const product: FoodProduct = {
+      id: `recipe-${recipe.id || recipe.name}`,
+      name: recipe.name,
+      brand: 'Selbstgemacht',
+      calories100g: recipe.calories100g,
+      protein100g: recipe.protein100g,
+      carbs100g: recipe.carbs100g,
+      fat100g: recipe.fat100g,
+      fiber100g: recipe.fiber100g,
+      sugar100g: recipe.sugar100g,
+      imageUrl: recipe.imageUrl,
+      source: 'recipe',
+      recipeData: recipe,
+      cookedWeight: recipe.cookedWeight,
+      totalRawWeight: recipe.totalRawWeight,
+      servingName: recipe.servingName,
+      servingWeightGrams: recipe.servingWeightGrams,
+      recipeCategory: recipe.category,
+    };
+    setSelectedProduct(product);
+    setIsPortionCalcOpen(true);
+  };
+
   const [aiMealInitialText, setAiMealInitialText] = useState<string>('');
   const [aiMealAutoStartVoice, setAiMealAutoStartVoice] = useState(false);
   const [aiMealVoiceStopSignal, setAiMealVoiceStopSignal] = useState(0);
@@ -236,39 +297,79 @@ export function App() {
   return (
     <div className="min-h-screen bg-[#F8FAF8] text-stone-800 flex flex-col font-sans selection:bg-emerald-100">
       
-      {/* Top Header */}
-      <header className="sticky top-0 z-30 bg-white/90 backdrop-blur-md border-b border-surface-border px-4 py-2.5 shadow-sm">
+      {/* Top Header: Dual-Brand Switching ("Weniger fressen" ↔ "Mehr fressen") */}
+      <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-surface-border px-3 py-2 shadow-xs">
         <div className="max-w-md mx-auto flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2.5 min-w-0">
-            <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-emerald-500 to-teal-400 flex items-center justify-center text-xl shadow-soft shrink-0">
-              🥗
-            </div>
-            <div className="min-w-0">
-              <h1 className="text-base font-extrabold tracking-tight text-stone-900 leading-none truncate">
-                Weniger Fressen
-              </h1>
-              <p className="text-[11px] text-stone-400 font-medium mt-0.5 truncate">
-                {profile.name && profile.name.trim() !== 'Du' ? (
-                  <>Hallo, <span className="font-semibold text-stone-600">{profile.name.trim()}</span> 👋</>
-                ) : (
-                  <>Willkommen 👋</>
-                )}
-              </p>
-            </div>
+          {/* Dual Brand Switcher */}
+          <div className="flex-1 grid grid-cols-2 gap-1.5 p-1 bg-stone-100/90 rounded-2xl border border-stone-200/70">
+            {/* Weniger fressen (Tracker) */}
+            <button
+              type="button"
+              onClick={() => handleSwitchAppMode('tracker')}
+              className={`flex items-center gap-2 px-2.5 py-1.5 rounded-xl transition-all cursor-pointer text-left ${
+                appMode === 'tracker'
+                  ? 'bg-white shadow-xs text-stone-900 border border-stone-200/70'
+                  : 'text-stone-500 hover:text-stone-800 hover:bg-stone-50/60'
+              }`}
+            >
+              <div
+                className={`w-7 h-7 rounded-lg flex items-center justify-center text-sm shrink-0 transition-transform ${
+                  appMode === 'tracker'
+                    ? 'bg-gradient-to-tr from-emerald-500 to-teal-500 text-white shadow-2xs scale-105'
+                    : 'bg-stone-200/80 text-stone-600'
+                }`}
+              >
+                🥗
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="text-[12px] font-extrabold tracking-tight truncate leading-tight">
+                  Weniger fressen
+                </div>
+                <div className="text-[10px] font-bold text-emerald-600 leading-tight">
+                  v{APP_VERSION} • Tracker
+                </div>
+              </div>
+            </button>
+
+            {/* Mehr fressen (Rezepte) */}
+            <button
+              type="button"
+              onClick={() => handleSwitchAppMode('recipes')}
+              className={`flex items-center gap-2 px-2.5 py-1.5 rounded-xl transition-all cursor-pointer text-left ${
+                appMode === 'recipes'
+                  ? 'bg-white shadow-xs text-stone-900 border border-stone-200/70'
+                  : 'text-stone-500 hover:text-stone-800 hover:bg-stone-50/60'
+              }`}
+            >
+              <div
+                className={`w-7 h-7 rounded-lg flex items-center justify-center text-sm shrink-0 transition-transform ${
+                  appMode === 'recipes'
+                    ? 'bg-gradient-to-tr from-amber-500 to-orange-500 text-white shadow-2xs scale-105'
+                    : 'bg-stone-200/80 text-stone-600'
+                }`}
+              >
+                📖
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="text-[12px] font-extrabold tracking-tight truncate leading-tight">
+                  Mehr fressen
+                </div>
+                <div className="text-[10px] font-bold text-amber-600 leading-tight">
+                  v{RECIPES_VERSION} • Rezepte
+                </div>
+              </div>
+            </button>
           </div>
 
-          {/* Top Right Controls: Version & Quick Settings */}
-          <div className="flex items-center gap-1.5 shrink-0">
-            <span className="text-[10px] font-black text-stone-600 bg-stone-100 border border-stone-200/90 px-2 py-1 rounded-lg leading-none shadow-2xs">
-              v{APP_VERSION}
-            </span>
-
+          {/* Quick Controls: Fullscreen & Settings */}
+          <div className="flex items-center gap-1 shrink-0">
             <button
+              type="button"
               onClick={handleToggleFullscreen}
-              className={`w-7 h-7 rounded-xl flex items-center justify-center transition-all border ${
+              className={`w-8 h-8 rounded-xl flex items-center justify-center transition-all border ${
                 isFullscreen
                   ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                  : 'bg-stone-50 hover:bg-stone-100 text-stone-500 border-stone-100'
+                  : 'bg-stone-50 hover:bg-stone-100 text-stone-500 border-stone-200/60'
               }`}
               title={isFullscreen ? 'Vollbildmodus beenden' : 'Vollbildmodus aktivieren'}
             >
@@ -276,8 +377,9 @@ export function App() {
             </button>
 
             <button
+              type="button"
               onClick={() => setShowSettings(true)}
-              className="w-7 h-7 rounded-xl bg-stone-50 hover:bg-stone-100 flex items-center justify-center text-stone-500 transition-colors border border-stone-100"
+              className="w-8 h-8 rounded-xl bg-stone-50 hover:bg-stone-100 flex items-center justify-center text-stone-500 transition-colors border border-stone-200/60"
               title="Einstellungen & Eigenschaften"
             >
               <Settings className="w-3.5 h-3.5" />
@@ -288,100 +390,113 @@ export function App() {
 
       {/* Main Screen Content */}
       <main className="flex-1 max-w-md w-full mx-auto p-4 sm:p-5">
-        {currentTab === 'diary' && (
-          <Dashboard
+        {appMode === 'recipes' ? (
+          <RecipeDatabaseView
+            onOpenRecipeCreator={() => setIsRecipeCreatorOpen(true)}
+            onOpenPortionCalcForRecipe={handleOpenPortionCalcForRecipe}
             selectedDate={selectedDate}
-            onDateChange={setSelectedDate}
-            userProfile={profile}
-            diaryEntries={diaryEntries}
-            waterLogs={waterLogs}
-            activityLogs={activityLogs}
-            activeFastingSession={activeFastingSession}
-            onOpenSearch={handleOpenSearch}
-            onOpenScanner={handleOpenScanner}
-            onOpenQuickAdd={handleOpenQuickAdd}
-            onOpenRecipeCreator={handleOpenRecipeCreator}
-            onOpenActivityModal={() => setIsActivityModalOpen(true)}
-            onOpenSnackModal={() => setIsSnackModalOpen(true)}
-            onOpenAiMeal={handleOpenAiMeal}
-            onOpenNutritionReport={() => setIsNutritionReportOpen(true)}
-            onEditEntry={setEditingEntry}
-            onNavigateToTab={setCurrentTab}
           />
-        )}
+        ) : (
+          <>
+            {currentTab === 'diary' && (
+              <Dashboard
+                selectedDate={selectedDate}
+                onDateChange={setSelectedDate}
+                userProfile={profile}
+                diaryEntries={diaryEntries}
+                waterLogs={waterLogs}
+                activityLogs={activityLogs}
+                activeFastingSession={activeFastingSession}
+                onOpenSearch={handleOpenSearch}
+                onOpenScanner={handleOpenScanner}
+                onOpenQuickAdd={handleOpenQuickAdd}
+                onOpenRecipeCreator={handleOpenRecipeCreator}
+                onOpenActivityModal={() => setIsActivityModalOpen(true)}
+                onOpenSnackModal={() => setIsSnackModalOpen(true)}
+                onOpenAiMeal={handleOpenAiMeal}
+                onOpenNutritionReport={() => setIsNutritionReportOpen(true)}
+                onEditEntry={setEditingEntry}
+                onNavigateToTab={setCurrentTab}
+              />
+            )}
 
-        {currentTab === 'fasting' && (
-          <div className="space-y-4 pb-24">
-            <FastingTracker currentSession={activeFastingSession} />
-          </div>
-        )}
-
-        {currentTab === 'weight' && (
-          <div className="space-y-4 pb-24">
-            <WeightTracker
-              logs={weightLogs}
-              userProfile={profile}
-              onOpenNutritionReport={() => setIsNutritionReportOpen(true)}
-            />
-          </div>
-        )}
-
-        {currentTab === 'settings' && (
-          <div className="space-y-4 pb-24">
-            <div className="bg-white rounded-3xl p-6 shadow-card border border-surface-border text-center space-y-4">
-              <div className="w-16 h-16 bg-emerald-50 text-emerald-600 rounded-3xl flex items-center justify-center mx-auto text-3xl">
-                👤
+            {currentTab === 'fasting' && (
+              <div className="space-y-4 pb-24">
+                <FastingTracker currentSession={activeFastingSession} />
               </div>
-              <div>
-                <h3 className="text-lg font-bold text-stone-800">{profile.name}</h3>
-                <p className="text-xs text-stone-400">
-                  Ziel: {profile.targetWeight} kg (Aktuell: {profile.weight} kg)
-                </p>
-              </div>
+            )}
 
-              <div className="p-3 bg-stone-50 rounded-2xl text-xs text-stone-600 space-y-1 text-left">
-                <div className="flex justify-between">
-                  <span>Tagesbudget:</span>
-                  <span className="font-bold text-stone-800">{profile.targetCalories} kcal</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Protein:</span>
-                  <span className="font-bold text-stone-800">{profile.targetProtein} g</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Kohlenhydrate:</span>
-                  <span className="font-bold text-stone-800">{profile.targetCarbs} g</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Fett:</span>
-                  <span className="font-bold text-stone-800">{profile.targetFat} g</span>
+            {currentTab === 'weight' && (
+              <div className="space-y-4 pb-24">
+                <WeightTracker
+                  logs={weightLogs}
+                  userProfile={profile}
+                  onOpenNutritionReport={() => setIsNutritionReportOpen(true)}
+                />
+              </div>
+            )}
+
+            {currentTab === 'settings' && (
+              <div className="space-y-4 pb-24">
+                <div className="bg-white rounded-3xl p-6 shadow-card border border-surface-border text-center space-y-4">
+                  <div className="w-16 h-16 bg-emerald-50 text-emerald-600 rounded-3xl flex items-center justify-center mx-auto text-3xl">
+                    👤
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold text-stone-800">{profile.name}</h3>
+                    <p className="text-xs text-stone-400">
+                      Ziel: {profile.targetWeight} kg (Aktuell: {profile.weight} kg)
+                    </p>
+                  </div>
+
+                  <div className="p-3 bg-stone-50 rounded-2xl text-xs text-stone-600 space-y-1 text-left">
+                    <div className="flex justify-between">
+                      <span>Tagesbudget:</span>
+                      <span className="font-bold text-stone-800">{profile.targetCalories} kcal</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Protein:</span>
+                      <span className="font-bold text-stone-800">{profile.targetProtein} g</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Kohlenhydrate:</span>
+                      <span className="font-bold text-stone-800">{profile.targetCarbs} g</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Fett:</span>
+                      <span className="font-bold text-stone-800">{profile.targetFat} g</span>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2 pt-1">
+                    <button
+                      onClick={() => setIsNutritionReportOpen(true)}
+                      className="w-full py-3 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-bold text-xs shadow-soft hover:from-emerald-700 hover:to-teal-700 transition-all flex items-center justify-center gap-2 cursor-pointer"
+                    >
+                      <span>📊 Ernährungs-Bericht auf Abruf (3, 5, 10, 20 Tage)</span>
+                    </button>
+
+                    <button
+                      onClick={() => setShowSettings(true)}
+                      className="w-full py-3 rounded-2xl bg-stone-100 hover:bg-stone-200 text-stone-800 font-bold text-xs transition-all cursor-pointer"
+                    >
+                      Ziele & API-Keys bearbeiten
+                    </button>
+                  </div>
                 </div>
               </div>
-
-              <div className="space-y-2 pt-1">
-                <button
-                  onClick={() => setIsNutritionReportOpen(true)}
-                  className="w-full py-3 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-bold text-xs shadow-soft hover:from-emerald-700 hover:to-teal-700 transition-all flex items-center justify-center gap-2 cursor-pointer"
-                >
-                  <span>📊 Ernährungs-Bericht auf Abruf (3, 5, 10, 20 Tage)</span>
-                </button>
-
-                <button
-                  onClick={() => setShowSettings(true)}
-                  className="w-full py-3 rounded-2xl bg-stone-100 hover:bg-stone-200 text-stone-800 font-bold text-xs transition-all cursor-pointer"
-                >
-                  Ziele & API-Keys bearbeiten
-                </button>
-              </div>
-            </div>
-          </div>
+            )}
+          </>
         )}
       </main>
 
       {/* Floating Bottom Navigation with Aesthetic AI Voice/Meal Button */}
       <BottomNav
         currentTab={currentTab}
-        onTabChange={setCurrentTab}
+        onTabChange={(tab) => {
+          handleSwitchAppMode('tracker');
+          setCurrentTab(tab);
+        }}
         onVoiceMealClick={handleVoiceMealFromNav}
       />
 

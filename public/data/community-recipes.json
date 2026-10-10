@@ -1,0 +1,142 @@
+[
+  {
+    "id": "comm_waffeln_philipp",
+    "name": "Belgische Knusperwaffeln",
+    "author": "Philipp",
+    "authorRole": "Community Bäcker 👨‍🍳",
+    "category": "bread",
+    "imageUrl": "recipes/614f68bd-66b6-4133-bc23-8c46341f23d8.jpg",
+    "prepTimeMinutes": 25,
+    "totalRawWeight": 2919,
+    "cookedWeight": 2627,
+    "servingName": "1 Waffel (1/12)",
+    "servingWeightGrams": 219,
+    "calories100g": 400,
+    "protein100g": 7.4,
+    "carbs100g": 38.2,
+    "fat100g": 24.1,
+    "totalCalories": 10508,
+    "tags": ["#waffeln", "#backen", "#süßes", "#klassiker"],
+    "description": "Original belgische Waffeln mit feiner Vanillenote – außen goldbraun und herrlich knusprig, innen fluffig weich.",
+    "ingredients": [
+      { "name": "1 kg Mehl", "amountGrams": 1000, "calories": 3430, "protein": 103, "carbs": 710, "fat": 10 },
+      { "name": "3 Pck. Vanillinzucker", "amountGrams": 24, "calories": 94, "protein": 0, "carbs": 24, "fat": 0 },
+      { "name": "7 Eier", "amountGrams": 385, "calories": 551, "protein": 48.5, "carbs": 2.7, "fat": 36.6 },
+      { "name": "600 g Butter, zerlassen", "amountGrams": 600, "calories": 4302, "protein": 4.2, "carbs": 4.2, "fat": 486.6 },
+      { "name": "500 g Zucker", "amountGrams": 500, "calories": 1935, "protein": 0, "carbs": 500, "fat": 0 },
+      { "name": "400 ml Milch", "amountGrams": 400, "calories": 256, "protein": 13.2, "carbs": 19.2, "fat": 14.4 },
+      { "name": "1 Prise Salz", "amountGrams": 2, "calories": 0, "protein": 0, "carbs": 0, "fat": 0 }
+    ],
+    "instructions": [
+      "Mehl in eine große Schüssel geben und eine Mulde in die Mitte drücken.",
+      "Eier trennen. Eigelb, Zucker, Vanillinzucker und eine Prise Salz in die Mulde geben.",
+      "Zerlassene, lauwarme Butter und Milch nach und nach unterrühren, bis ein schwer reißender Teig entsteht.",
+      "Eiweiß steif schlagen und vorsichtig unter den Teig heben.",
+      "Im heißen Waffeleisen goldbraun ausbacken und noch warm mit Puderzucker servieren!"
+    ]
+  },
+  {
+    "id": "comm_lasagne_markus",
+    "name": "High-Protein Ofen-Lasagne",
+    "author": "Markus",
+    "authorRole": "Fitness-Koch 💪",
+    "category": "meal",
+    "prepTimeMinutes": 35,
+    "totalRawWeight": 2100,
+    "cookedWeight": 2000,
+    "servingName": "1 Portion (1/4)",
+    "servingWeightGrams": 500,
+    "calories100g": 128,
+    "protein100g": 12.5,
+    "carbs100g": 11.2,
+    "fat100g": 3.6,
+    "totalCalories": 2560,
+    "tags": ["#highprotein", "#ofengericht", "#fitness", "#sättigend"],
+    "description": "Klassische italienische Lasagne fitness-optimiert mit magerem Rinderhack, Hüttenkäse-Creme und extra viel Eiweiß bei vollem Geschmack.",
+    "ingredients": [
+      { "name": "500 g Rinderhackfleisch mager (unter 5% Fett)", "amountGrams": 500, "calories": 610, "protein": 105, "carbs": 0, "fat": 20 },
+      { "name": "800 g stückige Tomaten (2 Dosen)", "amountGrams": 800, "calories": 160, "protein": 8, "carbs": 32, "fat": 1.6 },
+      { "name": "250 g Lasagneplatten", "amountGrams": 250, "calories": 900, "protein": 32.5, "carbs": 177.5, "fat": 3.7 },
+      { "name": "400 g körniger Frischkäse (mager)", "amountGrams": 400, "calories": 368, "protein": 52, "carbs": 8, "fat": 8 },
+      { "name": "150 g fettarmer Reibekäse (16%)", "amountGrams": 150, "calories": 390, "protein": 42, "carbs": 1.5, "fat": 24 },
+      { "name": "1 Zwiebel & 2 Knoblauchzehen", "amountGrams": 100, "calories": 48, "protein": 1.5, "carbs": 10, "fat": 0.2 }
+    ],
+    "instructions": [
+      "Zwiebel und Knoblauch fein hacken, mit dem Hackfleisch in einer beschichteten Pfanne scharf anbraten.",
+      "Tomaten hinzufügen, mit Salz, Pfeffer, Oregano und Basilikum würzen und 15 Minuten köcheln lassen.",
+      "Den körnigen Frischkäse mit etwas Muskat und Pfeffer cremig pürieren (ersetzt die schwere Béchamelsauce).",
+      "In einer Auflaufform schichten: Fleischsauce, Lasagneplatten, Frischkäse-Creme. Wiederholen.",
+      "Mit fettarmem Reibekäse bestreuen und bei 180°C ca. 30 Minuten goldgelb backen."
+    ]
+  },
+  {
+    "id": "comm_zwetschgen_hilde",
+    "name": "Oma Hildes Zwetschgenkuchen mit Zimtstreuseln",
+    "author": "Oma Hilde",
+    "authorRole": "Back-Legende 👵",
+    "category": "bread",
+    "imageUrl": "recipes/8c280765-4ce0-4ee3-a546-c785dda9fce9.jpg",
+    "prepTimeMinutes": 40,
+    "totalRawWeight": 1180,
+    "cookedWeight": 1063,
+    "servingName": "1 Stück (1/12)",
+    "servingWeightGrams": 89,
+    "calories100g": 384,
+    "protein100g": 4.8,
+    "carbs100g": 52.4,
+    "fat100g": 17.5,
+    "totalCalories": 4082,
+    "tags": ["#kuchen", "#streusel", "#zwetschgen", "#herbst"],
+    "description": "Saftige Zwetschgen auf buttrigem Mürbeteig mit einer extra dicken Schicht knuspriger Zimtstreusel nach altem Familienrezept.",
+    "ingredients": [
+      { "name": "500 g frische Zwetschgen", "amountGrams": 500, "calories": 230, "protein": 3.5, "carbs": 57, "fat": 1.5 },
+      { "name": "250 g Mehl", "amountGrams": 250, "calories": 857, "protein": 25.7, "carbs": 177.5, "fat": 2.5 },
+      { "name": "180 g Butter", "amountGrams": 180, "calories": 1290, "protein": 1.3, "carbs": 1.3, "fat": 146 },
+      { "name": "180 g Zucker", "amountGrams": 180, "calories": 696, "protein": 0, "carbs": 180, "fat": 0 },
+      { "name": "1 Ei", "amountGrams": 55, "calories": 79, "protein": 6.9, "carbs": 0.4, "fat": 5.2 },
+      { "name": "1 TL Zimt & 1 Pck. Vanillezucker", "amountGrams": 15, "calories": 45, "protein": 0.5, "carbs": 10, "fat": 0.3 }
+    ],
+    "instructions": [
+      "Zwetschgen waschen, entsteinen und oben leicht einschneiden.",
+      "Aus Mehl, 100g Butter, 80g Zucker und dem Ei einen geschmeidigen Teig kneten und in die gefettete Springform drücken.",
+      "Zwetschgen dachziegelartig eng auf den Teigboden setzen.",
+      "Aus der restlichen Butter (80g), 100g Zucker, Mehl und Zimt mit den Fingern dicke Streusel kneten und reichlich auf den Zwetschgen verteilen.",
+      "Bei 180°C Ober-/Unterhitze ca. 45 Minuten backen bis die Streusel goldbraun knusprig sind."
+    ]
+  },
+  {
+    "id": "comm_butterbier_josie",
+    "name": "Josies Butterbier (Harry Potter Edition)",
+    "author": "Josie",
+    "authorRole": "Zauber-Köchin 🧙‍♀️",
+    "category": "drink",
+    "imageUrl": "recipes/b1d62049-d5e1-4c9e-a884-8a2aa10b9756.jpg",
+    "prepTimeMinutes": 10,
+    "totalRawWeight": 820,
+    "cookedWeight": 820,
+    "servingName": "1 Glas (ca. 250ml)",
+    "servingWeightGrams": 273,
+    "calories100g": 216,
+    "protein100g": 3.2,
+    "carbs100g": 18.5,
+    "fat100g": 14.8,
+    "totalCalories": 1771,
+    "tags": ["#harrypotter", "#getränk", "#warm", "#süß", "#butterbier"],
+    "description": "Das legendäre Butterbier aus Hogsmeade: Warm, samtig-süß, karamellig mit feiner Butter-Note und festem Sahnehäubchen.",
+    "ingredients": [
+      { "name": "1 TL Butter", "amountGrams": 10, "calories": 72, "protein": 0.1, "carbs": 0.1, "fat": 8.1 },
+      { "name": "2 EL brauner Rohrzucker", "amountGrams": 30, "calories": 116, "protein": 0, "carbs": 30, "fat": 0 },
+      { "name": "1 EL weißer Zucker", "amountGrams": 15, "calories": 58, "protein": 0, "carbs": 15, "fat": 0 },
+      { "name": "500 ml warme Vollmilch", "amountGrams": 500, "calories": 320, "protein": 16.5, "carbs": 24, "fat": 18 },
+      { "name": "1 TL echte Vanille", "amountGrams": 5, "calories": 15, "protein": 0, "carbs": 1, "fat": 0 },
+      { "name": "Sprühsahne nach Wunsch", "amountGrams": 60, "calories": 175, "protein": 1.5, "carbs": 7.2, "fat": 13.2 }
+    ],
+    "instructions": [
+      "1 gestrichenen TL Butter in einem Topf bei mittlerer Hitze zerlassen.",
+      "Braunen und weißen Zucker einrühren und unter Rühren leicht karamellisieren lassen.",
+      "Mit der leicht erwärmten Milch aufgießen und Vanille einrühren.",
+      "Mit dem Schneebesen schaumig schlagen (nicht kochen lassen!).",
+      "Warm in rustikale Gläser füllen, eine dicke Sahnehaube aufsetzen und sofort genießen!"
+    ]
+  }
+]
