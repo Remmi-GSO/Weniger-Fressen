@@ -74,6 +74,293 @@ export type AccordionSectionId =
   | 'backup_transfer'
   | 'app_version';
 
+interface VersionHistoryEntry {
+  version: string;
+  isLatest?: boolean;
+  isPrevious?: boolean;
+  tagline: string;
+  date: string;
+  items: {
+    title: string;
+    description: string;
+  }[];
+}
+
+const VERSION_HISTORY: VersionHistoryEntry[] = [
+  {
+    version: '2.2',
+    isLatest: true,
+    tagline: 'Profilbild-Zoom, Galerie-Teilen & Update-Akkordeon',
+    date: '10.10.2026',
+    items: [
+      {
+        title: '✂️ Profilbild zuschneiden & zoomen',
+        description: 'Interaktiver runder Bildausschnitt mit Stufenlos-Zoom (+/-, Schieberegler, Mausrad, Pinch-to-Zoom), freiem Verschieben und 90°-Drehung.',
+      },
+      {
+        title: '📲 Fotos direkt aus Handy-Galerie & Explorer teilen',
+        description: 'Über das native Teilen-Menü von Android & Windows Bilder direkt an Weniger Fressen senden – mit Schnellwahl: Als Profilbild zuschneiden, Neues Rezept oder Mahlzeit buchen.',
+      },
+      {
+        title: '🪗 Aufklappbares „Was ist neu?“-Fenster',
+        description: 'Alle Update-Details lassen sich jetzt platzsparend als Akkordeon einzeln aufklappen oder mit 1 Klick gesammelt öffnen/schließen.',
+      },
+      {
+        title: '🙈 Community-Rezepte individuell ausblenden',
+        description: 'Unerwünschte Fremdrezepte einfach mit dem Auge-Symbol für dich verbergen und bei Bedarf in den Einstellungen mit 1 Klick wiederherstellen.',
+      },
+    ],
+  },
+  {
+    version: '2.1',
+    isPrevious: true,
+    tagline: 'Rezept-Dropdown, Kategorien & Supermarkt-Fix',
+    date: '10.10.2026',
+    items: [
+      {
+        title: '📂 Schlankes Rezept-Dropdown',
+        description: 'Kein horizontales Scrollen mehr – alle Rubriken, Favoriten und Community-Rezepte übersichtlich in einem Dropdown-Menü.',
+      },
+      {
+        title: '✏️ Rezept-Kategorien frei verwalten',
+        description: 'Eigene Rubriken anlegen (z. B. Airfryer, Suppen, Aufläufe), Emojis/Namen anpassen und löschen mit Live-Rezeptzähler.',
+      },
+      {
+        title: '📑 Einklappbare Akkordeon-Eigenschaften',
+        description: 'Die Einstellungen sind jetzt in 10 aufgeräumte, einklappbare Themenbereiche unterteilt – inklusive „Alle öffnen“ & „Alle schließen“.',
+      },
+      {
+        title: '🥦 Deutsche Supermärkte & Barcode-Fix',
+        description: 'Verifizierte TK- und Grundnahrungsmittel von Iglo, Edeka, Rewe, Lidl, Aldi & Frosta. Erkennt zubereitete Nährwerte (z. B. Iglo Prinzess-Bohnen 400g = 120 kcal) und berechnet Gesamtpackungen automatisch!',
+      },
+      {
+        title: '🌐 Community-Rezepte mit Profilbild & Info',
+        description: 'Persönliche Profilfotos zur klaren Zuordnung bei gleichen Vornamen und automatische Benachrichtigung mit NEU-Badge bei neuen Rezepten.',
+      },
+    ],
+  },
+  {
+    version: '1.8',
+    tagline: 'Smarte Schokoladen-Behälter & Standards',
+    date: '09.10.2026',
+    items: [
+      {
+        title: '🍫 Smarte Schokoladen-Behälter',
+        description: 'Schokolade nach Stücken & Rippen tracken ohne Küchenwaage – automatische Grammberechnung für Milka, Ritter Sport, Lindt etc.',
+      },
+      {
+        title: '🧀 Käsehappen-Augenmaß-Schule',
+        description: 'Gramm-Lernstufen (10g, 15g Würfel, Scheiben) mit Live-Fettgehalt für ein intuitives Gefühl beim Snacken.',
+      },
+      {
+        title: '🍪 Keks-Dose & Prinzenrollen-Tracker',
+        description: 'Eigene Keks-Rubrik mit Stückzähler für Prinzenrolle (~95 kcal) und Gebäck.',
+      },
+      {
+        title: '🎙️ Magic Voice Behälter-Assistent',
+        description: 'Sprachbefehle wie „Erstelle einen Behälter für Kekse, beginne mit Prinzenrolle“ legen den Behälter samt Portionsstufen blitzschnell an.',
+      },
+      {
+        title: '🗑️ Eigene Standards & Vorgaben aufräumen',
+        description: 'Unerwünschte Standard-Snacks per Papierkorb ausblenden, eigene Standards flexibel merken.',
+      },
+      {
+        title: '🔄 Sicherer 10-Tage-Gerätewechsel & Smart Merge',
+        description: 'Daten für Austauschhandys exportieren und später ohne Überschreiben oder Datenverlust zusammenführen.',
+      },
+      {
+        title: '📱 Offizieller Vektor-QR-Code',
+        description: 'Zum blitzschnellen Scannen und Teilen der App auf neuen Smartphones.',
+      },
+    ],
+  },
+  {
+    version: '1.7',
+    tagline: 'Universal Magic Assistant Hub & Verlaufskurven',
+    date: '06.10.2026',
+    items: [
+      {
+        title: '🧠 Universal Magic Assistant Hub (5 Intents)',
+        description: 'Der KI-Mikrofon-Button versteht jetzt alles im selben Dialog: Ernährungs- & Wissensfragen, Mahlzeiten tracken, Rezepte kreieren, Workouts eintragen und Snack-Inspirationen nach Restbudget.',
+      },
+      {
+        title: '📖 Vollständige Ernährungs-Wissenskarten',
+        description: 'Wissensfragen werden in einer scrollbaren Wissenskarte mit fundierter Erklärung, Kernaussagen und Praxistipp dargestellt – kein abgeschnittener Text mehr!',
+      },
+      {
+        title: '🎙️ Zweit-Klick-Stopp & Sprachfilter',
+        description: 'Ein zweiter Klick auf den Magic Button beendet das Diktat sauber. Intelligente Textbereinigung verhindert Wortverdopplungen und Stotterer.',
+      },
+      {
+        title: '📈 Interaktive Verlaufskurven & Trends',
+        description: 'Im Ernährungs-Bericht zeigt ein interaktives SVG-Diagramm deine Entwicklung über 7, 14, 30 oder bis zu 90 Tage für Kalorien & Gewicht, Makronährstoffe und Qualität mit Tipp-Inspektor.',
+      },
+      {
+        title: '🌅 Differenzierter Morgen-Rückblick',
+        description: 'Bei einer minimalen Überschreitung des strengen Defizitziels unterhalb deines Gesamtumsatzes (TDEE) lobt dich die App jetzt für dein reales Fettabbau-Defizit statt fälschlicherweise „Erhaltungsmodus“ anzuzeigen.',
+      },
+    ],
+  },
+  {
+    version: '1.6',
+    tagline: 'Smarte Snacks & Menü-Portionierer',
+    date: '05.10.2026',
+    items: [
+      {
+        title: '💡 Smarte Snack-Inspirationen nach Restbudget',
+        description: 'Der zentrale KI-Mikrofon-Button kennt dein verbleibendes Tagesbudget (Kalorien & Eiweiß) und liefert dir auf Knopfdruck oder Zuruf gesunde Snack-Vorschläge mit 1-Klick-Übernahme ins Tagebuch oder als Rezept.',
+      },
+      {
+        title: '🍲 Ganze Gerichte, Bruchteile & Garverlust',
+        description: 'Bei warmen Speisen/Menüs wird das gesamte Kochgewicht (z. B. 450g gegart) transparent als Basis genommen. Im Portionierer wählst du flexibel „Ganze Portion gegessen“, Halbe, 1/3, 1/4, 1/5, 1/6 oder trägst freie Teiler bzw. freie Gramm ein.',
+      },
+      {
+        title: '🔄 Rezept-Rubrik nachträglich ändern',
+        description: 'Bestehende Rezepte können im Nachhinein im Bearbeiten-Modus per Klick einer neuen Kategorie zugewiesen werden.',
+      },
+      {
+        title: '📖 Kurzanleitung & Bedienungs-Tipps',
+        description: 'Schneller Leitfaden direkt hier in den Einstellungen – übersichtlich gegliedert für KI-Diktat, Portionierung und Rezepte.',
+      },
+    ],
+  },
+  {
+    version: '1.5',
+    tagline: 'Rezept-Datenbank & KI-Chefkoch',
+    date: '05.10.2026',
+    items: [
+      {
+        title: '📚 Große Rezepte-Datenbank',
+        description: 'Neuer übersichtlicher Rezeptkatalog mit 6 Rubriken und Favoriten-Filter ⭐.',
+      },
+      {
+        title: '📸 Fotos zu Rezepten',
+        description: 'Eigene Fotos direkt per Kamera oder Galerie hinzufügen. Automatische lokale Komprimierung und blitzschnelles Laden ohne Speicherplatz-Verschwendung.',
+      },
+      {
+        title: '👩‍🍳 Interaktiver Portions-Skalierer',
+        description: 'Ändere die Portionsanzahl live mit Plus/Minus – alle Zutatenmengen in Gramm und Nährwerte passen sich sofort an.',
+      },
+      {
+        title: '📝 Schritt-für-Schritt-Zubereitung & Koch-Checkboxen',
+        description: 'Alle Zubereitungsschritte und Zutaten können während des Kochens interaktiv abgehakt werden.',
+      },
+      {
+        title: '🥗 1-Klick ins Tagebuch',
+        description: 'Jedes Rezept lässt sich mit flexibler Portionsmenge sofort als Mahlzeit in dein Tagebuch buchen.',
+      },
+      {
+        title: '🪄 KI-Chefkoch',
+        description: 'Sag oder tippe einfach, worauf du Appetit hast oder welche Reste im Kühlschrank liegen – die KI kreiert dir sofort ein fertiges Rezept mit exakten Nährwerten, Zutaten und Zubereitung.',
+      },
+    ],
+  },
+  {
+    version: '1.4',
+    tagline: 'Morgen-Rückblick & KI-Diktat',
+    date: '04.10.2026',
+    items: [
+      {
+        title: '🌅 Täglicher Morgen-Rückblick',
+        description: 'Beim ersten Start der App am Vormittag erscheint automatisch ein motivierender Rückblick auf den gestrigen Tag mit Lob für dein Kaloriendefizit, Bestätigung für Stoffwechseltage, Auswertung von Schritten/Sport und dem frischen Tagesbudget für heute.',
+      },
+      {
+        title: '⚙️ Flexibel je Nutzer einstellbar',
+        description: 'In den Einstellungen kann der Morgen-Rückblick jederzeit ein- oder ausgeschaltet werden. Mit dem Button „Morgen-Rückblick jetzt in Vorschau testen“ lässt er sich jederzeit vorab ansehen.',
+      },
+      {
+        title: '💡 Tägliche Morgen-Fokus-Tipps',
+        description: 'Wechselnde, praxiserprobte Impulse für Wassertrinken, Proteine, Alltagsbewegung und Sättigung.',
+      },
+      {
+        title: '🎙️ Neuer KI-Diktier-Button in der Menüleiste',
+        description: 'Mikrofon-Button öffnet sofort das Diktat mit automatischer Mahlzeit-Erkennung (nach Uhrzeit oder Schlüsselwörtern).',
+      },
+      {
+        title: '🔢 Neue 2-Ziffern-Versionszählung',
+        description: 'Übersichtliche Versionsstruktur ab Version 1.4.',
+      },
+    ],
+  },
+  {
+    version: '1.3.2',
+    tagline: 'Josies Workout & Buße',
+    date: '04.10.2026',
+    items: [
+      {
+        title: 'Josies Workout & Crosstrainer',
+        description: 'Spezielles Workout mit 4 Intensitätsstufen, freier Dauerwahl und Display-Kalorieneingabe mit wissenschaftlichem Netto-Vergleich und 1-Klick-Übernahme.',
+      },
+      {
+        title: 'Buße-Modus (Defizit-Schutz)',
+        description: 'Gezieltes Puffer-Workout, wenn Mahlzeiten zuvor etwas optimistisch verbucht wurden – schützt das Kaloriendefizit, ohne das Essensbudget aufzublähen.',
+      },
+      {
+        title: 'Pedometer & Samsung Health',
+        description: 'Tages-Schritte unkompliziert eintragen mit wissenschaftlichem Netto-Kalorienbonus über Grundalltag (PAL).',
+      },
+      {
+        title: 'Jumping Fit Presets',
+        description: 'Schnellwahl für 75m Komplettsession, 45m HIIT, 20m Tabata oder 10m Dehnen.',
+      },
+      {
+        title: 'Bedarfsrechner-Upgrade',
+        description: 'Abgeschnittener Header korrigiert & Option „Sport tagesgenau erfassen“ zur Vermeidung von Doppelzählungen.',
+      },
+      {
+        title: 'KI-Daueraufnahme ohne Abbruch',
+        description: 'Sprachaufnahme im Mahlzeiten-Modal bricht bei Sprechpausen nicht mehr ab, sondern läuft persistent durch bis zum manuellen Stopp.',
+      },
+      {
+        title: 'Selbstgebackenes Brot',
+        description: 'Gespeicherte Brotrezepte und Eigenkreationen werden von Gemini jetzt mit höchster Priorität direkt erkannt und mit echten Nährwerten zugeordnet.',
+      },
+    ],
+  },
+  {
+    version: '1.3.1',
+    tagline: 'Kompaktes Dashboard & Owala',
+    date: '04.10.2026',
+    items: [
+      {
+        title: 'Kompaktes Dashboard auf einer Höhe',
+        description: 'Kalorienkreis und die 4 Tageswerte (Gegessen, Verbrannt, Defizit-Ziel, Erhalt) liegen jetzt nebeneinander auf einer Höhe – spart viel Scrollen!',
+      },
+      {
+        title: '⚡ Neuer „Jump-To“-Schnellzugriff',
+        description: 'Symmetrische 6er-Auswahl für alle Tagesaktionen: Einsprechen, Nascherei, Rezepte, Scannen, Bewegung/Sport und direkter Sprung zum Wasserhaushalt.',
+      },
+      {
+        title: '💧 Wasserhaushalt mit Owala-Flasche (710 ml)',
+        description: 'Neuer Schnellbutton für die beliebte 710 ml Owala-Trinkflasche neben Glas (250 ml) und Flasche (500 ml).',
+      },
+      {
+        title: '🔥 Neues Farbkonzept für Bewegung',
+        description: 'Dynamisches Sport-Orange, harmonisch getrennt vom Goldbraun der Rezepte.',
+      },
+    ],
+  },
+  {
+    version: '1.3.0',
+    tagline: 'Rezept-Revolution & Getränke',
+    date: '04.10.2026',
+    items: [
+      {
+        title: 'Rezepte direkt bearbeiten',
+        description: 'Unter „Meine Rezepte“ können bestehende Rezepte jetzt jederzeit editiert und mit geänderten Zutaten/Mengen gespeichert werden.',
+      },
+      {
+        title: 'Aufklappbare Rubriken (Akkordeon)',
+        description: 'Platzsparende Kategorien mit Schnellfilter und Suche für 100+ Rezepte.',
+      },
+      {
+        title: 'Neue Rubrik „Getränke“',
+        description: 'Eigene Kategorie für Shakes, Smoothies & Infused Water.',
+      },
+    ],
+  },
+];
+
 export const SettingsModal: React.FC<SettingsModalProps> = ({
   isOpen,
   onClose,
@@ -204,6 +491,25 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [cropImageSrc, setCropImageSrc] = useState<string | null>(null);
   const [isCropModalOpen, setIsCropModalOpen] = useState(false);
   const [hiddenCommunityCount, setHiddenCommunityCount] = useState<number>(() => getHiddenCommunityRecipeIds().size);
+  const [showVersionHistory, setShowVersionHistory] = useState<boolean>(true);
+  const [expandedVersions, setExpandedVersions] = useState<Record<string, boolean>>({
+    '2.2': true,
+  });
+
+  const toggleVersion = (ver: string) => {
+    setExpandedVersions((prev) => ({
+      ...prev,
+      [ver]: !prev[ver],
+    }));
+  };
+
+  const toggleAllVersions = (open: boolean) => {
+    const next: Record<string, boolean> = {};
+    VERSION_HISTORY.forEach((v) => {
+      next[v.version] = open;
+    });
+    setExpandedVersions(next);
+  };
 
   const effectiveDeficit = goalType === 'maintain_weight' ? 0 : (goalDeficit || 500);
 
@@ -2061,374 +2367,167 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             )}
           </div>
 
-          {/* Versionshistorie & Neuerungen (Letzte 3 Versionen) */}
+          {/* Versionshistorie & Neuerungen (Akkordeon) */}
           <div className="p-4 bg-gradient-to-br from-emerald-50/70 via-stone-50/50 to-white rounded-2xl border border-emerald-200/80 space-y-3">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="w-8 h-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center text-sm shadow-2xs">
+              <button
+                type="button"
+                onClick={() => setShowVersionHistory((prev) => !prev)}
+                className="flex items-center gap-2 text-left group cursor-pointer flex-1"
+              >
+                <span className="w-8 h-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center text-sm shadow-2xs group-hover:scale-105 transition-transform">
                   ✨
                 </span>
                 <div>
-                  <h4 className="text-xs font-bold text-stone-900">Was ist neu? – Versionshistorie</h4>
-                  <p className="text-[11px] text-stone-500">Neuerungen der aktuellen Versionen</p>
+                  <h4 className="text-xs font-bold text-stone-900 group-hover:text-emerald-950 transition-colors flex items-center gap-1.5 flex-wrap">
+                    <span>Was ist neu? – Versionshistorie</span>
+                    <span className="text-[10px] font-extrabold px-1.5 py-0.2 rounded-full bg-emerald-100 text-emerald-800">
+                      Highlights
+                    </span>
+                  </h4>
+                  <p className="text-[11px] text-stone-500">
+                    Alle Neuerungen der Versionen 1.3 bis {APP_VERSION}
+                  </p>
                 </div>
+              </button>
+
+              <div className="flex items-center gap-2 shrink-0">
+                {showVersionHistory && (
+                  <div className="hidden sm:flex items-center gap-1.5 text-[11px] font-bold mr-1">
+                    <button
+                      type="button"
+                      onClick={() => toggleAllVersions(true)}
+                      className="text-emerald-800 hover:text-emerald-950 underline cursor-pointer"
+                    >
+                      Alle öffnen
+                    </button>
+                    <span className="text-stone-300">•</span>
+                    <button
+                      type="button"
+                      onClick={() => toggleAllVersions(false)}
+                      className="text-stone-500 hover:text-stone-700 underline cursor-pointer"
+                    >
+                      Alle schließen
+                    </button>
+                  </div>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setShowVersionHistory((prev) => !prev)}
+                  className="w-7 h-7 rounded-lg bg-emerald-100/70 hover:bg-emerald-200/70 flex items-center justify-center text-emerald-800 transition-colors cursor-pointer"
+                  title={showVersionHistory ? 'Bereich zuklappen' : 'Bereich aufklappen'}
+                >
+                  {showVersionHistory ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                </button>
               </div>
-              <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
-                Highlights
-              </span>
             </div>
 
-            <div className="space-y-2.5 pt-1">
-              {/* Version 2.2 */}
-              <div className="p-3 bg-white rounded-xl border border-emerald-400 ring-2 ring-emerald-200/50 shadow-2xs space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-1.5">
-                    <span className="px-2 py-0.5 rounded-md bg-emerald-600 text-white text-[11px] font-black">
-                      v2.2
-                    </span>
-                    <span className="text-xs font-bold text-stone-800">Aktuelle Version</span>
+            {showVersionHistory && (
+              <div className="space-y-2 pt-1 border-t border-emerald-100 animate-in fade-in duration-150">
+                {/* Mobile Quick Controls */}
+                <div className="flex sm:hidden items-center justify-between text-[11px] font-bold text-stone-500 pb-1">
+                  <span>{VERSION_HISTORY.length} Versionen</span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => toggleAllVersions(true)}
+                      className="text-emerald-800 underline cursor-pointer"
+                    >
+                      Alle öffnen
+                    </button>
+                    <span className="text-stone-300">•</span>
+                    <button
+                      type="button"
+                      onClick={() => toggleAllVersions(false)}
+                      className="text-stone-500 underline cursor-pointer"
+                    >
+                      Alle schließen
+                    </button>
                   </div>
-                  <span className="text-[10px] text-stone-400 font-medium">10.10.2026</span>
                 </div>
-                <ul className="text-xs text-stone-600 space-y-1 pl-1">
-                  <li className="flex items-start gap-1.5">
-                    <span className="text-emerald-600 shrink-0 font-bold">✓</span>
-                    <span><strong>✂️ Profilbild zuschneiden & zoomen:</strong> Interaktiver runder Bildausschnitt mit Stufenlos-Zoom (+/-, Schieberegler, Mausrad, Pinch-to-Zoom), freiem Verschieben und 90°-Drehung.</span>
-                  </li>
-                  <li className="flex items-start gap-1.5">
-                    <span className="text-emerald-600 shrink-0 font-bold">✓</span>
-                    <span><strong>📲 Fotos direkt aus Handy-Galerie & Explorer teilen:</strong> Über das native Teilen-Menü von Android & Windows Bilder direkt an Weniger Fressen senden – mit Schnellwahl: Als Profilbild zuschneiden, Neues Rezept oder Mahlzeit buchen.</span>
-                  </li>
-                  <li className="flex items-start gap-1.5">
-                    <span className="text-emerald-600 shrink-0 font-bold">✓</span>
-                    <span><strong>🪗 Aufklappbares „Was ist neu?“-Fenster:</strong> Alle Update-Details lassen sich jetzt platzsparend als Akkordeon einzeln aufklappen oder mit 1 Klick gesammelt öffnen/schließen.</span>
-                  </li>
-                  <li className="flex items-start gap-1.5">
-                    <span className="text-emerald-600 shrink-0 font-bold">✓</span>
-                    <span><strong>🙈 Community-Rezepte individuell ausblenden:</strong> Unerwünschte Fremdrezepte einfach mit dem Auge-Symbol für dich verbergen und bei Bedarf in den Einstellungen mit 1 Klick wiederherstellen.</span>
-                  </li>
-                </ul>
-              </div>
 
-              {/* Version 2.1 */}
-              <div className="p-3 bg-white rounded-xl border border-stone-200 shadow-2xs space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-1.5">
-                    <span className="px-2 py-0.5 rounded-md bg-stone-600 text-white text-[11px] font-black">
-                      v2.1
-                    </span>
-                    <span className="text-xs font-bold text-stone-700">Vorherige Version</span>
-                  </div>
-                  <span className="text-[10px] text-stone-400 font-medium">10.10.2026</span>
-                </div>
-                <ul className="text-xs text-stone-600 space-y-1 pl-1">
-                  <li className="flex items-start gap-1.5">
-                    <span className="text-emerald-600 shrink-0 font-bold">✓</span>
-                    <span><strong>📂 Schlankes Rezept-Dropdown:</strong> Kein horizontales Scrollen mehr – alle Rubriken, Favoriten und Community-Rezepte übersichtlich in einem Dropdown-Menü.</span>
-                  </li>
-                  <li className="flex items-start gap-1.5">
-                    <span className="text-emerald-600 shrink-0 font-bold">✓</span>
-                    <span><strong>✏️ Rezept-Kategorien frei verwalten:</strong> Eigene Rubriken anlegen (z. B. Airfryer, Suppen, Aufläufe), Emojis/Namen anpassen und löschen mit Live-Rezeptzähler.</span>
-                  </li>
-                  <li className="flex items-start gap-1.5">
-                    <span className="text-emerald-600 shrink-0 font-bold">✓</span>
-                    <span><strong>📑 Einklappbare Akkordeon-Eigenschaften:</strong> Die Einstellungen sind jetzt in 10 aufgeräumte, einklappbare Themenbereiche unterteilt – inklusive „Alle öffnen“ & „Alle schließen“.</span>
-                  </li>
-                  <li className="flex items-start gap-1.5">
-                    <span className="text-emerald-600 shrink-0 font-bold">✓</span>
-                    <span><strong>🥦 Deutsche Supermärkte & Barcode-Fix:</strong> Verifizierte TK- und Grundnahrungsmittel von Iglo, Edeka, Rewe, Lidl, Aldi & Frosta. Erkennt zubereitete Nährwerte (z. B. Iglo Prinzess-Bohnen 400g = 120 kcal) und berechnet Gesamtpackungen automatisch!</span>
-                  </li>
-                  <li className="flex items-start gap-1.5">
-                    <span className="text-emerald-600 shrink-0 font-bold">✓</span>
-                    <span><strong>🌐 Community-Rezepte mit Profilbild & Info:</strong> Persönliche Profilfotos zur klaren Zuordnung bei gleichen Vornamen und automatische Benachrichtigung mit NEU-Badge bei neuen Rezepten.</span>
-                  </li>
-                </ul>
-              </div>
+                {/* Individual Version Accordions */}
+                {VERSION_HISTORY.map((ver) => {
+                  const isOpen = Boolean(expandedVersions[ver.version]);
 
-              {/* Version 1.8 */}
-              <div className="p-3 bg-white rounded-xl border border-stone-200 shadow-2xs space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-1.5">
-                    <span className="px-2 py-0.5 rounded-md bg-stone-600 text-white text-[11px] font-black">
-                      v1.8
-                    </span>
-                    <span className="text-xs font-bold text-stone-700">Vorherige Version</span>
-                  </div>
-                  <span className="text-[10px] text-stone-400 font-medium">09.10.2026</span>
-                </div>
-                <ul className="text-xs text-stone-600 space-y-1 pl-1">
-                  <li className="flex items-start gap-1.5">
-                    <span className="text-emerald-600 shrink-0 font-bold">✓</span>
-                    <span><strong>🍫 Smarte Schokoladen-Behälter:</strong> Schokolade nach Stücken & Rippen tracken ohne Küchenwaage – automatische Grammberechnung für Milka, Ritter Sport, Lindt etc.</span>
-                  </li>
-                  <li className="flex items-start gap-1.5">
-                    <span className="text-emerald-600 shrink-0 font-bold">✓</span>
-                    <span><strong>🧀 Käsehappen-Augenmaß-Schule:</strong> Gramm-Lernstufen (10g, 15g Würfel, Scheiben) mit Live-Fettgehalt für ein intuitives Gefühl beim Snacken.</span>
-                  </li>
-                  <li className="flex items-start gap-1.5">
-                    <span className="text-emerald-600 shrink-0 font-bold">✓</span>
-                    <span><strong>🍪 Keks-Dose & Prinzenrollen-Tracker:</strong> Eigene Keks-Rubrik mit Stückzähler für Prinzenrolle (~95 kcal) und Gebäck.</span>
-                  </li>
-                  <li className="flex items-start gap-1.5">
-                    <span className="text-emerald-600 shrink-0 font-bold">✓</span>
-                    <span><strong>🎙️ Magic Voice Behälter-Assistent:</strong> Sprachbefehle wie <em>„Erstelle einen Behälter für Kekse, beginne mit Prinzenrolle“</em> legen den Behälter samt Portionsstufen blitzschnell an.</span>
-                  </li>
-                  <li className="flex items-start gap-1.5">
-                    <span className="text-emerald-600 shrink-0 font-bold">✓</span>
-                    <span><strong>🗑️ Eigene Standards & Vorgaben aufräumen:</strong> Unerwünschte Standard-Snacks per Papierkorb ausblenden, eigene Standards flexibel merken.</span>
-                  </li>
-                  <li className="flex items-start gap-1.5">
-                    <span className="text-emerald-600 shrink-0 font-bold">✓</span>
-                    <span><strong>🔄 Sicherer 10-Tage-Gerätewechsel & Smart Merge:</strong> Daten für Austauschhandys exportieren und später ohne Überschreiben oder Datenverlust zusammenführen.</span>
-                  </li>
-                  <li className="flex items-start gap-1.5">
-                    <span className="text-emerald-600 shrink-0 font-bold">✓</span>
-                    <span><strong>📱 Offizieller Vektor-QR-Code:</strong> Zum blitzschnellen Scannen und Teilen der App auf neuen Smartphones.</span>
-                  </li>
-                </ul>
-              </div>
+                  return (
+                    <div
+                      key={ver.version}
+                      className={`rounded-xl border transition-all overflow-hidden ${
+                        ver.isLatest
+                          ? 'border-emerald-400 ring-2 ring-emerald-200/50 bg-white shadow-2xs'
+                          : 'border-stone-200/80 bg-white shadow-2xs'
+                      }`}
+                    >
+                      {/* Header Button */}
+                      <button
+                        type="button"
+                        onClick={() => toggleVersion(ver.version)}
+                        className={`w-full p-2.5 sm:p-3 flex items-center justify-between text-left gap-2 cursor-pointer transition-colors ${
+                          ver.isLatest ? 'hover:bg-emerald-50/40' : 'hover:bg-stone-50'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 min-w-0 flex-1">
+                          <span
+                            className={`px-2 py-0.5 rounded-md text-[11px] font-black shrink-0 ${
+                              ver.isLatest
+                                ? 'bg-emerald-600 text-white'
+                                : 'bg-stone-600 text-white'
+                            }`}
+                          >
+                            v{ver.version}
+                          </span>
 
-              {/* Version 1.7 */}
-              <div className="p-3 bg-white rounded-xl border border-stone-200 shadow-2xs space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-1.5">
-                    <span className="px-2 py-0.5 rounded-md bg-stone-600 text-white text-[11px] font-black">
-                      v1.7
-                    </span>
-                    <span className="text-xs font-bold text-stone-700">Vorherige Version</span>
-                  </div>
-                  <span className="text-[10px] text-stone-400 font-medium">06.10.2026</span>
-                </div>
-                <ul className="text-xs text-stone-600 space-y-1 pl-1">
-                  <li className="flex items-start gap-1.5">
-                    <span className="text-emerald-600 shrink-0 font-bold">✓</span>
-                    <span><strong>🧠 Universal Magic Assistant Hub (5 Intents):</strong> Der KI-Mikrofon-Button versteht jetzt alles im selben Dialog: Ernährungs- & Wissensfragen (z. B. Johannisbeeren-Zucker), Mahlzeiten tracken, Rezepte kreieren, Workouts eintragen und Snack-Inspirationen nach Restbudget.</span>
-                  </li>
-                  <li className="flex items-start gap-1.5">
-                    <span className="text-emerald-600 shrink-0 font-bold">✓</span>
-                    <span><strong>📖 Vollständige Ernährungs-Wissenskarten:</strong> Wissensfragen werden in einer scrollbaren Wissenskarte mit fundierter Erklärung, Kernaussagen und Praxistipp dargestellt – kein abgeschnittener Text mehr!</span>
-                  </li>
-                  <li className="flex items-start gap-1.5">
-                    <span className="text-emerald-600 shrink-0 font-bold">✓</span>
-                    <span><strong>🎙️ Zweit-Klick-Stopp & Sprachfilter:</strong> Ein zweiter Klick auf den Magic Button beendet das Diktat sauber. Intelligente Textbereinigung verhindert Wortverdopplungen und Stotterer bei Neustarts des Spracherkennungsmoduls.</span>
-                  </li>
-                  <li className="flex items-start gap-1.5">
-                    <span className="text-emerald-600 shrink-0 font-bold">✓</span>
-                    <span><strong>📈 Interaktive Verlaufskurven & Trends:</strong> Im Ernährungs-Bericht (und direkt verlinkt im Gewichts-Tracker) zeigt ein interaktives SVG-Diagramm deine Entwicklung über 7, 14, 30 oder bis zu 90 Tage für <em>Kalorien & Gewicht</em>, <em>Makronährstoffe</em> und <em>Qualität (Ballaststoffe & Zucker)</em> mit Tipp-Inspektor.</span>
-                  </li>
-                  <li className="flex items-start gap-1.5">
-                    <span className="text-emerald-600 shrink-0 font-bold">✓</span>
-                    <span><strong>🌅 Differenzierter Morgen-Rückblick:</strong> Bei einer minimalen Überschreitung des strengen Defizitziels unterhalb deines Gesamtumsatzes (TDEE) lobt dich die App jetzt für dein reales Fettabbau-Defizit statt fälschlicherweise „Erhaltungsmodus“ anzuzeigen.</span>
-                  </li>
-                </ul>
-              </div>
+                          <span className="text-xs font-bold text-stone-800 truncate">
+                            {ver.tagline}
+                          </span>
 
-              {/* Version 1.6 */}
-              <div className="p-3 bg-white rounded-xl border border-stone-200/80 shadow-2xs space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-1.5">
-                    <span className="px-2 py-0.5 rounded-md bg-stone-100 text-stone-800 text-[11px] font-black border border-stone-200">
-                      v1.6
-                    </span>
-                    <span className="text-xs font-bold text-stone-700">Smarte Snacks & Menü-Portionierer</span>
-                  </div>
-                  <span className="text-[10px] text-stone-400 font-medium">05.10.2026</span>
-                </div>
-                <ul className="text-xs text-stone-600 space-y-1 pl-1">
-                  <li className="flex items-start gap-1.5">
-                    <span className="text-emerald-600 shrink-0 font-bold">✓</span>
-                    <span><strong>💡 Smarte Snack-Inspirationen nach Restbudget:</strong> Der zentrale KI-Mikrofon-Button kennt dein verbleibendes Tagesbudget (Kalorien & Eiweiß) und liefert dir auf Knopfdruck oder Zuruf gesunde Snack-Vorschläge. Mit 1-Klick-Übernahme direkt ins Tagebuch oder als dauerhaftes Rezept!</span>
-                  </li>
-                  <li className="flex items-start gap-1.5">
-                    <span className="text-emerald-600 shrink-0 font-bold">✓</span>
-                    <span><strong>🍲 Ganze Gerichte, Bruchteile & Garverlust:</strong> Bei warmen Speisen/Menüs wird das gesamte Kochgewicht (z. B. 450g gegart) transparent als Basis genommen. Im Portionierer wählst du flexibel „Ganze Portion gegessen“, Halbe, 1/3, 1/4, 1/5, 1/6 oder trägst freie Teiler (z. B. 1/8) bzw. freie Gramm ein.</span>
-                  </li>
-                  <li className="flex items-start gap-1.5">
-                    <span className="text-emerald-600 shrink-0 font-bold">✓</span>
-                    <span><strong>🔄 Rezept-Rubrik nachträglich ändern:</strong> Bestehende Rezepte (wie dein Cortado) können im Nachhinein im Bearbeiten-Modus per Klick einer neuen Kategorie (z. B. Getränke) zugewiesen werden.</span>
-                  </li>
-                  <li className="flex items-start gap-1.5">
-                    <span className="text-emerald-600 shrink-0 font-bold">✓</span>
-                    <span><strong>📖 Kurzanleitung & Bedienungs-Tipps:</strong> Schneller Leitfaden direkt hier in den Einstellungen – übersichtlich gegliedert für KI-Diktat, Portionierung und Rezepte.</span>
-                  </li>
-                </ul>
-              </div>
+                          {ver.isLatest && (
+                            <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 shrink-0">
+                              Aktuell
+                            </span>
+                          )}
+                          {ver.isPrevious && (
+                            <span className="hidden sm:inline-block text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-stone-100 text-stone-600 shrink-0">
+                              Vorherige
+                            </span>
+                          )}
+                        </div>
 
-              {/* Version 1.5 */}
-              <div className="p-3 bg-white rounded-xl border border-stone-200/80 shadow-2xs space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-1.5">
-                    <span className="px-2 py-0.5 rounded-md bg-stone-100 text-stone-800 text-[11px] font-black border border-stone-200">
-                      v1.5
-                    </span>
-                    <span className="text-xs font-bold text-stone-700">Rezept-Datenbank & KI-Chefkoch</span>
-                  </div>
-                  <span className="text-[10px] text-stone-400 font-medium">05.10.2026</span>
-                </div>
-                <ul className="text-xs text-stone-600 space-y-1 pl-1">
-                  <li className="flex items-start gap-1.5">
-                    <span className="text-stone-400 shrink-0 font-bold">•</span>
-                    <span><strong>📚 Große Rezepte-Datenbank:</strong> Neuer übersichtlicher Rezeptkatalog mit 6 Rubriken (Brot & Backen, Frühstück & Bowls, Hauptgerichte, Salate & Beilagen, Getränke & Shakes, Snacks & Süßes) und Favoriten-Filter ⭐.</span>
-                  </li>
-                  <li className="flex items-start gap-1.5">
-                    <span className="text-stone-400 shrink-0 font-bold">•</span>
-                    <span><strong>📸 Fotos zu Rezepten:</strong> Eigene Fotos direkt per Kamera oder Galerie hinzufügen. Automatische lokale Komprimierung und blitzschnelles Laden ohne Speicherplatz-Verschwendung.</span>
-                  </li>
-                  <li className="flex items-start gap-1.5">
-                    <span className="text-stone-400 shrink-0 font-bold">•</span>
-                    <span><strong>👩‍🍳 Interaktiver Portions-Skalierer:</strong> Ändere die Portionsanzahl live mit Plus/Minus – alle Zutatenmengen in Gramm und Nährwerte passen sich sofort an.</span>
-                  </li>
-                  <li className="flex items-start gap-1.5">
-                    <span className="text-stone-400 shrink-0 font-bold">•</span>
-                    <span><strong>📝 Schritt-für-Schritt-Zubereitung & Koch-Checkboxen:</strong> Alle Zubereitungsschritte und Zutaten können während des Kochens interaktiv abgehakt werden.</span>
-                  </li>
-                  <li className="flex items-start gap-1.5">
-                    <span className="text-stone-400 shrink-0 font-bold">•</span>
-                    <span><strong>🥗 1-Klick ins Tagebuch:</strong> Jedes Rezept lässt sich mit flexibler Portionsmenge sofort als Frühstück, Mittag, Abendessen oder Snack in dein Tagebuch buchen.</span>
-                  </li>
-                  <li className="flex items-start gap-1.5">
-                    <span className="text-stone-400 shrink-0 font-bold">•</span>
-                    <span><strong>🪄 KI-Chefkoch:</strong> Sag oder tippe einfach, worauf du Appetit hast oder welche Reste im Kühlschrank liegen – die KI kreiert dir sofort ein fertiges Rezept mit exakten Nährwerten, Zutaten und Zubereitung.</span>
-                  </li>
-                </ul>
-              </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span className="text-[10px] text-stone-400 font-medium">
+                            {ver.date}
+                          </span>
+                          <div className="w-5 h-5 rounded-md bg-stone-100 flex items-center justify-center text-stone-500">
+                            {isOpen ? (
+                              <ChevronUp className="w-3.5 h-3.5" />
+                            ) : (
+                              <ChevronDown className="w-3.5 h-3.5" />
+                            )}
+                          </div>
+                        </div>
+                      </button>
 
-              {/* Version 1.4 */}
-              <div className="p-3 bg-white rounded-xl border border-stone-200/80 shadow-2xs space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-1.5">
-                    <span className="px-2 py-0.5 rounded-md bg-stone-100 text-stone-800 text-[11px] font-black border border-stone-200">
-                      v1.4
-                    </span>
-                    <span className="text-xs font-bold text-stone-700">Morgen-Rückblick & KI-Diktat</span>
-                  </div>
-                  <span className="text-[10px] text-stone-400 font-medium">04.10.2026</span>
-                </div>
-                <ul className="text-xs text-stone-600 space-y-1 pl-1">
-                  <li className="flex items-start gap-1.5">
-                    <span className="text-emerald-600 shrink-0 font-bold">✓</span>
-                    <span><strong>🌅 Täglicher Morgen-Rückblick:</strong> Beim ersten Start der App am Vormittag (04:00 – 14:00 Uhr) erscheint automatisch ein motivierender Rückblick auf den gestrigen Tag mit Lob für dein Kaloriendefizit, Bestätigung für Stoffwechseltage, Auswertung von Schritten/Sport und dem frischen Tagesbudget für heute.</span>
-                  </li>
-                  <li className="flex items-start gap-1.5">
-                    <span className="text-emerald-600 shrink-0 font-bold">✓</span>
-                    <span><strong>⚙️ Flexibel je Nutzer einstellbar:</strong> In den Einstellungen kann der Morgen-Rückblick jederzeit ein- oder ausgeschaltet werden. Mit dem Button <em>„Morgen-Rückblick jetzt in Vorschau testen“</em> lässt er sich jederzeit vorab ansehen.</span>
-                  </li>
-                  <li className="flex items-start gap-1.5">
-                    <span className="text-emerald-600 shrink-0 font-bold">✓</span>
-                    <span><strong>💡 Tägliche Morgen-Fokus-Tipps:</strong> Wechselnde, praxiserprobte Impulse für Wassertrinken (z. B. Owala), Proteine, Alltagsbewegung und Sättigung.</span>
-                  </li>
-                  <li className="flex items-start gap-1.5">
-                    <span className="text-emerald-600 shrink-0 font-bold">✓</span>
-                    <span><strong>🎙️ Neuer KI-Diktier-Button in der Menüleiste:</strong> Das unstrukturierte „+“ in der unteren Leiste wurde durch ein ästhetisches Mikrofon mit sanftem Farbverlauf & Schimmer ersetzt. 1 Klick öffnet sofort das Diktat mit automatischer Mahlzeit-Erkennung (nach Uhrzeit oder Schlüsselwörtern wie „zum Frühstück“, „zu Mittag“, „Abendessen“).</span>
-                  </li>
-                  <li className="flex items-start gap-1.5">
-                    <span className="text-emerald-600 shrink-0 font-bold">✓</span>
-                    <span><strong>🔢 Neue 2-Ziffern-Versionszählung:</strong> Übersichtliche Versionsstruktur ab Version 1.4.</span>
-                  </li>
-                </ul>
+                      {/* Expandable Body */}
+                      {isOpen && (
+                        <div className="px-3 pb-3 pt-1 border-t border-stone-100/90 animate-in fade-in duration-150">
+                          <ul className="text-xs text-stone-600 space-y-1.5 pl-1">
+                            {ver.items.map((item, idx) => (
+                              <li key={idx} className="flex items-start gap-1.5">
+                                <span className="text-emerald-600 shrink-0 font-bold">✓</span>
+                                <span>
+                                  <strong>{item.title}:</strong> {item.description}
+                                </span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
-
-              {/* Version 1.3.2 */}
-              <div className="p-3 bg-white rounded-xl border border-stone-200/80 shadow-2xs space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-1.5">
-                    <span className="px-2 py-0.5 rounded-md bg-stone-100 text-stone-800 text-[11px] font-black border border-stone-200">
-                      v1.3.2
-                    </span>
-                    <span className="text-xs font-bold text-stone-700">Josies Workout & Buße</span>
-                  </div>
-                  <span className="text-[10px] text-stone-400 font-medium">04.10.2026</span>
-                </div>
-                <ul className="text-xs text-stone-600 space-y-1 pl-1">
-                  <li className="flex items-start gap-1.5">
-                    <span className="text-emerald-600 shrink-0 font-bold">✓</span>
-                    <span><strong>Josies Workout & Crosstrainer:</strong> Spezielles Workout mit 4 Intensitätsstufen (Sanft, Moderat, Zügig, Vollgas), freier Dauerwahl und Display-Kalorieneingabe mit wissenschaftlichem Netto-Vergleich und 1-Klick-Übernahme.</span>
-                  </li>
-                  <li className="flex items-start gap-1.5">
-                    <span className="text-emerald-600 shrink-0 font-bold">✓</span>
-                    <span><strong>Buße-Modus (Defizit-Schutz):</strong> Gezieltes Puffer-Workout, wenn Mahlzeiten zuvor etwas optimistisch verbucht wurden – schützt das Kaloriendefizit, ohne das Essensbudget aufzublähen.</span>
-                  </li>
-                  <li className="flex items-start gap-1.5">
-                    <span className="text-emerald-600 shrink-0 font-bold">✓</span>
-                    <span><strong>Pedometer & Samsung Health:</strong> Tages-Schritte unkompliziert eintragen mit wissenschaftlichem Netto-Kalorienbonus über Grundalltag (PAL).</span>
-                  </li>
-                  <li className="flex items-start gap-1.5">
-                    <span className="text-emerald-600 shrink-0 font-bold">✓</span>
-                    <span><strong>Jumping Fit Presets:</strong> Schnellwahl für 75m Komplettsession, 45m HIIT, 20m Tabata oder 10m Dehnen.</span>
-                  </li>
-                  <li className="flex items-start gap-1.5">
-                    <span className="text-emerald-600 shrink-0 font-bold">✓</span>
-                    <span><strong>Bedarfsrechner-Upgrade:</strong> Abgeschnittener Header korrigiert & Option <em>„Sport tagesgenau erfassen“</em> zur Vermeidung von Doppelzählungen.</span>
-                  </li>
-                  <li className="flex items-start gap-1.5">
-                    <span className="text-emerald-600 shrink-0 font-bold">✓</span>
-                    <span><strong>KI-Daueraufnahme ohne Abbruch:</strong> Sprachaufnahme im Mahlzeiten-Modal bricht bei Sprechpausen nicht mehr ab, sondern läuft persistent durch bis zum manuellen Stopp.</span>
-                  </li>
-                  <li className="flex items-start gap-1.5">
-                    <span className="text-emerald-600 shrink-0 font-bold">✓</span>
-                    <span><strong>Selbstgebackenes Brot:</strong> Gespeicherte Brotrezepte und Eigenkreationen werden von Gemini jetzt mit höchster Priorität direkt erkannt und mit echten Nährwerten zugeordnet.</span>
-                  </li>
-                </ul>
-              </div>
-
-              {/* Version 1.3.1 */}
-              <div className="p-3 bg-white rounded-xl border border-stone-200/80 shadow-2xs space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-1.5">
-                    <span className="px-2 py-0.5 rounded-md bg-stone-100 text-stone-800 text-[11px] font-black border border-stone-200">
-                      v1.3.1
-                    </span>
-                    <span className="text-xs font-bold text-stone-700">Kompaktes Dashboard & Owala</span>
-                  </div>
-                  <span className="text-[10px] text-stone-400 font-medium">04.10.2026</span>
-                </div>
-                <ul className="text-xs text-stone-600 space-y-1 pl-1">
-                  <li className="flex items-start gap-1.5">
-                    <span className="text-stone-400 shrink-0 font-bold">•</span>
-                    <span><strong>Kompaktes Dashboard auf einer Höhe:</strong> Kalorienkreis und die 4 Tageswerte (Gegessen, Verbrannt, Defizit-Ziel, Erhalt) liegen jetzt ästhetisch nebeneinander auf einer Höhe – spart viel Scrollen bis zu den Mahlzeiten!</span>
-                  </li>
-                  <li className="flex items-start gap-1.5">
-                    <span className="text-stone-400 shrink-0 font-bold">•</span>
-                    <span><strong>⚡ Neuer „Jump-To“-Schnellzugriff:</strong> Symmetrische 6er-Auswahl für alle Tagesaktionen: Einsprechen, Nascherei, Rezepte, Scannen, Bewegung/Sport und direkter Sprung zum Wasserhaushalt.</span>
-                  </li>
-                  <li className="flex items-start gap-1.5">
-                    <span className="text-stone-400 shrink-0 font-bold">•</span>
-                    <span><strong>💧 Wasserhaushalt mit Owala-Flasche (710 ml):</strong> Neuer Schnellbutton für die beliebte 710 ml Owala-Trinkflasche neben Glas (250 ml) und Flasche (500 ml).</span>
-                  </li>
-                  <li className="flex items-start gap-1.5">
-                    <span className="text-stone-400 shrink-0 font-bold">•</span>
-                    <span><strong>🔥 Neues Farbkonzept für Bewegung:</strong> Dynamisches Sport-Orange, harmonisch getrennt vom Goldbraun der Rezepte.</span>
-                  </li>
-                </ul>
-              </div>
-
-              {/* Version 1.3.0 */}
-              <div className="p-3 bg-white rounded-xl border border-stone-200/80 shadow-2xs space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-1.5">
-                    <span className="px-2 py-0.5 rounded-md bg-stone-100 text-stone-800 text-[11px] font-black border border-stone-200">
-                      v1.3.0
-                    </span>
-                    <span className="text-xs font-bold text-stone-700">Rezept-Revolution & Getränke</span>
-                  </div>
-                  <span className="text-[10px] text-stone-400 font-medium">04.10.2026</span>
-                </div>
-                <ul className="text-xs text-stone-600 space-y-1 pl-1">
-                  <li className="flex items-start gap-1.5">
-                    <span className="text-stone-400 shrink-0 font-bold">•</span>
-                    <span><strong>Rezepte direkt bearbeiten:</strong> Unter „Meine Rezepte“ können bestehende Rezepte jetzt jederzeit editiert und mit geänderten Zutaten/Mengen gespeichert werden.</span>
-                  </li>
-                  <li className="flex items-start gap-1.5">
-                    <span className="text-stone-400 shrink-0 font-bold">•</span>
-                    <span><strong>Aufklappbare Rubriken (Akkordeon):</strong> Platzsparende Kategorien mit Schnellfilter und Suche für 100+ Rezepte.</span>
-                  </li>
-                  <li className="flex items-start gap-1.5">
-                    <span className="text-stone-400 shrink-0 font-bold">•</span>
-                    <span><strong>Neue Rubrik „Getränke“:</strong> Eigene Kategorie für Shakes, Smoothies & Infused Water.</span>
-                  </li>
-                </ul>
-              </div>
-            </div>
+            )}
           </div>
 
           {/* App teilen & QR-Code anzeigen */}
