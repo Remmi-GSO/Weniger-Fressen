@@ -71,14 +71,16 @@ export const PortionCalculatorModal = ({
   const [packageWeightInput, setPackageWeightInput] = useState<string>(
     product?.packageWeightGrams ? String(product.packageWeightGrams) : ''
   );
+  const [overrideCalories100g, setOverrideCalories100g] = useState<number | undefined>(undefined);
 
   const effectiveProduct = useMemo(() => {
     if (!product) return null;
     return {
       ...product,
+      calories100g: overrideCalories100g !== undefined ? overrideCalories100g : product.calories100g,
       packageWeightGrams: packageWeight,
     };
-  }, [product, packageWeight]);
+  }, [product, packageWeight, overrideCalories100g]);
 
   // Compute available intuitive portion presets for standard foods
   const presets = useMemo(() => getPortionPresets(effectiveProduct), [effectiveProduct]);
@@ -215,8 +217,9 @@ export const PortionCalculatorModal = ({
     }
   }
 
+  const effectiveCalories100g = overrideCalories100g !== undefined ? overrideCalories100g : product.calories100g;
   const multiplier = Math.max(0, effectiveGrams / 100);
-  const calculatedKcal = Math.round(product.calories100g * multiplier);
+  const calculatedKcal = Math.round(effectiveCalories100g * multiplier);
   const calculatedProtein = Math.round(product.protein100g * multiplier * 10) / 10;
   const calculatedCarbs = Math.round(product.carbs100g * multiplier * 10) / 10;
   const calculatedFat = Math.round(product.fat100g * multiplier * 10) / 10;
@@ -321,7 +324,7 @@ export const PortionCalculatorModal = ({
     if (existingFav && existingFav.id !== undefined) {
       await db.favoriteItems.update(existingFav.id, {
         useCount: existingFav.useCount + 1,
-        calories: product.calories100g,
+        calories: effectiveCalories100g,
         protein: product.protein100g,
         carbs: product.carbs100g,
         fat: product.fat100g,
@@ -331,7 +334,7 @@ export const PortionCalculatorModal = ({
     } else {
       await db.favoriteItems.add({
         name: product.name,
-        calories: product.calories100g,
+        calories: effectiveCalories100g,
         protein: product.protein100g,
         carbs: product.carbs100g,
         fat: product.fat100g,
@@ -411,9 +414,32 @@ export const PortionCalculatorModal = ({
                   ? `Selbstgemacht • ${totalDishWeight}ml`
                   : product.brand || 'Lebensmittel'}
               </span>
-              <span className="text-[11px] text-emerald-700 font-semibold mt-0.5 block">
-                {product.calories100g} kcal <span className="text-stone-400 font-normal">/ 100g</span>
-              </span>
+              <div className="flex items-center gap-2 mt-0.5">
+                <span className="text-[11px] text-emerald-700 font-semibold">
+                  {effectiveCalories100g} kcal <span className="text-stone-400 font-normal">/ 100g</span>
+                </span>
+                {effectiveCalories100g === 0 && (
+                  <span className="text-[10px] bg-amber-100 text-amber-800 font-bold px-1.5 py-0.5 rounded">
+                    ⚠️ 0 kcal in DB
+                  </span>
+                )}
+              </div>
+              {effectiveCalories100g === 0 && (
+                <div className="mt-1.5 flex items-center gap-2 text-xs bg-amber-50 p-2 rounded-xl border border-amber-200">
+                  <span className="text-amber-900 font-medium">Kalorien/100g eintragen:</span>
+                  <input
+                    type="number"
+                    min="1"
+                    max="999"
+                    className="w-16 px-1.5 py-0.5 bg-white border border-amber-300 rounded font-bold text-center text-xs"
+                    placeholder="kcal"
+                    onChange={(e) => {
+                      const val = parseFloat(e.target.value);
+                      if (val && val > 0) setOverrideCalories100g(val);
+                    }}
+                  />
+                </div>
+              )}
             </div>
           </div>
 
@@ -438,11 +464,11 @@ export const PortionCalculatorModal = ({
                   </span>
                 </span>
                 <span className="text-xs font-black text-emerald-950 bg-emerald-200/90 px-2.5 py-0.5 rounded-full">
-                  {packageWeight}g • {Math.round(product.calories100g * (packageWeight / 100))} kcal
+                  {packageWeight}g • {Math.round(effectiveCalories100g * (packageWeight / 100))} kcal
                 </span>
               </div>
               <div className="flex items-center justify-between text-[11px] text-emerald-900/80 pt-0.5 font-medium">
-                <span>Basis: {product.calories100g} kcal / 100g</span>
+                <span>Basis: {effectiveCalories100g} kcal / 100g</span>
                 <button
                   type="button"
                   onClick={() => setIsEditingPackageWeight(!isEditingPackageWeight)}

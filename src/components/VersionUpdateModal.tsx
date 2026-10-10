@@ -44,13 +44,13 @@ export const VersionUpdateModal: React.FC<VersionUpdateModalProps> = ({
           <div className="relative z-10 flex items-start justify-between">
             <div className="space-y-1">
               <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white/20 backdrop-blur-xs text-[11px] font-black tracking-wide text-white border border-white/20 shadow-xs uppercase">
-                🚀 MEILENSTEIN • VERSION {APP_VERSION}
+                🚀 UPDATE • VERSION {APP_VERSION}
               </span>
               <h3 className="text-xl font-black tracking-tight leading-tight pt-1">
-                Weniger fressen trifft Mehr fressen! 🥳🎉
+                Kategorien-Manager, Dropdown & Supermärkte! 🥳🥦
               </h3>
               <p className="text-xs text-white/95 font-medium">
-                Das gigantische Doppel-Update: Tracker & Rezeptbuch vereint, 39 Paprika-Rezepte, Gebinde-Rechner & Community!
+                Rezept-Kategorien frei anpassen, schlankes Rubriken-Dropdown, Akkordeon-Eigenschaften & Iglo/Supermarkt-Kalorienfix!
               </p>
             </div>
 
@@ -64,91 +64,91 @@ export const VersionUpdateModal: React.FC<VersionUpdateModalProps> = ({
           </div>
         </div>
 
-        {/* Scrollable Content Body with Version 2.0 Highlights */}
+        {/* Scrollable Content Body with Version 2.1 Highlights */}
         <div className="p-5 overflow-y-auto space-y-3 text-stone-700 flex-1">
           <p className="text-xs font-semibold text-stone-600 leading-relaxed bg-amber-50/80 p-3 rounded-2xl border border-amber-200/80">
-            Willkommen zur <strong>Version 2.0</strong>! Wir vereinen zwei Welten: Euren smarten Kalorien- & Fastentracker (<strong>Weniger fressen</strong>) und eure große Rezept-Datenbank & Backstube (<strong>Mehr fressen</strong>) mit vollem Startzustands-Gedächtnis!
+            Willkommen zur <strong>Version 2.1</strong>! Wir bringen euch maximale Übersicht: Rezept-Kategorien frei anpassen & filtern ohne horizontales Scrollen, einklappbare Akkordeon-Einstellungen, Profilbilder mit Community-Info und verifizierte deutsche Supermarkt-Lebensmittel!
           </p>
 
           <div className="space-y-2.5">
-            {/* 1. Doppel-Header & Modus-Gedächtnis */}
-            <div className="p-3 bg-gradient-to-r from-emerald-50 via-teal-50 to-amber-50 border border-emerald-200/90 rounded-2xl flex items-start gap-3">
-              <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-emerald-600 to-amber-500 text-white flex items-center justify-center shrink-0 shadow-2xs font-bold text-base">
-                🔄
+            {/* 1. Kategorien-Dropdown */}
+            <div className="p-3 bg-gradient-to-r from-amber-50 via-orange-50 to-amber-50 border border-amber-200/90 rounded-2xl flex items-start gap-3">
+              <div className="w-8 h-8 rounded-xl bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-2xs font-bold text-base">
+                📂
               </div>
               <div className="text-xs space-y-0.5">
                 <span className="font-extrabold text-stone-900 block">
-                  Der neue Doppel-Header: Weniger fressen ↔ Mehr fressen
+                  Neues Dropdown für Rezept-Rubriken
                 </span>
                 <p className="text-stone-600 leading-snug">
-                  Schaltet ganz oben mit einem Fingertipp zwischen Tracker und Rezeptdatenbank um. Die App merkt sich euren letzten Zustand und startet beim nächsten Mal exakt dort, wo ihr wart!
+                  Kein langes horizontales Scrollen mehr! Wähle alle Rubriken, Favoriten und Community-Rezepte blitzschnell über das aufgeräumte Dropdown-Menü.
                 </p>
               </div>
             </div>
 
-            {/* 2. Paprika-Rezepte & Original-Fotos */}
-            <div className="p-3 bg-amber-50/80 border border-amber-200/90 rounded-2xl flex items-start gap-3">
-              <div className="w-8 h-8 rounded-xl bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-2xs font-bold text-base">
-                🍰
-              </div>
-              <div className="text-xs space-y-0.5">
-                <span className="font-extrabold text-amber-950 block">
-                  39 Paprika-Meisterwerke mit Fotos & Gesamtkalorien
-                </span>
-                <p className="text-stone-600 leading-snug">
-                  Schwarzwälder Kirschtorte, Sachertorte, Tiramisu, Auberginen-Auflauf, Paella, Waffeln und Butterbier – alle Rezepte sind mit Original-Foto, Zubereitung und berechneten Gesamtkalorien da! Verbucht sie grammgenau oder nach Portionen (1 Stück, 1/2, 1/4).
-                </p>
-              </div>
-            </div>
-
-            {/* 3. Smarte Gebinde- & Glas-Logik */}
+            {/* 2. Kategorien frei anpassen & anlegen */}
             <div className="p-3 bg-emerald-50/80 border border-emerald-200/90 rounded-2xl flex items-start gap-3">
               <div className="w-8 h-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-2xs font-bold text-base">
-                🫙
+                ✏️
               </div>
               <div className="text-xs space-y-0.5">
                 <span className="font-extrabold text-emerald-950 block">
-                  Smarte Gebinde-Logik: Rote-Bete-Gläser, Pizzen & Dosen
+                  Rezept-Kategorien frei verwalten & neu anlegen
                 </span>
                 <p className="text-stone-600 leading-snug">
-                  Nie wieder rechnen: Die App zeigt das <strong>Ganze Gebinde (1/1)</strong> mit Gesamtkalorien und bietet direkte Anteile: <strong>1/2 Halbes Glas</strong>, <strong>2/3 Zwei Drittel (1/3 übrig)</strong>, <strong>1/3 Ein Drittel</strong> oder 1 Klick zur <strong>Küchenwaage (g)</strong>!
+                  Erstelle eigene Rubriken (z. B. Airfryer, Suppen, Desserts), passe Emojis & Namen an oder lösche ungenutzte Rubriken direkt in den Eigenschaften.
                 </p>
               </div>
             </div>
 
-            {/* 4. Das neue Community-Register */}
+            {/* 3. Akkordeon-Eigenschaften */}
+            <div className="p-3 bg-teal-50/80 border border-teal-200/90 rounded-2xl flex items-start gap-3">
+              <div className="w-8 h-8 rounded-xl bg-teal-600 text-white flex items-center justify-center shrink-0 shadow-2xs font-bold text-base">
+                📑
+              </div>
+              <div className="text-xs space-y-0.5">
+                <span className="font-extrabold text-teal-950 block">
+                  Aufgeräumte Akkordeon-Eigenschaften
+                </span>
+                <p className="text-stone-600 leading-snug">
+                  Schluss mit endlosem Scrollen! Alle Einstellungen sind in 10 einklappbare Themenbereiche unterteilt – mit praktischen „Alle öffnen“ / „Alle schließen“-Buttons.
+                </p>
+              </div>
+            </div>
+
+            {/* 4. Supermärkte & Barcode-Fix */}
             <div className="p-3 bg-indigo-50/80 border border-indigo-200/90 rounded-2xl flex items-start gap-3">
               <div className="w-8 h-8 rounded-xl bg-indigo-600 text-white flex items-center justify-center shrink-0 shadow-2xs font-bold text-base">
-                🌐
+                🥦
               </div>
               <div className="text-xs space-y-0.5">
                 <span className="font-extrabold text-indigo-950 block">
-                  Neues Register „Community“ mit 1-Klick-Import
+                  Deutsche Supermärkte & Tiefkühl-Kalorienfix
                 </span>
                 <p className="text-stone-600 leading-snug">
-                  Entdeckt leckere Rezepte anderer Nutzer (inkl. Ersteller wie <em>„Philipp“</em>, <em>„Markus“</em> oder <em>„Oma Hilde“</em>), lest euch die Kurz-Info durch und übernehmt sie mit einem Fingertipp in euer eigenes Rezeptbuch!
+                  Edeka, Rewe, Lidl, Aldi, Iglo & Frosta mit echten Barcodes. Erkennt zubereitete Nährwerte (z. B. Iglo Prinzess-Bohnen 400g = 120 kcal) und berechnet Gesamtpackungen automatisch!
                 </p>
               </div>
             </div>
 
-            {/* 5. Smarte Naschereien & Behälter */}
+            {/* 5. Community & Profilbilder */}
             <div className="p-3 bg-pink-50/80 border border-pink-200/90 rounded-2xl flex items-start gap-3">
               <div className="w-8 h-8 rounded-xl bg-pink-600 text-white flex items-center justify-center shrink-0 shadow-2xs font-bold text-base">
-                🍫
+                🌐
               </div>
               <div className="text-xs space-y-0.5">
                 <span className="font-extrabold text-pink-950 block">
-                  Smarte Snack-Behälter (Schokolade & Käse)
+                  Community-Rezepte mit Profilbild & Benachrichtigung
                 </span>
                 <p className="text-stone-600 leading-snug">
-                  Schokolade nach Rippchen/Stückchen ohne Küchenwaage und Käsehappen zum spielerischen Gramm-Lernen mit sofortigem Fett- & Eiweiß-Feedback!
+                  Persönliche Profilfotos oder Farb-Avatare im Rezeptbuch; Mitglieder werden sofort per Banner & NEU-Badge informiert, wenn ein neues Rezept eingepflegt wird!
                 </p>
               </div>
             </div>
           </div>
 
           <div className="p-3 bg-gradient-to-r from-amber-500/10 via-orange-500/10 to-rose-500/10 rounded-2xl border border-amber-200/80 text-center text-xs font-bold text-amber-950">
-            🎉 Viel Freude mit der meisterhaften Version 2.0!
+            🎉 Viel Freude mit der neuen Version 2.1!
           </div>
         </div>
 

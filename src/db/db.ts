@@ -41,6 +41,7 @@ export const DEFAULT_NUTRIENT_BARS: DashboardNutrientBars = {
 export interface UserProfile {
   id: string; // 'current'
   name: string;
+  avatarUrl?: string; // Profilbild (Base64 Data-URL oder Avatar-Preset)
   gender: 'male' | 'female';
   age: number;
   height: number; // in cm
@@ -67,6 +68,7 @@ export interface UserProfile {
   lastMorningBriefingDate?: string; // Format: YYYY-MM-DD
   geminiApiKey?: string;
   hiddenSnackIds?: string[]; // IDs ausgeblendeter oder gelöschter Standard-Naschereien
+  recipeCategories?: RecipeCategoryConfig[]; // Individuell anpassbare Rezept-Kategorien
   isOnboarded: boolean;
   createdAt: string;
 }
@@ -140,7 +142,23 @@ export interface RecipeIngredient {
   sugar?: number;
 }
 
-export type RecipeCategory = 'bread' | 'breakfast' | 'meal' | 'salad' | 'drink' | 'snack';
+export interface RecipeCategoryConfig {
+  id: string;
+  name: string;
+  icon: string;
+  isDefault?: boolean;
+}
+
+export const DEFAULT_RECIPE_CATEGORIES: RecipeCategoryConfig[] = [
+  { id: 'meal', name: 'Hauptgerichte', icon: '🍲', isDefault: true },
+  { id: 'bread', name: 'Kuchen & Backen', icon: '🍞', isDefault: true },
+  { id: 'breakfast', name: 'Frühstück', icon: '🥣', isDefault: true },
+  { id: 'salad', name: 'Salate & Bowls', icon: '🥗', isDefault: true },
+  { id: 'snack', name: 'Snacks & Beilagen', icon: '🥨', isDefault: true },
+  { id: 'drink', name: 'Shakes & Drinks', icon: '🥤', isDefault: true },
+];
+
+export type RecipeCategory = 'bread' | 'breakfast' | 'meal' | 'salad' | 'drink' | 'snack' | string;
 
 export interface CustomRecipe {
   id?: number;
@@ -250,6 +268,7 @@ export const db = new WenigerFressenDB();
 export const DEFAULT_USER_PROFILE: UserProfile = {
   id: 'current',
   name: '',
+  avatarUrl: '',
   gender: 'female',
   age: 30,
   height: 170,
@@ -268,6 +287,7 @@ export const DEFAULT_USER_PROFILE: UserProfile = {
   targetFat: 55,
   waterGoal: 2500,
   foodFocus: DEFAULT_FOOD_FOCUS,
+  recipeCategories: DEFAULT_RECIPE_CATEGORIES,
   showMorningBriefing: true,
   lastMorningBriefingDate: '',
   isOnboarded: false,

@@ -330,39 +330,7 @@ export function getPortionPresets(product: FoodProduct | null | undefined): Port
     ];
   }
 
-  // 25. DOSEN (Tomaten, Bohnen, Kichererbsen, Mais, Thunfisch)
-  if (name.includes('dose') || name.includes('passata') || name.includes('thunfisch') || name.includes('kichererbsen') || name.includes('bohnen')) {
-    if (name.includes('thunfisch')) {
-      return [
-        { id: 'can_tuna_half', label: '1/2 Dose', subtitle: 'ca. 75g (Abtropfgewicht)', grams: 75, icon: '🥫' },
-        { id: 'can_tuna_full', label: '1 ganze Dose', subtitle: 'ca. 150g (Abtropfgewicht)', grams: 150, icon: '🥫', isDefault: true },
-      ];
-    }
-    return [
-      { id: 'can_half', label: '1/2 Dose', subtitle: 'ca. 200g', grams: 200, icon: '🥫' },
-      { id: 'can_whole', label: '1 ganze Dose', subtitle: 'ca. 400g (oder Packung)', grams: 400, icon: '🥫', isDefault: true },
-    ];
-  }
-
-  // 26. SUPPEN & EINTÖPFE
-  if (name.includes('suppe') || name.includes('eintopf') || name.includes('gulasch')) {
-    return [
-      { id: 'soup_cup', label: 'Kleine Tasse', subtitle: 'ca. 180ml', grams: 180, icon: '🍲' },
-      { id: 'soup_plate', label: 'Tiefer Teller', subtitle: 'ca. 300ml', grams: 300, icon: '🍲', isDefault: true },
-      { id: 'soup_bowl', label: 'Große Schüssel', subtitle: 'ca. 450ml', grams: 450, icon: '🍲' },
-    ];
-  }
-
-  // 27. ZUCKER / HONIG / MARMELADE / AUFSTRICH
-  if (name.includes('zucker') || name.includes('honig') || name.includes('marmelade') || name.includes('nutella') || name.includes('sirup')) {
-    return [
-      { id: 'sweet_tsp', label: '1 Teelöffel (TL)', subtitle: 'ca. 5g', grams: 5, icon: '🥄' },
-      { id: 'sweet_std', label: '1 Portion fürs Brot', subtitle: 'ca. 15g', grams: 15, icon: '🥄', isDefault: true },
-      { id: 'sweet_tbsp', label: '1 Esslöffel (EL)', subtitle: 'ca. 25g', grams: 25, icon: '🥄' },
-    ];
-  }
-
-  // 28. PRODUCT HAS TOTAL PACKAGE / CONTAINER WEIGHT (Glas, Dose, Pizza, Packung, etc.)
+  // 25. PRODUCT HAS TOTAL PACKAGE / CONTAINER WEIGHT (Glas, Dose, Pizza, Packung, etc.)
   if (product.packageWeightGrams && product.packageWeightGrams > 0) {
     const pw = product.packageWeightGrams;
     const type = product.containerType || 'general';
@@ -399,11 +367,43 @@ export function getPortionPresets(product: FoodProduct | null | undefined): Port
     const articleHalb = unitWord === 'Dose' || unitWord === 'Flasche' || unitWord === 'Pizza' || unitWord === 'Packung' ? 'Halbe' : 'Halbes';
 
     return [
-      { id: 'pkg_full', label: `1/1 ${articleGanz} ${unitWord}`, subtitle: `ca. ${pw}g (Komplett)`, grams: pw, icon },
-      { id: 'pkg_half', label: `1/2 ${articleHalb} ${unitWord}`, subtitle: `ca. ${Math.round(pw * 0.5)}g (50%)`, grams: Math.round(pw * 0.5), icon, isDefault: true },
+      { id: 'pkg_full', label: `1/1 ${articleGanz} ${unitWord}`, subtitle: `ca. ${pw}g (Komplett)`, grams: pw, icon, isDefault: pw <= 500 },
+      { id: 'pkg_half', label: `1/2 ${articleHalb} ${unitWord}`, subtitle: `ca. ${Math.round(pw * 0.5)}g (50%)`, grams: Math.round(pw * 0.5), icon, isDefault: pw > 500 },
       { id: 'pkg_two_third', label: `2/3 Zwei Drittel`, subtitle: `ca. ${Math.round(pw * (2 / 3))}g (1/3 übrig)`, grams: Math.round(pw * (2 / 3)), icon },
       { id: 'pkg_one_third', label: `1/3 Ein Drittel`, subtitle: `ca. ${Math.round(pw * (1 / 3))}g (33%)`, grams: Math.round(pw * (1 / 3)), icon },
       { id: 'pkg_quarter', label: `1/4 Ein Viertel`, subtitle: `ca. ${Math.round(pw * 0.25)}g (25%)`, grams: Math.round(pw * 0.25), icon },
+    ];
+  }
+
+  // 26. DOSEN & KONSERVEN (Tomaten, Bohnen, Kichererbsen, Mais, Thunfisch - Fallback ohne Packungsgewicht)
+  if (name.includes('dose') || name.includes('passata') || name.includes('thunfisch') || name.includes('kichererbsen') || name.includes('bohnen')) {
+    if (name.includes('thunfisch')) {
+      return [
+        { id: 'can_tuna_half', label: '1/2 Dose', subtitle: 'ca. 75g (Abtropfgewicht)', grams: 75, icon: '🥫' },
+        { id: 'can_tuna_full', label: '1 ganze Dose', subtitle: 'ca. 150g (Abtropfgewicht)', grams: 150, icon: '🥫', isDefault: true },
+      ];
+    }
+    return [
+      { id: 'can_half', label: '1/2 Dose / Packung', subtitle: 'ca. 200g', grams: 200, icon: '🥫' },
+      { id: 'can_whole', label: '1 ganze Dose / Packung', subtitle: 'ca. 400g', grams: 400, icon: '🥫', isDefault: true },
+    ];
+  }
+
+  // 27. SUPPEN & EINTÖPFE
+  if (name.includes('suppe') || name.includes('eintopf') || name.includes('gulasch')) {
+    return [
+      { id: 'soup_cup', label: 'Kleine Tasse', subtitle: 'ca. 180ml', grams: 180, icon: '🍲' },
+      { id: 'soup_plate', label: 'Tiefer Teller', subtitle: 'ca. 300ml', grams: 300, icon: '🍲', isDefault: true },
+      { id: 'soup_bowl', label: 'Große Schüssel', subtitle: 'ca. 450ml', grams: 450, icon: '🍲' },
+    ];
+  }
+
+  // 28. ZUCKER / HONIG / MARMELADE / AUFSTRICH
+  if (name.includes('zucker') || name.includes('honig') || name.includes('marmelade') || name.includes('nutella') || name.includes('sirup')) {
+    return [
+      { id: 'sweet_tsp', label: '1 Teelöffel (TL)', subtitle: 'ca. 5g', grams: 5, icon: '🥄' },
+      { id: 'sweet_std', label: '1 Portion fürs Brot', subtitle: 'ca. 15g', grams: 15, icon: '🥄', isDefault: true },
+      { id: 'sweet_tbsp', label: '1 Esslöffel (EL)', subtitle: 'ca. 25g', grams: 25, icon: '🥄' },
     ];
   }
 

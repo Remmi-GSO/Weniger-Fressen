@@ -24,6 +24,15 @@ import { NutritionReportModal } from './components/NutritionReportModal';
 import { MorningBriefingModal } from './components/MorningBriefingModal';
 import { VersionUpdateModal } from './components/VersionUpdateModal';
 import { RecipeDatabaseView } from './components/RecipeDatabaseView';
+import { CommunityNotificationBanner } from './components/CommunityNotificationBanner';
+import {
+  fetchCommunityRecipes,
+  getSeenCommunityRecipeIds,
+  markCommunityRecipeAsSeen,
+  markAllCommunityRecipesAsSeen,
+  sendCommunityRecipeNotification,
+  type CommunityRecipe,
+} from './utils/communityNotifier';
 import { PAPRIKA_RECIPES } from './data/paprikaRecipes';
 import { Settings, Maximize, Minimize } from 'lucide-react';
 import { APP_VERSION, RECIPES_VERSION } from './config/version';
@@ -69,7 +78,75 @@ export function App() {
   const [selectedProduct, setSelectedProduct] = useState<FoodProduct | null>(null);
 
   const [showSettings, setShowSettings] = useState(false);
+  const [settingsInitialSection, setSettingsInitialSection] = useState<string | undefined>(undefined);
   const [forceOnboarding, setForceOnboarding] = useState(false);
+
+  // Community notification state
+  const [unseenCommunityRecipes, setUnseenCommunityRecipes] = useState<CommunityRecipe[]>([]);
+  const [focusCommunityRecipeId, setFocusCommunityRecipeId] = useState<string | null>(null);
+
+  // Check for new community recipes on mount & on app visibility change
+  useEffect(() => {
+    let isCancelled = false;
+
+    const checkCommunityRecipes = async () => {
+      try {
+        const commRecipes = await fetchCommunityRecipes();
+        if (isCancelled || commRecipes.length === 0) return;
+
+        const seenIds = getSeenCommunityRecipeIds();
+        const existingLocal = await db.recipes.toArray();
+        const existingNames = new Set(existingLocal.map((r) => r.name.toLowerCase().trim()));
+
+        // Filter recipes that have not been seen and not yet imported
+        const unseen = commRecipes.filter(
+          (cr) => !seenIds.has(cr.id) && !existingNames.has(cr.name.toLowerCase().trim())
+        );
+
+        if (!isCancelled) {
+          setUnseenCommunityRecipes(unseen);
+
+          // If browser notification permission is granted, notify for the first unseen recipe
+          if (
+            unseen.length > 0 &&
+            typeof window !== 'undefined' &&
+            'Notification' in window &&
+            Notification.permission === 'granted'
+          ) {
+            const lastNotifiedKey = 'weniger_fressen_last_notified_comm_id';
+            const lastNotifiedId = localStorage.getItem(lastNotifiedKey);
+            if (lastNotifiedId !== unseen[0].id) {
+              sendCommunityRecipeNotification(unseen[0]);
+              localStorage.setItem(lastNotifiedKey, unseen[0].id);
+            }
+          }
+        }
+      } catch (err) {
+        console.warn('Check community recipes failed:', err);
+      }
+    };
+
+    checkCommunityRecipes();
+
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        checkCommunityRecipes();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    return () => {
+      isCancelled = true;
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
+  }, []);
+
+  const handleOpenFromCommunityNotification = (recipe: CommunityRecipe) => {
+    markCommunityRecipeAsSeen(recipe.id);
+    setUnseenCommunityRecipes((prev) => prev.filter((r) => r.id !== recipe.id));
+    setFocusCommunityRecipeId(recipe.id);
+    handleSwitchAppMode('recipes');
+  };
 
   // Check URL on startup for shared recipe link (#recipe=... or ?recipe=...)
   useEffect(() => {
@@ -351,8 +428,13 @@ export function App() {
                 📖
               </div>
               <div className="min-w-0 flex-1">
-                <div className="text-[12px] font-extrabold tracking-tight truncate leading-tight">
-                  Mehr fressen
+                <div className="text-[12px] font-extrabold tracking-tight truncate leading-tight flex items-center gap-1.5">
+                  <span>Mehr fressen</span>
+                  {unseenCommunityRecipes.length > 0 && (
+                    <span className="px-1.5 py-0.2 rounded-full bg-rose-500 text-white text-[9px] font-black animate-pulse shadow-xs">
+                      {unseenCommunityRecipes.length} NEU
+                    </span>
+                  )}
                 </div>
                 <div className="text-[10px] font-bold text-amber-600 leading-tight">
                   v{RECIPES_VERSION} • Rezepte
@@ -378,23 +460,51 @@ export function App() {
 
             <button
               type="button"
-              onClick={() => setShowSettings(true)}
-              className="w-8 h-8 rounded-xl bg-stone-50 hover:bg-stone-100 flex items-center justify-center text-stone-500 transition-colors border border-stone-200/60"
-              title="Einstellungen & Eigenschaften"
+              onClick={() => {
+                setSettingsInitialSection(undefined);
+                setShowSettings(true);
+              }}
+              className="w-8 h-8 rounded-xl bg-stone-50 hover:bg-stone-100 flex items-center justify-center text-stone-500 transition-colors border border-stone-200/60 overflow-hidden cursor-pointer"
+              title="Einstellungen & Profil"
             >
-              <Settings className="w-3.5 h-3.5" />
+              {profile.avatarUrl ? (
+                <img src={profile.avatarUrl} alt={profile.name} className="w-full h-full object-cover" />
+              ) : (
+                <Settings className="w-3.5 h-3.5" />
+              )}
             </button>
           </div>
         </div>
       </header>
 
       {/* Main Screen Content */}
-      <main className="flex-1 max-w-md w-full mx-auto p-4 sm:p-5">
+      <main className="flex-1 max-w-md w-full mx-auto p-4 sm:p-5 space-y-4">
+        {unseenCommunityRecipes.length > 0 && (
+          <CommunityNotificationBanner
+            unseenRecipes={unseenCommunityRecipes}
+            onViewRecipe={handleOpenFromCommunityNotification}
+            onDismissRecipe={(recipeId) => {
+              markCommunityRecipeAsSeen(recipeId);
+              setUnseenCommunityRecipes((prev) => prev.filter((r) => r.id !== recipeId));
+            }}
+            onDismissAll={() => {
+              markAllCommunityRecipesAsSeen(unseenCommunityRecipes.map((r) => r.id));
+              setUnseenCommunityRecipes([]);
+            }}
+          />
+        )}
+
         {appMode === 'recipes' ? (
           <RecipeDatabaseView
             onOpenRecipeCreator={() => setIsRecipeCreatorOpen(true)}
             onOpenPortionCalcForRecipe={handleOpenPortionCalcForRecipe}
             selectedDate={selectedDate}
+            focusCommunityRecipeId={focusCommunityRecipeId}
+            onClearFocusCommunityRecipeId={() => setFocusCommunityRecipeId(null)}
+            onOpenCategorySettings={() => {
+              setSettingsInitialSection('recipe_categories');
+              setShowSettings(true);
+            }}
           />
         ) : (
           <>
@@ -439,8 +549,12 @@ export function App() {
             {currentTab === 'settings' && (
               <div className="space-y-4 pb-24">
                 <div className="bg-white rounded-3xl p-6 shadow-card border border-surface-border text-center space-y-4">
-                  <div className="w-16 h-16 bg-emerald-50 text-emerald-600 rounded-3xl flex items-center justify-center mx-auto text-3xl">
-                    👤
+                  <div className="w-16 h-16 bg-emerald-50 text-emerald-600 rounded-3xl flex items-center justify-center mx-auto text-3xl overflow-hidden border border-emerald-100 shadow-2xs">
+                    {profile.avatarUrl ? (
+                      <img src={profile.avatarUrl} alt={profile.name} className="w-full h-full object-cover" />
+                    ) : (
+                      '👤'
+                    )}
                   </div>
                   <div>
                     <h3 className="text-lg font-bold text-stone-800">{profile.name}</h3>
@@ -656,7 +770,11 @@ export function App() {
       {/* Settings Modal */}
       <SettingsModal
         isOpen={showSettings}
-        onClose={() => setShowSettings(false)}
+        onClose={() => {
+          setShowSettings(false);
+          setSettingsInitialSection(undefined);
+        }}
+        initialSection={settingsInitialSection}
         userProfile={profile}
         onReopenOnboarding={() => setForceOnboarding(true)}
         onOpenRecipeCreator={() => {

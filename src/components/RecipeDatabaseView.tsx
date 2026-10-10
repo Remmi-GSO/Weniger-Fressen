@@ -1,8 +1,16 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { db, type CustomRecipe, type RecipeCategory } from '../db/db';
+import { db, type CustomRecipe, DEFAULT_RECIPE_CATEGORIES, type RecipeCategoryConfig } from '../db/db';
 import { inferRecipeCategory } from './RecipeCreatorModal';
 import { RecipeShareModal } from './RecipeShareModal';
+import { CommunityRecipeSubmitModal } from './CommunityRecipeSubmitModal';
+import { getAuthorAvatar } from '../utils/avatar';
+import {
+  type CommunityRecipe,
+  fetchCommunityRecipes,
+  getSeenCommunityRecipeIds,
+  markCommunityRecipeAsSeen,
+} from '../utils/communityNotifier';
 import {
   Search,
   Plus,
@@ -16,74 +24,73 @@ import {
   X,
   Eye,
   Globe,
+  Settings,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
-
-interface CommunityRecipe {
-  id: string;
-  name: string;
-  author: string;
-  authorRole?: string;
-  category: RecipeCategory;
-  imageUrl?: string;
-  prepTimeMinutes?: number;
-  totalRawWeight: number;
-  cookedWeight: number;
-  servingName: string;
-  servingWeightGrams: number;
-  calories100g: number;
-  protein100g: number;
-  carbs100g: number;
-  fat100g: number;
-  totalCalories: number;
-  tags?: string[];
-  description?: string;
-  ingredients: Array<{
-    name: string;
-    amountGrams: number;
-    calories: number;
-    protein: number;
-    carbs: number;
-    fat: number;
-  }>;
-  instructions: string[];
-}
 
 interface RecipeDatabaseViewProps {
   onOpenRecipeCreator: () => void;
   onOpenPortionCalcForRecipe: (recipe: CustomRecipe) => void;
   selectedDate?: string;
+  initialCategory?: string;
+  focusCommunityRecipeId?: string | null;
+  onClearFocusCommunityRecipeId?: () => void;
+  onOpenCategorySettings?: () => void;
 }
 
 export const RecipeDatabaseView: React.FC<RecipeDatabaseViewProps> = ({
   onOpenRecipeCreator,
   onOpenPortionCalcForRecipe,
+  initialCategory,
+  focusCommunityRecipeId,
+  onClearFocusCommunityRecipeId,
+  onOpenCategorySettings,
 }) => {
   // 1. Live Query of all custom & Paprika recipes in Dexie
   const recipes = useLiveQuery(() => db.recipes.reverse().toArray()) || [];
+  const userProfile = useLiveQuery(() => db.userProfile.get('current'));
 
   // 2. States
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeCategory, setActiveCategory] = useState<string>('all');
+  const [activeCategory, setActiveCategory] = useState<string>(initialCategory || 'all');
+  const [isCategoryDropdownOpen, setIsCategoryDropdownOpen] = useState(false);
+  const categoryDropdownRef = useRef<HTMLDivElement>(null);
   const [expandedRecipeId, setExpandedRecipeId] = useState<number | null>(null);
   const [shareModalRecipe, setShareModalRecipe] = useState<CustomRecipe | null>(null);
+  const [isSubmitModalOpen, setIsSubmitModalOpen] = useState(false);
+  const [communitySubmitRecipe, setCommunitySubmitRecipe] = useState<CustomRecipe | null>(null);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent | TouchEvent) => {
+      if (categoryDropdownRef.current && !categoryDropdownRef.current.contains(e.target as Node)) {
+        setIsCategoryDropdownOpen(false);
+      }
+    };
+    if (isCategoryDropdownOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      document.addEventListener('touchstart', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('touchstart', handleClickOutside);
+    };
+  }, [isCategoryDropdownOpen]);
 
   // Community recipes state
   const [communityRecipes, setCommunityRecipes] = useState<CommunityRecipe[]>([]);
   const [isLoadingCommunity, setIsLoadingCommunity] = useState(false);
   const [selectedCommunityRecipe, setSelectedCommunityRecipe] = useState<CommunityRecipe | null>(null);
   const [importedCommunityIds, setImportedCommunityIds] = useState<Set<string>>(new Set());
+  const [seenCommunityIds, setSeenCommunityIds] = useState<Set<string>>(() => getSeenCommunityRecipeIds());
 
-  // Load Community Recipes from public/data/community-recipes.json
+  // Load Community Recipes with cache-busting
   useEffect(() => {
     const fetchCommunity = async () => {
       setIsLoadingCommunity(true);
       try {
-        const res = await fetch('./data/community-recipes.json');
-        if (res.ok) {
-          const data: CommunityRecipe[] = await res.json();
-          setCommunityRecipes(data);
-        }
+        const data = await fetchCommunityRecipes();
+        setCommunityRecipes(data);
       } catch (err) {
         console.warn('Could not load community recipes from network', err);
       } finally {
@@ -92,6 +99,20 @@ export const RecipeDatabaseView: React.FC<RecipeDatabaseViewProps> = ({
     };
     fetchCommunity();
   }, []);
+
+  // Handle focus on specific community recipe from notifications
+  useEffect(() => {
+    if (focusCommunityRecipeId && communityRecipes.length > 0) {
+      setActiveCategory('community');
+      const target = communityRecipes.find((c) => c.id === focusCommunityRecipeId);
+      if (target) {
+        setSelectedCommunityRecipe(target);
+        markCommunityRecipeAsSeen(target.id);
+        setSeenCommunityIds((prev) => new Set(prev).add(target.id));
+      }
+      onClearFocusCommunityRecipeId?.();
+    }
+  }, [focusCommunityRecipeId, communityRecipes, onClearFocusCommunityRecipeId]);
 
   // Check which community recipes are already in the local database
   useEffect(() => {
@@ -151,6 +172,8 @@ export const RecipeDatabaseView: React.FC<RecipeDatabaseViewProps> = ({
 
       await db.recipes.add(newRecipe);
       setImportedCommunityIds((prev) => new Set(prev).add(commRecipe.id));
+      markCommunityRecipeAsSeen(commRecipe.id);
+      setSeenCommunityIds((prev) => new Set(prev).add(commRecipe.id));
 
       confetti({
         particleCount: 50,
@@ -165,6 +188,54 @@ export const RecipeDatabaseView: React.FC<RecipeDatabaseViewProps> = ({
       alert('Import fehlgeschlagen');
     }
   };
+
+  const unseenCommunityCount = useMemo(() => {
+    return communityRecipes.filter((cr) => !seenCommunityIds.has(cr.id) && !importedCommunityIds.has(cr.id)).length;
+  }, [communityRecipes, seenCommunityIds, importedCommunityIds]);
+
+  const handleOpenCommunityRecipe = (cr: CommunityRecipe) => {
+    setSelectedCommunityRecipe(cr);
+    markCommunityRecipeAsSeen(cr.id);
+    setSeenCommunityIds((prev) => new Set(prev).add(cr.id));
+  };
+
+  // User configured or default recipe categories
+  const categoriesConfig: RecipeCategoryConfig[] = useMemo(() => {
+    return userProfile?.recipeCategories && userProfile.recipeCategories.length > 0
+      ? userProfile.recipeCategories
+      : DEFAULT_RECIPE_CATEGORIES;
+  }, [userProfile?.recipeCategories]);
+
+  const favoritesCount = useMemo(() => recipes.filter((r) => r.isFavorite).length, [recipes]);
+
+  const categoryCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const cat of categoriesConfig) {
+      counts[cat.id] = 0;
+    }
+    for (const r of recipes) {
+      const catId = r.category || inferRecipeCategory(r);
+      counts[catId] = (counts[catId] || 0) + 1;
+    }
+    return counts;
+  }, [recipes, categoriesConfig]);
+
+  const activeCategoryInfo = useMemo(() => {
+    if (activeCategory === 'all') {
+      return { name: 'Alle Rezepte', icon: '🍽️', count: recipes.length };
+    }
+    if (activeCategory === 'favorites') {
+      return { name: 'Favoriten', icon: '⭐', count: favoritesCount };
+    }
+    if (activeCategory === 'community') {
+      return { name: 'Community', icon: '🌍', count: communityRecipes.length };
+    }
+    const found = categoriesConfig.find((c) => c.id === activeCategory);
+    if (found) {
+      return { name: found.name, icon: found.icon, count: categoryCounts[found.id] || 0 };
+    }
+    return { name: activeCategory, icon: '📁', count: 0 };
+  }, [activeCategory, recipes.length, favoritesCount, communityRecipes.length, categoriesConfig, categoryCounts]);
 
   // Filter local recipes
   const filteredLocalRecipes = useMemo(() => {
@@ -182,16 +253,11 @@ export const RecipeDatabaseView: React.FC<RecipeDatabaseViewProps> = ({
 
     if (activeCategory === 'favorites') {
       result = result.filter((r) => r.isFavorite);
-    } else if (activeCategory === 'bread') {
-      result = result.filter((r) => inferRecipeCategory(r) === 'bread');
-    } else if (activeCategory === 'meal') {
-      result = result.filter((r) => inferRecipeCategory(r) === 'meal');
-    } else if (activeCategory === 'salad') {
-      result = result.filter((r) => inferRecipeCategory(r) === 'salad');
-    } else if (activeCategory === 'drink') {
-      result = result.filter((r) => inferRecipeCategory(r) === 'drink');
-    } else if (activeCategory === 'snack') {
-      result = result.filter((r) => inferRecipeCategory(r) === 'snack');
+    } else if (activeCategory === 'all' || activeCategory === 'community') {
+      // return all local recipes
+      return result;
+    } else {
+      result = result.filter((r) => (r.category || inferRecipeCategory(r)) === activeCategory);
     }
 
     return result;
@@ -263,125 +329,204 @@ export const RecipeDatabaseView: React.FC<RecipeDatabaseViewProps> = ({
         )}
       </div>
 
-      {/* Categories Bar */}
-      <div className="flex gap-1.5 overflow-x-auto pb-1 no-scrollbar text-xs">
-        <button
-          type="button"
-          onClick={() => setActiveCategory('all')}
-          className={`py-1.5 px-3 rounded-xl font-bold transition-all shrink-0 text-xs cursor-pointer ${
-            activeCategory === 'all'
-              ? 'bg-stone-900 text-white shadow-2xs'
-              : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
-          }`}
-        >
-          Alle ({recipes.length})
-        </button>
+      {/* Category Dropdown & Quick Filters */}
+      <div className="flex items-center gap-2">
+        {/* Main Category Dropdown Selector */}
+        <div className="relative flex-1 min-w-0" ref={categoryDropdownRef}>
+          <button
+            type="button"
+            onClick={() => setIsCategoryDropdownOpen((prev) => !prev)}
+            className="w-full py-2.5 px-3 rounded-2xl bg-white border border-stone-200/90 hover:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-500/20 shadow-2xs transition-all flex items-center justify-between gap-2 cursor-pointer text-left"
+          >
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="text-base shrink-0">{activeCategoryInfo.icon}</span>
+              <span className="font-extrabold text-xs text-stone-800 truncate">
+                {activeCategoryInfo.name}
+              </span>
+              <span className="px-1.5 py-0.5 rounded-full bg-stone-100 text-stone-600 text-[10px] font-bold shrink-0">
+                {activeCategoryInfo.count}
+              </span>
+            </div>
+            <ChevronDown
+              className={`w-4 h-4 text-stone-400 shrink-0 transition-transform duration-200 ${
+                isCategoryDropdownOpen ? 'rotate-180 text-amber-600' : ''
+              }`}
+            />
+          </button>
 
+          {/* Dropdown Menu Popover */}
+          {isCategoryDropdownOpen && (
+            <div className="absolute left-0 top-full mt-1.5 w-full min-w-[260px] max-w-[320px] bg-white rounded-2xl border border-stone-200 shadow-soft z-40 py-2 animate-in fade-in zoom-in-95 duration-150">
+              <div className="px-3 py-1.5 text-[10px] font-black uppercase tracking-wider text-stone-400 flex items-center justify-between">
+                <span>Rubrik wählen</span>
+                <span>{recipes.length} Rezepte</span>
+              </div>
+
+              {/* Special options: Alle & Favoriten */}
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveCategory('all');
+                  setIsCategoryDropdownOpen(false);
+                }}
+                className={`w-full px-3 py-2 text-left text-xs font-bold flex items-center justify-between transition-colors cursor-pointer ${
+                  activeCategory === 'all'
+                    ? 'bg-amber-50 text-amber-900 font-extrabold'
+                    : 'text-stone-700 hover:bg-stone-50'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <span className="text-sm">🍽️</span>
+                  <span>Alle Rezepte</span>
+                </div>
+                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-stone-100 text-stone-600 font-bold">
+                  {recipes.length}
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveCategory('favorites');
+                  setIsCategoryDropdownOpen(false);
+                }}
+                className={`w-full px-3 py-2 text-left text-xs font-bold flex items-center justify-between transition-colors cursor-pointer ${
+                  activeCategory === 'favorites'
+                    ? 'bg-amber-50 text-amber-900 font-extrabold'
+                    : 'text-stone-700 hover:bg-stone-50'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <span className="text-sm">⭐</span>
+                  <span>Favoriten</span>
+                </div>
+                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-800 font-bold">
+                  {favoritesCount}
+                </span>
+              </button>
+
+              <div className="my-1 border-t border-stone-100" />
+              <div className="px-3 py-1 text-[10px] font-bold text-stone-400">
+                Kategorien ({categoriesConfig.length})
+              </div>
+
+              <div className="max-h-60 overflow-y-auto">
+                {categoriesConfig.map((cat) => {
+                  const isCur = activeCategory === cat.id;
+                  const count = categoryCounts[cat.id] || 0;
+                  return (
+                    <button
+                      key={cat.id}
+                      type="button"
+                      onClick={() => {
+                        setActiveCategory(cat.id);
+                        setIsCategoryDropdownOpen(false);
+                      }}
+                      className={`w-full px-3 py-2 text-left text-xs font-bold flex items-center justify-between transition-colors cursor-pointer ${
+                        isCur
+                          ? 'bg-amber-50 text-amber-900 font-extrabold'
+                          : 'text-stone-700 hover:bg-stone-50'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm">{cat.icon}</span>
+                        <span>{cat.name}</span>
+                      </div>
+                      <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-stone-100 text-stone-600 font-bold">
+                        {count}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {onOpenCategorySettings && (
+                <>
+                  <div className="my-1 border-t border-stone-100" />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsCategoryDropdownOpen(false);
+                      onOpenCategorySettings();
+                    }}
+                    className="w-full px-3 py-2 text-left text-xs font-bold text-emerald-800 hover:bg-emerald-50 transition-colors flex items-center gap-2 cursor-pointer"
+                  >
+                    <Settings className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>⚙️ Kategorien anpassen & neu anlegen</span>
+                  </button>
+                </>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Quick Pill: ⭐ Favoriten */}
         <button
           type="button"
-          onClick={() => setActiveCategory('favorites')}
-          className={`py-1.5 px-3 rounded-xl font-bold transition-all shrink-0 text-xs flex items-center gap-1 cursor-pointer ${
+          onClick={() => setActiveCategory((prev) => (prev === 'favorites' ? 'all' : 'favorites'))}
+          className={`py-2.5 px-3 rounded-2xl font-extrabold text-xs transition-all shrink-0 flex items-center gap-1.5 cursor-pointer shadow-2xs ${
             activeCategory === 'favorites'
-              ? 'bg-amber-500 text-white shadow-2xs'
-              : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'
+              ? 'bg-amber-500 text-white shadow-soft ring-2 ring-amber-300'
+              : 'bg-white text-stone-700 border border-stone-200 hover:border-amber-300'
           }`}
+          title="Favoriten filtern"
         >
           <span>⭐</span>
-          <span>Favoriten ({recipes.filter((r) => r.isFavorite).length})</span>
+          <span className="hidden sm:inline">Favoriten</span>
+          <span className="text-[10px] opacity-85">({favoritesCount})</span>
         </button>
 
+        {/* Quick Pill: 🌍 Community */}
         <button
           type="button"
-          onClick={() => setActiveCategory('bread')}
-          className={`py-1.5 px-3 rounded-xl font-bold transition-all shrink-0 text-xs flex items-center gap-1 cursor-pointer ${
-            activeCategory === 'bread'
-              ? 'bg-amber-600 text-white shadow-2xs'
-              : 'bg-stone-100 text-stone-700 hover:bg-stone-200'
-          }`}
-        >
-          <span>🍞</span>
-          <span>Kuchen & Backen ({recipes.filter((r) => inferRecipeCategory(r) === 'bread').length})</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveCategory('meal')}
-          className={`py-1.5 px-3 rounded-xl font-bold transition-all shrink-0 text-xs flex items-center gap-1 cursor-pointer ${
-            activeCategory === 'meal'
-              ? 'bg-emerald-600 text-white shadow-2xs'
-              : 'bg-stone-100 text-stone-700 hover:bg-stone-200'
-          }`}
-        >
-          <span>🍲</span>
-          <span>Hauptgerichte ({recipes.filter((r) => inferRecipeCategory(r) === 'meal').length})</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveCategory('salad')}
-          className={`py-1.5 px-3 rounded-xl font-bold transition-all shrink-0 text-xs flex items-center gap-1 cursor-pointer ${
-            activeCategory === 'salad'
-              ? 'bg-lime-600 text-white shadow-2xs'
-              : 'bg-stone-100 text-stone-700 hover:bg-stone-200'
-          }`}
-        >
-          <span>🥗</span>
-          <span>Salate ({recipes.filter((r) => inferRecipeCategory(r) === 'salad').length})</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveCategory('drink')}
-          className={`py-1.5 px-3 rounded-xl font-bold transition-all shrink-0 text-xs flex items-center gap-1 cursor-pointer ${
-            activeCategory === 'drink'
-              ? 'bg-blue-600 text-white shadow-2xs'
-              : 'bg-stone-100 text-stone-700 hover:bg-stone-200'
-          }`}
-        >
-          <span>🥤</span>
-          <span>Getränke ({recipes.filter((r) => inferRecipeCategory(r) === 'drink').length})</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveCategory('snack')}
-          className={`py-1.5 px-3 rounded-xl font-bold transition-all shrink-0 text-xs flex items-center gap-1 cursor-pointer ${
-            activeCategory === 'snack'
-              ? 'bg-pink-600 text-white shadow-2xs'
-              : 'bg-stone-100 text-stone-700 hover:bg-stone-200'
-          }`}
-        >
-          <span>🍪</span>
-          <span>Snacks ({recipes.filter((r) => inferRecipeCategory(r) === 'snack').length})</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveCategory('community')}
-          className={`py-1.5 px-3 rounded-xl font-black transition-all shrink-0 text-xs flex items-center gap-1 cursor-pointer ${
+          onClick={() => setActiveCategory((prev) => (prev === 'community' ? 'all' : 'community'))}
+          className={`py-2.5 px-3 rounded-2xl font-black text-xs transition-all shrink-0 flex items-center gap-1.5 cursor-pointer shadow-2xs ${
             activeCategory === 'community'
               ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-soft ring-2 ring-purple-300'
               : 'bg-indigo-50 text-indigo-900 border border-indigo-200/80 hover:bg-indigo-100'
           }`}
+          title="Community-Rezepte ansehen"
         >
           <Globe className="w-3.5 h-3.5 text-indigo-600" />
-          <span>Community ({communityRecipes.length})</span>
+          <span>Community</span>
+          {unseenCommunityCount > 0 ? (
+            <span className="px-1.5 py-0.2 rounded-full bg-rose-500 text-white text-[9px] font-black animate-pulse">
+              {unseenCommunityCount} NEU
+            </span>
+          ) : (
+            <span className="text-[10px] opacity-80">({communityRecipes.length})</span>
+          )}
         </button>
       </div>
 
       {/* VIEW A: COMMUNITY REGISTER */}
       {activeCategory === 'community' && (
         <div className="space-y-3">
-          <div className="p-3.5 bg-indigo-50/90 border border-indigo-200 rounded-2xl flex items-start gap-2.5">
-            <Globe className="w-5 h-5 text-indigo-600 shrink-0 mt-0.5" />
-            <div className="text-xs space-y-0.5">
-              <span className="font-extrabold text-indigo-950 block">
-                Offene Community-Rezepte
-              </span>
-              <p className="text-stone-600 leading-snug">
-                Rezepte von anderen Nutzern und Freunden. Schau dir die Kurz-Info an und importiere sie mit 1 Klick in dein eigenes Rezeptbuch!
-              </p>
+          <div className="p-3.5 bg-indigo-50/90 border border-indigo-200 rounded-2xl flex items-center justify-between gap-2.5">
+            <div className="flex items-start gap-2.5 min-w-0">
+              <Globe className="w-5 h-5 text-indigo-600 shrink-0 mt-0.5" />
+              <div className="text-xs space-y-0.5 min-w-0">
+                <span className="font-extrabold text-indigo-950 block">
+                  Offene Community-Rezepte
+                </span>
+                <p className="text-stone-600 leading-snug">
+                  Rezepte mit Profilbildern von Mitgliedern. Direkt ansehen und mit 1 Klick importieren!
+                </p>
+              </div>
             </div>
+            <button
+              type="button"
+              onClick={() => {
+                setCommunitySubmitRecipe(null);
+                setIsSubmitModalOpen(true);
+              }}
+              className="py-1.5 px-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white text-xs font-bold flex items-center gap-1 shadow-2xs shrink-0 cursor-pointer transition-all"
+              title="Eigenes Rezept für Community bereitstellen"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span className="hidden xs:inline">Rezept einpflegen</span>
+              <span className="xs:hidden">Einpflegen</span>
+            </button>
           </div>
 
           {isLoadingCommunity ? (
@@ -397,10 +542,17 @@ export const RecipeDatabaseView: React.FC<RecipeDatabaseViewProps> = ({
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {filteredCommunityRecipes.map((cr) => {
                 const isImported = importedCommunityIds.has(cr.id);
+                const isNew = !seenCommunityIds.has(cr.id) && !isImported;
+                const authorAvatar = getAuthorAvatar(cr.author, cr.authorAvatarUrl);
+
                 return (
                   <div
                     key={cr.id}
-                    className="p-3.5 bg-white border border-stone-200 hover:border-indigo-300 rounded-2xl shadow-2xs space-y-2.5 flex flex-col justify-between transition-all"
+                    className={`p-3.5 bg-white border rounded-2xl shadow-2xs space-y-2.5 flex flex-col justify-between transition-all ${
+                      isNew
+                        ? 'border-amber-300 ring-2 ring-amber-200/60 hover:border-amber-400'
+                        : 'border-stone-200 hover:border-indigo-300'
+                    }`}
                   >
                     <div className="space-y-2">
                       {cr.imageUrl ? (
@@ -410,16 +562,39 @@ export const RecipeDatabaseView: React.FC<RecipeDatabaseViewProps> = ({
                             alt={cr.name}
                             className="w-full h-full object-cover"
                           />
-                          <span className="absolute top-2 left-2 px-2 py-0.5 rounded-full bg-stone-900/70 backdrop-blur-xs text-[10px] font-bold text-white">
-                            👤 {cr.author}
+                          <span className="absolute top-2 left-2 px-2 py-0.5 rounded-full bg-stone-900/75 backdrop-blur-xs text-[10px] font-bold text-white flex items-center gap-1.5 shadow-xs">
+                            <img
+                              src={authorAvatar}
+                              alt={cr.author}
+                              className="w-4 h-4 rounded-full object-cover border border-white/70"
+                            />
+                            <span>{cr.author}</span>
                           </span>
+                          {isNew && (
+                            <span className="absolute top-2 right-2 px-2 py-0.5 rounded-full bg-rose-500 text-[9px] font-black text-white shadow-xs animate-pulse">
+                              ✨ NEU
+                            </span>
+                          )}
                         </div>
                       ) : (
                         <div className="flex items-center justify-between">
-                          <span className="px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-900 text-[10px] font-bold">
-                            👤 von {cr.author}
-                          </span>
-                          <span className="text-[10px] text-stone-400">Community</span>
+                          <div className="flex items-center gap-1.5">
+                            <img
+                              src={authorAvatar}
+                              alt={cr.author}
+                              className="w-6 h-6 rounded-full object-cover border border-indigo-300 shadow-2xs"
+                            />
+                            <span className="px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-900 text-[10px] font-bold">
+                              von {cr.author}
+                            </span>
+                          </div>
+                          {isNew ? (
+                            <span className="px-2 py-0.5 rounded-full bg-rose-500 text-[9px] font-black text-white shadow-xs animate-pulse">
+                              ✨ NEU
+                            </span>
+                          ) : (
+                            <span className="text-[10px] text-stone-400">Community</span>
+                          )}
                         </div>
                       )}
 
@@ -455,7 +630,7 @@ export const RecipeDatabaseView: React.FC<RecipeDatabaseViewProps> = ({
                     <div className="flex items-center gap-2 pt-2 border-t border-stone-100">
                       <button
                         type="button"
-                        onClick={() => setSelectedCommunityRecipe(cr)}
+                        onClick={() => handleOpenCommunityRecipe(cr)}
                         className="flex-1 py-2 px-2.5 rounded-xl bg-stone-100 hover:bg-stone-200 text-stone-700 text-xs font-bold transition-colors flex items-center justify-center gap-1 cursor-pointer"
                       >
                         <Eye className="w-3.5 h-3.5" />
@@ -594,6 +769,18 @@ export const RecipeDatabaseView: React.FC<RecipeDatabaseViewProps> = ({
                     <div className="flex items-center gap-1">
                       <button
                         type="button"
+                        onClick={() => {
+                          setCommunitySubmitRecipe(r);
+                          setIsSubmitModalOpen(true);
+                        }}
+                        className="p-1.5 rounded-xl bg-indigo-50 border border-indigo-200 hover:bg-indigo-100 text-indigo-700 transition-colors cursor-pointer"
+                        title="Rezept für Community bereitstellen / einpflegen"
+                      >
+                        <Globe className="w-3.5 h-3.5" />
+                      </button>
+
+                      <button
+                        type="button"
                         onClick={() => setShareModalRecipe(r)}
                         className="p-1.5 rounded-xl bg-white border border-stone-200 hover:bg-stone-100 text-stone-600 transition-colors cursor-pointer"
                         title="Per QR-Code / Link teilen"
@@ -674,21 +861,28 @@ export const RecipeDatabaseView: React.FC<RecipeDatabaseViewProps> = ({
           <div className="w-full max-w-md bg-white rounded-3xl shadow-soft-xl border border-stone-100 overflow-hidden flex flex-col max-h-[90vh]">
             {/* Modal Header */}
             <div className="p-4 bg-gradient-to-r from-indigo-600 to-purple-600 text-white flex items-start justify-between gap-3">
-              <div>
-                <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-white/20">
-                  🌐 Community-Rezept
-                </span>
-                <h3 className="text-base font-black pt-1 leading-tight">
-                  {selectedCommunityRecipe.name}
-                </h3>
-                <p className="text-xs text-white/90">
-                  Erstellt von <strong>{selectedCommunityRecipe.author}</strong> ({selectedCommunityRecipe.authorRole || 'Community'})
-                </p>
+              <div className="flex items-center gap-3 min-w-0">
+                <img
+                  src={getAuthorAvatar(selectedCommunityRecipe.author, selectedCommunityRecipe.authorAvatarUrl)}
+                  alt={selectedCommunityRecipe.author}
+                  className="w-12 h-12 rounded-full object-cover border-2 border-white/90 shadow-sm shrink-0"
+                />
+                <div className="min-w-0">
+                  <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-white/20">
+                    🌐 Community-Rezept
+                  </span>
+                  <h3 className="text-base font-black pt-1 leading-tight truncate">
+                    {selectedCommunityRecipe.name}
+                  </h3>
+                  <p className="text-xs text-white/90 truncate">
+                    Erstellt von <strong>{selectedCommunityRecipe.author}</strong> ({selectedCommunityRecipe.authorRole || 'Community'})
+                  </p>
+                </div>
               </div>
               <button
                 type="button"
                 onClick={() => setSelectedCommunityRecipe(null)}
-                className="w-7 h-7 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center text-white"
+                className="w-7 h-7 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center text-white shrink-0"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -765,7 +959,7 @@ export const RecipeDatabaseView: React.FC<RecipeDatabaseViewProps> = ({
               <button
                 type="button"
                 onClick={() => setSelectedCommunityRecipe(null)}
-                className="py-2.5 px-4 rounded-xl bg-white border border-stone-200 text-stone-700 font-bold text-xs hover:bg-stone-100"
+                className="py-2.5 px-4 rounded-xl bg-white border border-stone-200 text-stone-700 font-bold text-xs hover:bg-stone-100 cursor-pointer"
               >
                 Schließen
               </button>
@@ -802,6 +996,24 @@ export const RecipeDatabaseView: React.FC<RecipeDatabaseViewProps> = ({
           recipe={shareModalRecipe}
           isOpen={true}
           onClose={() => setShareModalRecipe(null)}
+        />
+      )}
+
+      {/* Community Recipe Submit Modal */}
+      {isSubmitModalOpen && (
+        <CommunityRecipeSubmitModal
+          isOpen={true}
+          onClose={() => {
+            setIsSubmitModalOpen(false);
+            setCommunitySubmitRecipe(null);
+          }}
+          userProfile={userProfile}
+          recipes={recipes}
+          initialRecipe={communitySubmitRecipe}
+          onAddLocalCommunityRecipe={(newComm) => {
+            setCommunityRecipes((prev) => [newComm, ...prev]);
+            setActiveCategory('community');
+          }}
         />
       )}
     </div>

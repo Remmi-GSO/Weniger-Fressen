@@ -1,8 +1,9 @@
 import { useState, useMemo, type FormEvent } from 'react';
 import { db, type UserProfile } from '../db/db';
 import { calculateNutritionTargets, type DailyStepLevel, type WorkoutIntensity } from '../utils/nutrition';
-import { Sparkles, ArrowRight, ShieldCheck, Dumbbell, Footprints, X, Upload } from 'lucide-react';
+import { Sparkles, ArrowRight, ShieldCheck, Dumbbell, Footprints, X, Upload, Camera } from 'lucide-react';
 import { BackupManagerModal } from './BackupManagerModal';
+import { compressProfilePhoto, getAuthorAvatar, AVATAR_PRESETS, generateAvatarSvg } from '../utils/avatar';
 
 interface OnboardingModalProps {
   onComplete: () => void;
@@ -14,6 +15,7 @@ export const OnboardingModal = ({ onComplete, initialProfile }: OnboardingModalP
   const [name, setName] = useState(
     initialProfile?.name && initialProfile.name !== 'Du' ? initialProfile.name : ''
   );
+  const [avatarUrl, setAvatarUrl] = useState<string>(initialProfile?.avatarUrl || '');
   const [age, setAge] = useState<number>(initialProfile?.age || 30);
   const [height, setHeight] = useState<number>(initialProfile?.height || 170);
   const [weight, setWeight] = useState<number>(initialProfile?.weight || 75);
@@ -53,6 +55,7 @@ export const OnboardingModal = ({ onComplete, initialProfile }: OnboardingModalP
     const profile: UserProfile = {
       id: 'current',
       name: name.trim(),
+      avatarUrl: avatarUrl || '',
       gender,
       age: Number(age),
       height: Number(height),
@@ -89,6 +92,17 @@ export const OnboardingModal = ({ onComplete, initialProfile }: OnboardingModalP
     }
 
     onComplete();
+  };
+
+  const handleUploadAvatar = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const compressed = await compressProfilePhoto(file);
+      setAvatarUrl(compressed);
+    } catch (err) {
+      console.warn('Avatar compression failed', err);
+    }
   };
 
   return (
@@ -140,20 +154,85 @@ export const OnboardingModal = ({ onComplete, initialProfile }: OnboardingModalP
             </button>
           </div>
 
-          {/* Dein Vorname */}
-          <div className="p-4 bg-emerald-50/60 rounded-2xl border border-emerald-100/90 space-y-2">
-            <label className="text-xs font-bold uppercase tracking-wider text-emerald-800 flex items-center gap-1.5">
-              <span>👤</span> Dein Vorname
-            </label>
-            <input
-              type="text"
-              placeholder="Wie heißt du? (z. B. Remmi)"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="w-full px-4 py-3 rounded-xl border border-emerald-200/80 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 bg-white text-stone-800 font-semibold text-sm placeholder:text-stone-400 placeholder:font-normal"
-            />
-            <p className="text-[11px] text-emerald-700/80">
-              Für deine persönliche Begrüßung auf dem Dashboard.
+          {/* Dein Vorname & Profilbild */}
+          <div className="p-4 bg-emerald-50/60 rounded-2xl border border-emerald-100/90 space-y-3">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-bold uppercase tracking-wider text-emerald-800 flex items-center gap-1.5">
+                <span>👤</span> Dein Profil & Vorname
+              </label>
+              {avatarUrl && (
+                <button
+                  type="button"
+                  onClick={() => setAvatarUrl('')}
+                  className="text-[11px] text-emerald-700 font-bold hover:underline cursor-pointer"
+                >
+                  Zurücksetzen
+                </button>
+              )}
+            </div>
+
+            <div className="flex items-center gap-3">
+              <div className="relative shrink-0">
+                <img
+                  src={avatarUrl ? avatarUrl : getAuthorAvatar(name || 'Du')}
+                  alt="Profilbild"
+                  className="w-14 h-14 rounded-2xl object-cover border-2 border-emerald-500/80 shadow-xs bg-white"
+                />
+                <label
+                  htmlFor="onboarding-photo-upload"
+                  className="absolute -bottom-1 -right-1 w-6 h-6 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white flex items-center justify-center cursor-pointer shadow-xs transition-transform active:scale-90"
+                  title="Eigenes Foto hochladen"
+                >
+                  <Camera className="w-3.5 h-3.5" />
+                  <input
+                    id="onboarding-photo-upload"
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleUploadAvatar}
+                  />
+                </label>
+              </div>
+
+              <input
+                type="text"
+                placeholder="Wie heißt du? (z. B. Remmi)"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className="flex-1 px-4 py-3 rounded-xl border border-emerald-200/80 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 bg-white text-stone-800 font-semibold text-sm placeholder:text-stone-400 placeholder:font-normal"
+              />
+            </div>
+
+            {/* Quick Avatar Emojis */}
+            <div className="space-y-1 pt-1 border-t border-emerald-100/80">
+              <span className="text-[10px] font-bold text-emerald-700/80 uppercase tracking-wider block">
+                Avatar auswählen oder Foto hochladen:
+              </span>
+              <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+                {AVATAR_PRESETS.map((p) => {
+                  const svg = generateAvatarSvg(p.emoji);
+                  const isSelected = avatarUrl === svg;
+                  return (
+                    <button
+                      key={p.emoji}
+                      type="button"
+                      onClick={() => setAvatarUrl(svg)}
+                      className={`w-8 h-8 rounded-xl text-base flex items-center justify-center shrink-0 transition-transform cursor-pointer ${
+                        isSelected
+                          ? 'ring-2 ring-emerald-500 scale-110 bg-emerald-100/80 shadow-2xs'
+                          : 'bg-white border border-emerald-200/60 hover:bg-emerald-50 hover:scale-105'
+                      }`}
+                      title={p.label}
+                    >
+                      {p.emoji}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <p className="text-[11px] text-emerald-700/80 leading-tight">
+              Dein Profilbild und Name werden auch bei deinen Community-Rezepten angezeigt, damit man dich sofort zuordnen kann.
             </p>
           </div>
 

@@ -1,5 +1,6 @@
 import { COMMON_FOODS } from '../data/commonFoods';
 import { SUPERMARKET_CATALOG } from '../data/supermarketCatalog';
+import { type RecipeCategory } from '../db/db';
 
 export interface FoodProduct {
   id: string;
@@ -23,7 +24,7 @@ export interface FoodProduct {
   totalDishWeight?: number;
   cookedWeight?: number;
   totalRawWeight?: number;
-  recipeCategory?: 'bread' | 'breakfast' | 'meal' | 'salad' | 'drink' | 'snack';
+  recipeCategory?: RecipeCategory;
 }
 
 // Master unified catalog for instant zero-latency local lookups
@@ -84,23 +85,19 @@ export function parsePackageGrams(quantityStr?: string, raw?: any): { weight?: n
     return { weight: Math.round(Number(raw.net_weight_value)), type };
   }
 
-  // 3. Parse string e.g. "340 g", "340g", "0.5 kg", "385 g (1 Pizza)"
-  if (quantityStr) {
-    const kgMatch = quantityStr.match(/(\d+(?:[.,]\d+)?)\s*kg/i);
-    if (kgMatch && kgMatch[1]) {
-      return { weight: Math.round(parseFloat(kgMatch[1].replace(',', '.')) * 1000), type };
-    }
-    const gMatch = quantityStr.match(/(\d+(?:[.,]\d+)?)\s*(?:g|ml|gramm)/i);
-    if (gMatch && gMatch[1]) {
-      return { weight: Math.round(parseFloat(gMatch[1].replace(',', '.'))), type };
+  // 3. String matching on combined quantity text e.g. "400 g", "400g", "0.4 kg", "450 g e"
+  const textToCheck = `${quantityStr || ''} ${raw?.quantity || ''} ${raw?.serving_size || ''} ${packaging} ${name}`;
+  const kgMatch = textToCheck.match(/(\d+(?:[.,]\d+)?)\s*kg\b/i);
+  if (kgMatch && kgMatch[1]) {
+    const kg = parseFloat(kgMatch[1].replace(',', '.'));
+    if (kg >= 0.05 && kg <= 10) {
+      return { weight: Math.round(kg * 1000), type };
     }
   }
-
-  // 4. Fallback: Parse weight from product name itself e.g. "Rote Bete 340g" or "Pizza 380g"
-  const nameGMatch = name.match(/(\d+(?:[.,]\d+)?)\s*(?:g|ml|gramm)/i);
-  if (nameGMatch && nameGMatch[1]) {
-    const val = parseFloat(nameGMatch[1].replace(',', '.'));
-    if (val >= 25 && val <= 5000) {
+  const gMatch = textToCheck.match(/(\d+(?:[.,]\d+)?)\s*(?:g|ml|gramm)\b/i);
+  if (gMatch && gMatch[1]) {
+    const val = parseFloat(gMatch[1].replace(',', '.'));
+    if (val >= 20 && val <= 5000) {
       return { weight: Math.round(val), type };
     }
   }
@@ -125,21 +122,137 @@ export function normalizeProduct(raw: any, barcode?: string): FoodProduct | null
   const brand = raw.brands || raw.brand_owner || undefined;
   const nutriments = raw.nutriments || {};
 
-  // Extract calories: prefer energy-kcal_100g, fallback to energy_100g in kJ / 4.184
+  // Extract calories: Check direct 100g, prepared 100g, values, and fallback to kJ
   let kcal = 0;
-  if (nutriments['energy-kcal_100g'] !== undefined && nutriments['energy-kcal_100g'] !== null) {
-    kcal = Number(nutriments['energy-kcal_100g']);
-  } else if (nutriments['energy-kcal'] !== undefined && nutriments['energy-kcal'] !== null) {
-    kcal = Number(nutriments['energy-kcal']);
-  } else if (nutriments.energy_100g) {
-    kcal = Math.round(Number(nutriments.energy_100g) / 4.184);
+  const kcalCandidates = [
+    nutriments['energy-kcal_100g'],
+    nutriments['energy-kcal_prepared_100g'],
+    nutriments['energy-kcal_value'],
+    nutriments['energy-kcal_prepared_value'],
+    nutriments['energy-kcal'],
+    nutriments['energy-kcal_prepared'],
+    nutriments['energy_kcal_100g'],
+    nutriments['energy_kcal'],
+  ];
+
+  for (const c of kcalCandidates) {
+    if (c !== undefined && c !== null && !isNaN(Number(c)) && Number(c) > 0) {
+      kcal = Number(c);
+      break;
+    }
   }
 
-  const protein = Math.round((Number(nutriments.proteins_100g) || 0) * 10) / 10;
-  const carbs = Math.round((Number(nutriments.carbohydrates_100g) || 0) * 10) / 10;
-  const fat = Math.round((Number(nutriments.fat_100g) || 0) * 10) / 10;
-  const fiber = nutriments.fiber_100g !== undefined ? Math.round(Number(nutriments.fiber_100g) * 10) / 10 : undefined;
-  const sugar = nutriments.sugars_100g !== undefined ? Math.round(Number(nutriments.sugars_100g) * 10) / 10 : undefined;
+  // If kcal is still 0, check kJ fields
+  if (kcal <= 0) {
+    const kjCandidates = [
+      nutriments['energy-kj_100g'],
+      nutriments['energy-kj_prepared_100g'],
+      nutriments['energy-kj_value'],
+      nutriments['energy-kj_prepared_value'],
+      nutriments['energy_prepared_100g'],
+      nutriments.energy_100g,
+      nutriments.energy_value,
+    ];
+
+    for (const kj of kjCandidates) {
+      if (kj !== undefined && kj !== null && !isNaN(Number(kj)) && Number(kj) > 0) {
+        if (nutriments.energy_unit === 'kcal' || nutriments['energy_prepared_unit'] === 'kcal') {
+          kcal = Number(kj);
+        } else {
+          kcal = Math.round(Number(kj) / 4.184);
+        }
+        break;
+      }
+    }
+  }
+
+  // Helper to extract first valid nutrient value (supports raw and _prepared)
+  const extractNutrient = (keys: string[]): number | undefined => {
+    for (const k of keys) {
+      const v = nutriments[k];
+      if (v !== undefined && v !== null && !isNaN(Number(v))) {
+        return Number(v);
+      }
+    }
+    return undefined;
+  };
+
+  let protein = extractNutrient([
+    'proteins_100g',
+    'proteins_prepared_100g',
+    'proteins_value',
+    'proteins_prepared_value',
+    'proteins',
+  ]) ?? 0;
+  protein = Math.round(protein * 10) / 10;
+
+  let carbs = extractNutrient([
+    'carbohydrates_100g',
+    'carbohydrates_prepared_100g',
+    'carbohydrates_value',
+    'carbohydrates_prepared_value',
+    'carbohydrates',
+  ]) ?? 0;
+  carbs = Math.round(carbs * 10) / 10;
+
+  let fat = extractNutrient([
+    'fat_100g',
+    'fat_prepared_100g',
+    'fat_value',
+    'fat_prepared_value',
+    'fat',
+  ]) ?? 0;
+  fat = Math.round(fat * 10) / 10;
+
+  const rawFiber = extractNutrient([
+    'fiber_100g',
+    'fiber_prepared_100g',
+    'fiber_value',
+    'fiber_prepared_value',
+    'fiber',
+  ]);
+  let fiber = rawFiber !== undefined ? Math.round(rawFiber * 10) / 10 : undefined;
+
+  const rawSugar = extractNutrient([
+    'sugars_100g',
+    'sugars_prepared_100g',
+    'sugars_value',
+    'sugars_prepared_value',
+    'sugars',
+  ]);
+  let sugar = rawSugar !== undefined ? Math.round(rawSugar * 10) / 10 : undefined;
+
+  // Atwater Macro Calculation Fallback:
+  // If calories is 0 but macronutrients are present (e.g. frozen beans / vegetables)
+  if (kcal <= 0 && (protein > 0 || carbs > 0 || fat > 0)) {
+    kcal = Math.round(protein * 4 + carbs * 4 + fat * 9 + (fiber || 0) * 2);
+  }
+
+  // German Supermarket Staple Fallback:
+  // If OpenFoodFacts has a completely empty record (0 across all fields),
+  // infer nutritional profile from verified standard staples so user never gets broken 0 kcal.
+  if (kcal <= 0 && protein <= 0 && carbs <= 0 && fat <= 0) {
+    const n = name.toLowerCase();
+    if (n.includes('bohne') || n.includes('prinzess')) {
+      kcal = 31; protein = 2.0; carbs = 3.4; fat = 0.2; fiber = 2.8;
+    } else if (n.includes('erbse')) {
+      kcal = 81; protein = 5.4; carbs = 14.5; fat = 0.4; fiber = 5.7;
+    } else if (n.includes('spinat')) {
+      kcal = 23; protein = 2.9; carbs = 0.8; fat = 0.4; fiber = 2.2;
+    } else if (n.includes('brokkoli') || n.includes('broccoli')) {
+      kcal = 34; protein = 2.8; carbs = 4.0; fat = 0.4; fiber = 2.6;
+    } else if (n.includes('blumenkohl')) {
+      kcal = 25; protein = 1.9; carbs = 2.3; fat = 0.3; fiber = 2.9;
+    } else if (n.includes('möhre') || n.includes('karotte')) {
+      kcal = 39; protein = 0.9; carbs = 6.8; fat = 0.2; fiber = 3.0;
+    } else if (n.includes('kartoffel')) {
+      kcal = 77; protein = 2.0; carbs = 17.0; fat = 0.1; fiber = 2.1;
+    } else if (n.includes('haferflocken')) {
+      kcal = 370; protein = 13.5; carbs = 58.7; fat = 7.0; fiber = 10.0;
+    } else if (n.includes('magerquark')) {
+      kcal = 68; protein = 12.0; carbs = 4.0; fat = 0.2;
+    }
+  }
 
   const servingSize = raw.serving_size || undefined;
   const servingWeightGrams = parseServingGrams(servingSize) || (raw.serving_quantity ? Number(raw.serving_quantity) : undefined);

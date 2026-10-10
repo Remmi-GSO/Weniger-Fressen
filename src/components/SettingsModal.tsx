@@ -1,11 +1,47 @@
 import { useState, useEffect, useMemo } from 'react';
-import { db, DEFAULT_USER_PROFILE, type UserProfile, DEFAULT_FOOD_FOCUS, type FoodFocusSettings, DEFAULT_NUTRIENT_BARS, type DashboardNutrientBars } from '../db/db';
+import { useLiveQuery } from 'dexie-react-hooks';
+import {
+  db,
+  DEFAULT_USER_PROFILE,
+  type UserProfile,
+  DEFAULT_FOOD_FOCUS,
+  type FoodFocusSettings,
+  DEFAULT_NUTRIENT_BARS,
+  type DashboardNutrientBars,
+  DEFAULT_RECIPE_CATEGORIES,
+  type RecipeCategoryConfig,
+} from '../db/db';
 import { VoiceInputButton } from './VoiceInputButton';
-import { X, Key, Download, Upload, Trash2, Sliders, Check, RefreshCw, CheckCircle, Maximize, Minimize, BarChart3, Scale, Sparkles, Leaf, BookOpen, ChevronDown, ChevronUp } from 'lucide-react';
+import {
+  X,
+  Key,
+  Download,
+  Upload,
+  Trash2,
+  Sliders,
+  Check,
+  RefreshCw,
+  CheckCircle,
+  Maximize,
+  Minimize,
+  BarChart3,
+  Scale,
+  Sparkles,
+  Leaf,
+  BookOpen,
+  ChevronDown,
+  ChevronUp,
+  Camera,
+  Edit2,
+  Plus,
+} from 'lucide-react';
 import { APP_VERSION, APP_BUILD_DATE, APP_DB_VERSION, APP_CACHE_VERSION } from '../config/version';
 import { calculateNutritionTargets, type DailyStepLevel, type WorkoutIntensity } from '../utils/nutrition';
 import { triggerAppUpdate } from '../utils/appUpdate';
 import { BackupManagerModal } from './BackupManagerModal';
+import { compressProfilePhoto, getAuthorAvatar, AVATAR_PRESETS, generateAvatarSvg } from '../utils/avatar';
+import { isBrowserNotificationEnabled, requestCommunityNotificationPermission } from '../utils/communityNotifier';
+import { inferRecipeCategory } from './RecipeCreatorModal';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -16,7 +52,20 @@ interface SettingsModalProps {
   onOpenNutritionReport?: () => void;
   onOpenMorningBriefingPreview?: () => void;
   onOpenVersionUpdate?: () => void;
+  initialSection?: string;
 }
+
+export type AccordionSectionId =
+  | 'profile'
+  | 'body_goals'
+  | 'macro_calc'
+  | 'recipe_categories'
+  | 'food_focus'
+  | 'ai_voice'
+  | 'briefing_report'
+  | 'recipes_manage'
+  | 'backup_transfer'
+  | 'app_version';
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({
   isOpen,
@@ -27,14 +76,86 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onOpenNutritionReport,
   onOpenMorningBriefingPreview,
   onOpenVersionUpdate,
+  initialSection,
 }) => {
   const [userName, setUserName] = useState(
     userProfile?.name && userProfile.name !== 'Du' ? userProfile.name : ''
   );
+  const [avatarUrl, setAvatarUrl] = useState<string>(userProfile?.avatarUrl || '');
+  const [notificationsEnabled, setNotificationsEnabled] = useState<boolean>(() => isBrowserNotificationEnabled());
   const [apiKey, setApiKey] = useState(userProfile?.geminiApiKey || '');
   const [showMorningBriefing, setShowMorningBriefing] = useState<boolean>(
     userProfile?.showMorningBriefing !== false
   );
+
+  // Accordion collapsed/expanded states for high clarity
+  const [openSections, setOpenSections] = useState<Record<AccordionSectionId, boolean>>({
+    profile: true,
+    body_goals: false,
+    macro_calc: false,
+    recipe_categories: initialSection === 'recipe_categories',
+    food_focus: false,
+    ai_voice: false,
+    briefing_report: false,
+    recipes_manage: false,
+    backup_transfer: false,
+    app_version: false,
+  });
+
+  const toggleSection = (id: AccordionSectionId) => {
+    setOpenSections((prev) => ({
+      ...prev,
+      [id]: !prev[id],
+    }));
+  };
+
+  const toggleAllSections = (expand: boolean) => {
+    setOpenSections({
+      profile: expand,
+      body_goals: expand,
+      macro_calc: expand,
+      recipe_categories: expand,
+      food_focus: expand,
+      ai_voice: expand,
+      briefing_report: expand,
+      recipes_manage: expand,
+      backup_transfer: expand,
+      app_version: expand,
+    });
+  };
+
+  // Automatically expand initialSection if provided when modal opens
+  useEffect(() => {
+    if (isOpen && initialSection) {
+      setOpenSections((prev) => ({
+        ...prev,
+        [initialSection as AccordionSectionId]: true,
+      }));
+    }
+  }, [isOpen, initialSection]);
+
+  // Live Query of all recipes to show category recipe counts
+  const allRecipes = useLiveQuery(() => db.recipes.toArray()) || [];
+
+  // Recipe categories management state
+  const [recipeCategories, setRecipeCategories] = useState<RecipeCategoryConfig[]>(
+    userProfile?.recipeCategories || DEFAULT_RECIPE_CATEGORIES
+  );
+  const [isAddingCategory, setIsAddingCategory] = useState(false);
+  const [newCatName, setNewCatName] = useState('');
+  const [newCatIcon, setNewCatIcon] = useState('🍲');
+  const [editingCatId, setEditingCatId] = useState<string | null>(null);
+  const [editCatName, setEditCatName] = useState('');
+  const [editCatIcon, setEditCatIcon] = useState('');
+
+  useEffect(() => {
+    if (initialSection) {
+      setOpenSections((prev) => ({
+        ...prev,
+        [initialSection as AccordionSectionId]: true,
+      }));
+    }
+  }, [initialSection]);
   
   // Body metrics and goals
   const [gender, setGender] = useState<'female' | 'male'>(userProfile?.gender || 'female');
@@ -131,6 +252,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   // Sync state when userProfile is loaded or modal opens
   useEffect(() => {
     if (isOpen && userProfile) {
+      if (userProfile.avatarUrl !== undefined) {
+        setAvatarUrl(userProfile.avatarUrl || '');
+      }
       if (userProfile.name && userProfile.name !== 'Du') {
         setUserName(userProfile.name);
       } else if (!userProfile.name || userProfile.name === 'Du') {
@@ -182,8 +306,70 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       if (userProfile.showMorningBriefing !== undefined) {
         setShowMorningBriefing(userProfile.showMorningBriefing);
       }
+      if (userProfile.recipeCategories) {
+        setRecipeCategories(userProfile.recipeCategories);
+      }
     }
   }, [userProfile, isOpen]);
+
+  const handleAddCategory = async () => {
+    if (!newCatName.trim()) return;
+    const newId = 'cat_' + Date.now();
+    const updated: RecipeCategoryConfig[] = [
+      ...recipeCategories,
+      {
+        id: newId,
+        name: newCatName.trim(),
+        icon: newCatIcon.trim() || '🍲',
+        isDefault: false,
+      },
+    ];
+    setRecipeCategories(updated);
+    setNewCatName('');
+    setNewCatIcon('🍲');
+    setIsAddingCategory(false);
+
+    const curr = await db.userProfile.get('current');
+    if (curr) {
+      await db.userProfile.update('current', { recipeCategories: updated });
+    }
+  };
+
+  const handleSaveEditCategory = async (catId: string) => {
+    if (!editCatName.trim()) return;
+    const updated = recipeCategories.map((c) =>
+      c.id === catId ? { ...c, name: editCatName.trim(), icon: editCatIcon.trim() || c.icon } : c
+    );
+    setRecipeCategories(updated);
+    setEditingCatId(null);
+
+    const curr = await db.userProfile.get('current');
+    if (curr) {
+      await db.userProfile.update('current', { recipeCategories: updated });
+    }
+  };
+
+  const handleDeleteCategory = async (catId: string, catName: string) => {
+    if (confirm(`Möchtest du die Rubrik „${catName}“ wirklich löschen? Rezepte in dieser Rubrik bleiben erhalten.`)) {
+      const updated = recipeCategories.filter((c) => c.id !== catId);
+      setRecipeCategories(updated);
+
+      const curr = await db.userProfile.get('current');
+      if (curr) {
+        await db.userProfile.update('current', { recipeCategories: updated });
+      }
+    }
+  };
+
+  const handleResetCategories = async () => {
+    if (confirm('Rezept-Rubriken auf die ursprünglichen Standard-Kategorien zurücksetzen?')) {
+      setRecipeCategories(DEFAULT_RECIPE_CATEGORIES);
+      const curr = await db.userProfile.get('current');
+      if (curr) {
+        await db.userProfile.update('current', { recipeCategories: DEFAULT_RECIPE_CATEGORIES });
+      }
+    }
+  };
 
   const handleCheckForUpdates = async () => {
     setIsCheckingUpdate(true);
@@ -196,6 +382,22 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       setUpdateMessage('Aktualisierung fehlgeschlagen.');
       setIsCheckingUpdate(false);
     }
+  };
+
+  const handleUploadAvatar = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const compressed = await compressProfilePhoto(file);
+      setAvatarUrl(compressed);
+    } catch (err) {
+      console.warn('Avatar compression failed', err);
+    }
+  };
+
+  const handleToggleNotifications = async () => {
+    const granted = await requestCommunityNotificationPermission();
+    setNotificationsEnabled(granted);
   };
 
   if (!isOpen) return null;
@@ -214,6 +416,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         ...base,
         id: 'current',
         name: cleanName,
+        avatarUrl: avatarUrl || '',
         gender,
         age: Number(age) || base.age,
         height: Number(height) || base.height,
@@ -236,6 +439,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         targetSugar: Number(targetSugar) || 35,
         nutrientBars,
         foodFocus,
+        recipeCategories,
         showMorningBriefing,
         isOnboarded: true,
       });
@@ -266,6 +470,68 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       window.location.reload();
     }
   };
+
+  const AccordionSection: React.FC<{
+    id: AccordionSectionId;
+    isOpen: boolean;
+    onToggle: () => void;
+    icon: string | React.ReactNode;
+    title: string;
+    subtitle?: string;
+    badge?: string;
+    headerBg?: string;
+    borderColor?: string;
+    children: React.ReactNode;
+  }> = ({
+    isOpen,
+    onToggle,
+    icon,
+    title,
+    subtitle,
+    badge,
+    headerBg = 'bg-stone-50',
+    borderColor = 'border-stone-200/80',
+    children,
+  }) => (
+    <div className={`rounded-2xl border ${borderColor} overflow-hidden transition-all bg-white shadow-2xs`}>
+      <button
+        type="button"
+        onClick={onToggle}
+        className={`w-full p-3.5 sm:p-4 flex items-center justify-between text-left transition-colors cursor-pointer ${headerBg} hover:opacity-95`}
+      >
+        <div className="flex items-center gap-2.5 sm:gap-3 min-w-0 flex-1 pr-2">
+          <div className="w-9 h-9 rounded-xl bg-white border border-stone-200/60 flex items-center justify-center text-lg shrink-0 shadow-2xs">
+            {icon}
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <h4 className="font-extrabold text-stone-800 text-xs sm:text-sm tracking-tight truncate">
+                {title}
+              </h4>
+              {badge && (
+                <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 shrink-0">
+                  {badge}
+                </span>
+              )}
+            </div>
+            {subtitle && (
+              <p className="text-[11px] text-stone-500 truncate mt-0.5 font-medium">
+                {subtitle}
+              </p>
+            )}
+          </div>
+        </div>
+        <div className="shrink-0 w-7 h-7 rounded-lg bg-white/90 border border-stone-200/60 flex items-center justify-center text-stone-500">
+          {isOpen ? <ChevronUp className="w-4 h-4 text-stone-700" /> : <ChevronDown className="w-4 h-4 text-stone-500" />}
+        </div>
+      </button>
+      {isOpen && (
+        <div className="p-4 sm:p-5 border-t border-stone-100/90 space-y-4 animate-in fade-in duration-150">
+          {children}
+        </div>
+      )}
+    </div>
+  );
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-stone-900/40 backdrop-blur-sm animate-in fade-in duration-200">
@@ -308,42 +574,174 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           </div>
         </div>
 
-        <form onSubmit={handleSave} className="p-6 overflow-y-auto space-y-6">
-          
-          {/* Dein Name */}
-          <div className="p-4 bg-stone-50 rounded-2xl border border-stone-200/80 space-y-2">
-            <label className="text-xs font-semibold uppercase tracking-wider text-stone-500 block">
-              Dein Name / Wie darf die App dich nennen?
-            </label>
-            <div className="flex items-center gap-2.5">
-              <span className="w-10 h-10 rounded-xl bg-white border border-stone-200 flex items-center justify-center text-lg shrink-0">
-                👤
-              </span>
-              <div className="flex-1 relative">
-                <input
-                  type="text"
-                  placeholder="Dein Vorname (z. B. Remmi)"
-                  value={userName}
-                  onChange={(e) => setUserName(e.target.value)}
-                  className="w-full py-2.5 pl-3.5 pr-10 rounded-xl border border-stone-200 focus:border-emerald-500 font-bold text-stone-800 text-sm bg-white"
-                />
-                <div className="absolute right-2 top-1/2 -translate-y-1/2">
-                  <VoiceInputButton
-                    onTranscript={(text) => setUserName(text)}
-                    currentValue={userName}
-                    size="xs"
-                    title="Namen per Sprache einsprechen"
-                  />
-                </div>
-              </div>
+        <form onSubmit={handleSave} className="p-4 sm:p-6 overflow-y-auto space-y-3.5">
+          {/* Quick All-Open / All-Close Bar */}
+          <div className="flex items-center justify-between px-1 text-xs text-stone-500 font-medium">
+            <span>Eigenschaften ({Object.keys(openSections).length} Bereiche)</span>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => toggleAllSections(true)}
+                className="text-emerald-700 hover:text-emerald-800 font-bold hover:underline cursor-pointer"
+              >
+                Alle öffnen
+              </button>
+              <span>•</span>
+              <button
+                type="button"
+                onClick={() => toggleAllSections(false)}
+                className="text-stone-500 hover:text-stone-700 font-bold hover:underline cursor-pointer"
+              >
+                Alle schließen
+              </button>
             </div>
-            <p className="text-[10px] text-stone-400">
-              Ersetzt das unpersönliche „Hallo Du“ durch deinen Namen auf dem Dashboard.
-            </p>
           </div>
 
-          {/* KÖRPERDATEN & ZIELE (GEWICHT, WUNSCHGEWICHT, GRÖSSE, ALTER, ZIEL) */}
-          <div className="p-4 bg-emerald-50/50 rounded-2xl border border-emerald-100/90 space-y-4">
+          {/* 1. Dein Profil & Profilbild */}
+          <AccordionSection
+            id="profile"
+            isOpen={openSections.profile}
+            onToggle={() => toggleSection('profile')}
+            icon="👤"
+            title="Dein Profil & Bild"
+            subtitle={userName ? `${userName} • Eigenes Bild` : 'Name, Foto & Community-Infos'}
+            headerBg="bg-stone-50/90"
+          >
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-bold uppercase tracking-wider text-stone-700 block">
+                  Name & Profilfoto
+                </label>
+                {avatarUrl && (
+                  <button
+                    type="button"
+                    onClick={() => setAvatarUrl('')}
+                    className="text-[11px] text-rose-600 font-bold hover:underline cursor-pointer"
+                  >
+                    Foto entfernen
+                  </button>
+                )}
+              </div>
+
+              <div className="flex items-center gap-3">
+                {/* Avatar Photo with edit button */}
+                <div className="relative shrink-0">
+                  <img
+                    src={avatarUrl ? avatarUrl : getAuthorAvatar(userName || 'Du')}
+                    alt="Profilbild"
+                    className="w-14 h-14 rounded-2xl object-cover border-2 border-emerald-500/80 shadow-xs bg-white"
+                  />
+                  <label
+                    htmlFor="profile-photo-upload"
+                    className="absolute -bottom-1 -right-1 w-6 h-6 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white flex items-center justify-center cursor-pointer shadow-xs transition-transform active:scale-90"
+                    title="Eigenes Foto hochladen oder mit Kamera aufnehmen"
+                  >
+                    <Camera className="w-3.5 h-3.5" />
+                    <input
+                      id="profile-photo-upload"
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={handleUploadAvatar}
+                    />
+                  </label>
+                </div>
+
+                <div className="flex-1 relative">
+                  <input
+                    type="text"
+                    placeholder="Dein Vorname (z. B. Remmi)"
+                    value={userName}
+                    onChange={(e) => setUserName(e.target.value)}
+                    className="w-full py-2.5 pl-3.5 pr-10 rounded-xl border border-stone-200 focus:border-emerald-500 font-bold text-stone-800 text-sm bg-white"
+                  />
+                  <div className="absolute right-2 top-1/2 -translate-y-1/2">
+                    <VoiceInputButton
+                      onTranscript={(text) => setUserName(text)}
+                      currentValue={userName}
+                      size="xs"
+                      title="Namen per Sprache einsprechen"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Quick Avatar Emojis */}
+              <div className="space-y-1.5 pt-1 border-t border-stone-200/60">
+                <span className="text-[10px] font-bold text-stone-400 uppercase tracking-wider block">
+                  Avatar-Symbole (oder Foto hochladen):
+                </span>
+                <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+                  {AVATAR_PRESETS.map((p) => {
+                    const svg = generateAvatarSvg(p.emoji);
+                    const isSelected = avatarUrl === svg;
+                    return (
+                      <button
+                        key={p.emoji}
+                        type="button"
+                        onClick={() => setAvatarUrl(svg)}
+                        className={`w-8 h-8 rounded-xl text-base flex items-center justify-center shrink-0 transition-transform cursor-pointer ${
+                          isSelected
+                            ? 'ring-2 ring-emerald-500 scale-110 bg-emerald-50 shadow-2xs'
+                            : 'bg-white border border-stone-200 hover:bg-stone-100 hover:scale-105'
+                        }`}
+                        title={p.label}
+                      >
+                        {p.emoji}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <p className="text-[10px] text-stone-400 leading-tight">
+                📸 Dein Profilbild wird bei deinen Rezepten in der Community angezeigt, damit dich alle Mitglieder auch bei gleichem Vornamen sofort zuordnen können!
+              </p>
+            </div>
+
+            {/* Community-Benachrichtigungen */}
+            <div className="p-3.5 bg-indigo-50/70 rounded-2xl border border-indigo-100/90 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-8 h-8 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center text-sm shrink-0">
+                  🔔
+                </div>
+                <div className="min-w-0">
+                  <span className="text-xs font-bold text-indigo-950 block truncate">
+                    Community-Rezept-Infos
+                  </span>
+                  <span className="text-[11px] text-indigo-700/80 leading-tight block truncate">
+                    {notificationsEnabled
+                      ? 'Browser-Benachrichtigungen aktiv ✅'
+                      : 'Info erhalten, wenn neue Rezepte da sind'}
+                  </span>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleToggleNotifications}
+                className={`py-1.5 px-3 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer ${
+                  notificationsEnabled
+                    ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                    : 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-2xs'
+                }`}
+              >
+                {notificationsEnabled ? 'Aktiviert' : 'Aktivieren'}
+              </button>
+            </div>
+          </AccordionSection>
+
+          {/* 2. KÖRPERDATEN & ZIELE (GEWICHT, WUNSCHGEWICHT, GRÖSSE, ALTER, ZIEL) */}
+          <AccordionSection
+            id="body_goals"
+            isOpen={openSections.body_goals}
+            onToggle={() => toggleSection('body_goals')}
+            icon={<Scale className="w-4 h-4 text-emerald-600" />}
+            title="Körperdaten & Abnehmziel"
+            subtitle={`${weight} kg • Wunsch: ${targetWeight} kg • ${goalType === 'maintain_weight' ? 'Gewicht halten' : `${effectiveDeficit} kcal Defizit`}`}
+            headerBg="bg-emerald-50/60"
+            borderColor="border-emerald-100/90"
+          >
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold uppercase tracking-wider text-emerald-950 flex items-center gap-1.5">
                 <Scale className="w-4 h-4 text-emerald-600" />
@@ -572,17 +970,27 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 Berechnete Nährwerte ({calculation.targetCalories} kcal) unten übernehmen
               </button>
             </div>
-          </div>
+          </AccordionSection>
 
-          {/* Dashboard-Balken & Nährstoff-Filter */}
-          <div className="p-4 bg-gradient-to-br from-violet-50/60 via-stone-50/50 to-emerald-50/60 rounded-2xl border border-stone-200/90 space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="text-xl">📊</span>
-                <div>
-                  <h4 className="text-xs font-bold text-stone-800 uppercase tracking-wider">
-                    Dashboard-Balken anpassen
-                  </h4>
+          {/* 3. BEDARFS- & MAKRO-RECHNER */}
+          <AccordionSection
+            id="macro_calc"
+            isOpen={openSections.macro_calc}
+            onToggle={() => toggleSection('macro_calc')}
+            icon="📊"
+            title="Bedarfs- & Makro-Rechner"
+            subtitle={`Ziel: ${targetCalories} kcal (P: ${targetProtein}g, KH: ${targetCarbs}g, F: ${targetFat}g)`}
+            headerBg="bg-violet-50/50"
+            borderColor="border-violet-100/80"
+          >
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="text-xl">📊</span>
+                  <div>
+                    <h4 className="text-xs font-bold text-stone-800 uppercase tracking-wider">
+                      Dashboard-Balken anpassen
+                    </h4>
                   <p className="text-[11px] text-stone-500">
                     Bestimme selbst, welche Fortschrittsbalken du auf der Startseite sehen möchtest.
                   </p>
@@ -871,12 +1279,225 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   }`} />
                 </button>
               </div>
-
             </div>
           </div>
+        </AccordionSection>
 
-          {/* Ernährungs-Qualität & Fokus-Filter */}
-          <div className="p-4 bg-teal-50/50 rounded-2xl border border-teal-100/90 space-y-3">
+          {/* 4. REZEPT-KATEGORIEN VERWALTEN (NEU!) */}
+          <AccordionSection
+            id="recipe_categories"
+            isOpen={openSections.recipe_categories}
+            onToggle={() => toggleSection('recipe_categories')}
+            icon="📂"
+            title="Rezept-Kategorien verwalten"
+            subtitle={`${recipeCategories.length} Rubriken aktiv • Eigene anlegen oder bearbeiten`}
+            badge="Neu"
+            headerBg="bg-amber-50/60"
+            borderColor="border-amber-200/80"
+          >
+            <div className="space-y-3">
+              <p className="text-xs text-stone-600 leading-relaxed">
+                Hier kannst du die Rubriken deiner Rezept-Datenbank individuell anpassen. Du kannst neue Kategorien (z.&nbsp;B. <em>Suppen</em>, <em>Desserts</em>, <em>Aufläufe</em>) hinzufügen, Namen und Symbole verändern oder nicht benötigte Rubriken löschen.
+              </p>
+
+              {/* Categories List */}
+              <div className="space-y-2">
+                {recipeCategories.map((cat) => {
+                  const count = allRecipes.filter((r) => (r.category || inferRecipeCategory(r)) === cat.id).length;
+                  const isEditing = editingCatId === cat.id;
+
+                  return (
+                    <div
+                      key={cat.id}
+                      className="p-3 bg-stone-50/80 rounded-xl border border-stone-200/70 flex items-center justify-between gap-2"
+                    >
+                      {isEditing ? (
+                        <div className="flex items-center gap-2 flex-1 flex-wrap sm:flex-nowrap">
+                          <input
+                            type="text"
+                            value={editCatIcon}
+                            onChange={(e) => setEditCatIcon(e.target.value)}
+                            className="w-12 px-2 py-1.5 bg-white border border-stone-300 rounded-lg text-center text-lg"
+                            maxLength={2}
+                          />
+                          <input
+                            type="text"
+                            value={editCatName}
+                            onChange={(e) => setEditCatName(e.target.value)}
+                            className="flex-1 px-2.5 py-1.5 bg-white border border-stone-300 rounded-lg text-xs font-bold text-stone-800"
+                            placeholder="Kategoriename"
+                          />
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => handleSaveEditCategory(cat.id)}
+                              className="px-2.5 py-1.5 bg-emerald-600 text-white rounded-lg text-xs font-bold hover:bg-emerald-700 cursor-pointer shadow-xs"
+                            >
+                              Speichern
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setEditingCatId(null)}
+                              className="px-2 py-1.5 text-stone-500 hover:text-stone-700 text-xs font-bold cursor-pointer"
+                            >
+                              Abbrechen
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <>
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <span className="w-8 h-8 rounded-lg bg-white border border-stone-200 flex items-center justify-center text-base shrink-0 shadow-2xs">
+                              {cat.icon}
+                            </span>
+                            <div className="min-w-0">
+                              <div className="font-extrabold text-xs text-stone-800 truncate">
+                                {cat.name}
+                              </div>
+                              <div className="text-[10px] text-stone-400">
+                                {count} {count === 1 ? 'Rezept' : 'Rezepte'} {cat.isDefault ? '• Standard' : '• Eigene Rubrik'}
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-1 shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditingCatId(cat.id);
+                                setEditCatName(cat.name);
+                                setEditCatIcon(cat.icon);
+                              }}
+                              className="p-1.5 text-stone-500 hover:text-stone-800 hover:bg-stone-200/60 rounded-lg text-xs cursor-pointer"
+                              title="Name oder Icon bearbeiten"
+                            >
+                              <Edit2 className="w-3.5 h-3.5" />
+                            </button>
+                            {!cat.isDefault && (
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteCategory(cat.id, cat.name)}
+                                className="p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-lg text-xs cursor-pointer"
+                                title="Kategorie löschen"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Add new Category Toggle & Form */}
+              {isAddingCategory ? (
+                <div className="p-3.5 bg-amber-50/70 border border-amber-200 rounded-xl space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-amber-950 uppercase tracking-wide">
+                      Neue Kategorie anlegen
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setIsAddingCategory(false)}
+                      className="text-stone-400 hover:text-stone-600 text-xs font-bold cursor-pointer"
+                    >
+                      ✕
+                    </button>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={newCatIcon}
+                      onChange={(e) => setNewCatIcon(e.target.value)}
+                      className="w-12 px-2 py-1.5 bg-white border border-amber-300 rounded-xl text-center text-xl font-bold"
+                      placeholder="🍲"
+                      maxLength={2}
+                    />
+                    <input
+                      type="text"
+                      value={newCatName}
+                      onChange={(e) => setNewCatName(e.target.value)}
+                      className="flex-1 px-3 py-1.5 bg-white border border-amber-300 rounded-xl text-xs font-bold text-stone-800"
+                      placeholder="z. B. Suppen & Eintöpfe, Desserts, Aufläufe..."
+                    />
+                  </div>
+
+                  {/* Quick emoji suggestions */}
+                  <div>
+                    <label className="text-[10px] font-bold text-amber-900 block mb-1">
+                      Schnellauswahl Symbol / Emoji:
+                    </label>
+                    <div className="flex gap-1.5 flex-wrap">
+                      {['🥣', '🥘', '🍕', '🍝', '🥩', '🍣', '🥑', '🥞', '🧇', '🍰', '🍨', '🍮', '☕', '🫖', '🥨', '🍪', '🌶️', '🥔'].map((emoji) => (
+                        <button
+                          key={emoji}
+                          type="button"
+                          onClick={() => setNewCatIcon(emoji)}
+                          className={`w-7 h-7 rounded-lg text-sm flex items-center justify-center transition-transform active:scale-90 cursor-pointer ${
+                            newCatIcon === emoji ? 'bg-amber-600 text-white shadow-xs' : 'bg-white border border-stone-200 hover:bg-stone-100'
+                          }`}
+                        >
+                          {emoji}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end gap-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => setIsAddingCategory(false)}
+                      className="px-3 py-1.5 rounded-xl border border-stone-200 bg-white text-stone-600 text-xs font-bold cursor-pointer"
+                    >
+                      Abbrechen
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleAddCategory}
+                      className="px-4 py-1.5 rounded-xl bg-amber-600 text-white text-xs font-bold shadow-xs hover:bg-amber-700 cursor-pointer"
+                    >
+                      Kategorie hinzufügen
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => setIsAddingCategory(true)}
+                    className="flex-1 py-2 px-3 rounded-xl bg-amber-50 border border-amber-200 hover:bg-amber-100 text-amber-900 text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                  >
+                    <Plus className="w-3.5 h-3.5 text-amber-700" />
+                    <span>Neue Kategorie hinzufügen</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleResetCategories}
+                    className="py-2 px-2.5 rounded-xl bg-stone-100 hover:bg-stone-200 text-stone-600 text-xs font-bold transition-colors cursor-pointer"
+                    title="Auf die 6 Standard-Kategorien zurücksetzen"
+                  >
+                    <span>Standard</span>
+                  </button>
+                </div>
+              )}
+            </div>
+          </AccordionSection>
+
+          {/* 5. NÄHRSTOFF-FOKUS & WARNFILTER */}
+          <AccordionSection
+            id="food_focus"
+            isOpen={openSections.food_focus}
+            onToggle={() => toggleSection('food_focus')}
+            icon={<Leaf className="w-4 h-4 text-teal-600" />}
+            title="Nährstoff-Fokus & Warnfilter"
+            subtitle="Ampel-Warnungen für Industriezucker, ungesunde Fette & Salz"
+            headerBg="bg-teal-50/50"
+            borderColor="border-teal-100/90"
+          >
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <div className="w-8 h-8 rounded-xl bg-teal-100 text-teal-700 flex items-center justify-center">
@@ -1031,143 +1652,156 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 </div>
               </label>
             </div>
-          </div>
+          </AccordionSection>
 
-          {/* BYOK Gemini API Key */}
-          <div className="p-4 bg-gradient-to-br from-emerald-500/5 to-teal-500/10 rounded-2xl border border-emerald-100 space-y-2.5">
-            <div className="flex items-center gap-2">
-              <Key className="w-4 h-4 text-emerald-600" />
-              <h4 className="text-xs font-bold text-stone-800 uppercase tracking-wider">
-                Google Gemini API Key (BYOK)
-              </h4>
-              <span className="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-1.5 py-0.5 rounded-full">
-                Optional
-              </span>
-            </div>
-            <p className="text-xs text-stone-500 leading-relaxed">
-              Ermöglicht Foto- und Sprach-Logging mit dem sparsamen und schnellen <span className="font-semibold text-emerald-700">Gemini 3.8 Flash</span> (über das kostenlose Google AI Studio Free-Tier Kontingent, 0,00 €). Der Key wird ausschließlich lokal in deinem Browser (IndexedDB) gespeichert.
-            </p>
-            <input
-              type="password"
-              placeholder="AIzaSy..."
-              value={apiKey}
-              onChange={(e) => setApiKey(e.target.value)}
-              className="w-full py-2.5 px-3.5 rounded-xl border border-stone-200 font-mono text-xs focus:border-emerald-500 bg-white"
-            />
-          </div>
-
-          {/* Täglicher Morgen-Rückblick beim ersten Start */}
-          <div className="p-4 bg-gradient-to-r from-amber-500/10 via-orange-500/10 to-amber-500/10 rounded-2xl border border-amber-200/90 space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2.5">
-                <span className="p-2 bg-amber-100 text-amber-900 rounded-xl text-lg">🌅</span>
-                <div>
-                  <h4 className="text-xs font-bold text-stone-800">Täglicher Morgen-Rückblick</h4>
-                  <p className="text-[11px] text-stone-500">Motivierender Start beim ersten App-Start am Vormittag</p>
-                </div>
+          {/* 6. KI & SPRACHASSISTENT (GEMINI) */}
+          <AccordionSection
+            id="ai_voice"
+            isOpen={openSections.ai_voice}
+            onToggle={() => toggleSection('ai_voice')}
+            icon={<Key className="w-4 h-4 text-emerald-600" />}
+            title="KI & Sprachassistent (Gemini)"
+            subtitle={apiKey ? 'API-Schlüssel eingerichtet ✓' : 'Kostenlosen Google Gemini API-Key eintragen'}
+            headerBg="bg-indigo-50/40"
+            borderColor="border-indigo-100/80"
+          >
+            <div className="space-y-2.5">
+              <div className="flex items-center gap-2">
+                <Key className="w-4 h-4 text-emerald-600" />
+                <h4 className="text-xs font-bold text-stone-800 uppercase tracking-wider">
+                  Google Gemini API Key (BYOK)
+                </h4>
+                <span className="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-1.5 py-0.5 rounded-full">
+                  Optional
+                </span>
               </div>
-            </div>
-
-            <label className="flex items-start gap-3 p-3 bg-white/90 rounded-xl border border-amber-200/70 hover:border-amber-300 cursor-pointer transition-all shadow-2xs">
+              <p className="text-xs text-stone-500 leading-relaxed">
+                Ermöglicht Foto- und Sprach-Logging mit dem sparsamen und schnellen <span className="font-semibold text-emerald-700">Gemini 3.8 Flash</span> (über das kostenlose Google AI Studio Free-Tier Kontingent, 0,00 €). Der Key wird ausschließlich lokal in deinem Browser (IndexedDB) gespeichert.
+              </p>
               <input
-                type="checkbox"
-                checked={showMorningBriefing}
-                onChange={(e) => setShowMorningBriefing(e.target.checked)}
-                className="mt-0.5 w-4 h-4 rounded text-amber-600 focus:ring-amber-500 border-stone-300 shrink-0 cursor-pointer"
+                type="password"
+                placeholder="AIzaSy..."
+                value={apiKey}
+                onChange={(e) => setApiKey(e.target.value)}
+                className="w-full py-2.5 px-3.5 rounded-xl border border-stone-200 font-mono text-xs focus:border-emerald-500 bg-white"
               />
-              <div className="text-xs leading-snug">
-                <div className="font-bold text-stone-800">
-                  Morgens automatisch motivierenden Rückblick von gestern anzeigen
-                </div>
-                <div className="text-[11px] text-stone-500 mt-0.5">
-                  Öffnet sich einmalig beim ersten Start am Vormittag (04:00 – 14:00 Uhr). Hebt dein gestriges Defizit, deine Schritte oder Aktivitäten positiv hervor und stimmt dich motiviert auf das heutige Kalorienbudget ein.
-                </div>
-              </div>
-            </label>
+            </div>
+          </AccordionSection>
 
-            {onOpenMorningBriefingPreview && (
-              <button
-                type="button"
-                onClick={() => {
-                  onClose();
-                  onOpenMorningBriefingPreview();
-                }}
-                className="w-full py-2.5 px-3 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 active:scale-[0.99] text-amber-900 border border-amber-300/80 text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer shadow-2xs"
-              >
-                <span>👁️ Morgen-Rückblick jetzt in Vorschau testen</span>
-              </button>
-            )}
-          </div>
-
-          {/* Ernährungs-Bericht auf Abruf (3, 5, 10, 20 Tage) */}
-          {onOpenNutritionReport && (
-            <div className="p-4 bg-gradient-to-r from-emerald-500/10 via-teal-500/5 to-emerald-500/10 rounded-2xl border border-emerald-200/90 space-y-2.5">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2.5">
-                  <span className="p-2 bg-emerald-100 text-emerald-900 rounded-xl text-lg">📊</span>
-                  <div>
-                    <h4 className="text-xs font-bold text-stone-800">Ernährungs-Bericht auf Abruf</h4>
-                    <p className="text-[11px] text-stone-500">Auswertung über 3, 5, 10 oder 20 Tage (UPF, Fette, Ballaststoffe & WhatsApp)</p>
+          {/* Täglicher Morgen-Rückblick & Ernährungs-Bericht */}
+          <AccordionSection
+            id="briefing_report"
+            isOpen={openSections.briefing_report}
+            onToggle={() => toggleSection('briefing_report')}
+            icon="🌅"
+            title="Morgen-Rückblick & Berichte"
+            subtitle="Täglicher Motivations-Kick & Multi-Tage-Analysen"
+            badge={showMorningBriefing ? 'Aktiv' : 'Inaktiv'}
+            headerBg="bg-amber-50/50"
+            borderColor="border-amber-200/80"
+          >
+            <div className="space-y-3">
+              <label className="flex items-start gap-3 p-3 bg-stone-50 rounded-xl border border-stone-200 hover:border-amber-300 cursor-pointer transition-all shadow-2xs">
+                <input
+                  type="checkbox"
+                  checked={showMorningBriefing}
+                  onChange={(e) => setShowMorningBriefing(e.target.checked)}
+                  className="mt-0.5 w-4 h-4 rounded text-amber-600 focus:ring-amber-500 border-stone-300 shrink-0 cursor-pointer"
+                />
+                <div className="text-xs leading-snug">
+                  <div className="font-bold text-stone-800">
+                    Morgens automatisch motivierenden Rückblick von gestern anzeigen
+                  </div>
+                  <div className="text-[11px] text-stone-500 mt-0.5">
+                    Öffnet sich einmalig beim ersten Start am Vormittag (04:00 – 14:00 Uhr). Hebt dein gestriges Defizit, deine Schritte oder Aktivitäten positiv hervor und stimmt dich motiviert auf das heutige Kalorienbudget ein.
                   </div>
                 </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => {
-                  onClose();
-                  onOpenNutritionReport();
-                }}
-                className="w-full py-2.5 px-3 rounded-xl bg-emerald-700 hover:bg-emerald-800 active:scale-[0.99] text-white text-xs font-bold transition-all flex items-center justify-center gap-2 shadow-xs cursor-pointer"
-              >
-                <span>📊 Ernährungs-Bericht jetzt ansehen</span>
-              </button>
+              </label>
+
+              {onOpenMorningBriefingPreview && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onClose();
+                    onOpenMorningBriefingPreview();
+                  }}
+                  className="w-full py-2.5 px-3 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 active:scale-[0.99] text-amber-900 border border-amber-300/80 text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer shadow-2xs"
+                >
+                  <span>👁️ Morgen-Rückblick jetzt in Vorschau testen</span>
+                </button>
+              )}
+
+              {onOpenNutritionReport && (
+                <div className="pt-2 border-t border-stone-100 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <span className="p-1.5 bg-emerald-100 text-emerald-800 rounded-lg text-sm">📊</span>
+                    <div>
+                      <h4 className="text-xs font-bold text-stone-800">Ernährungs-Bericht auf Abruf</h4>
+                      <p className="text-[11px] text-stone-500">Auswertung über 3, 5, 10 oder 20 Tage (UPF, Fette, Ballaststoffe & WhatsApp)</p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onClose();
+                      onOpenNutritionReport();
+                    }}
+                    className="w-full py-2.5 px-3 rounded-xl bg-emerald-700 hover:bg-emerald-800 active:scale-[0.99] text-white text-xs font-bold transition-all flex items-center justify-center gap-2 shadow-xs cursor-pointer"
+                  >
+                    <span>📊 Ernährungs-Bericht jetzt ansehen</span>
+                  </button>
+                </div>
+              )}
             </div>
-          )}
+          </AccordionSection>
 
           {/* Rezepte verwalten & per WhatsApp/QR teilen */}
           {onOpenRecipeCreator && (
-            <div className="p-4 bg-gradient-to-r from-amber-500/10 via-orange-500/5 to-amber-500/10 rounded-2xl border border-amber-200/90 space-y-2.5">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2.5">
-                  <span className="p-2 bg-amber-100 text-amber-900 rounded-xl text-lg">🍲</span>
-                  <div>
-                    <h4 className="text-xs font-bold text-stone-800">Rezepte verwalten</h4>
-                    <p className="text-[11px] text-stone-500">Eigene Rezepte für Brot, Mahlzeiten & Getränke ansehen, bearbeiten & teilen</p>
-                  </div>
-                </div>
+            <AccordionSection
+              id="recipes_manage"
+              isOpen={openSections.recipes_manage}
+              onToggle={() => toggleSection('recipes_manage')}
+              icon="🍲"
+              title="Rezepte & Teiler verwalten"
+              subtitle="Eigene Gerichte, Brote & Menüs ansehen, teilen & exportieren"
+              badge="Rezepte & Brot"
+              headerBg="bg-amber-50/50"
+              borderColor="border-amber-200/80"
+            >
+              <div className="space-y-3">
+                <p className="text-xs text-stone-600 leading-relaxed">
+                  Verwalte deine selbst kreierten Gerichte, Backrezepte und Getränke. Du kannst Rezepte flexibel bearbeiten, mit Freunden teilen oder per QR-Code direkt auf ein anderes Smartphone übertragen.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onClose();
+                    onOpenRecipeCreator();
+                  }}
+                  className="w-full py-2.5 px-3 rounded-xl bg-amber-600 hover:bg-amber-700 active:scale-[0.99] text-white text-xs font-bold transition-all flex items-center justify-center gap-2 shadow-xs cursor-pointer"
+                >
+                  <span>📲 Rezepte verwalten & per WhatsApp / QR teilen</span>
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={() => {
-                  onClose();
-                  onOpenRecipeCreator();
-                }}
-                className="w-full py-2.5 px-3 rounded-xl bg-amber-600 hover:bg-amber-700 active:scale-[0.99] text-white text-xs font-bold transition-all flex items-center justify-center gap-2 shadow-xs cursor-pointer"
-              >
-                <span>📲 Rezepte verwalten & per WhatsApp / QR teilen</span>
-              </button>
-            </div>
+            </AccordionSection>
           )}
 
           {/* Datensicherung, Gerätewechsel & Smart-Merge */}
-          <div className="space-y-2">
-            <label className="text-xs font-semibold uppercase tracking-wider text-stone-500 block">
-              Datensicherung & Gerätewechsel
-            </label>
-            <div className="p-4 bg-gradient-to-br from-emerald-50/70 via-stone-50 to-blue-50/50 rounded-2xl border border-stone-200/80 space-y-3 shadow-2xs">
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-9 h-9 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center text-lg shrink-0">
-                    📱
-                  </div>
-                  <div>
-                    <h4 className="text-xs font-bold text-stone-800">Handy-Austausch & Datensicherung</h4>
-                    <p className="text-[11px] text-stone-500 leading-tight">
-                      Sichern, per WhatsApp teilen oder nach Reparatur intelligent ohne Datenverlust zusammenführen.
-                    </p>
-                  </div>
-                </div>
-              </div>
+          <AccordionSection
+            id="backup_transfer"
+            isOpen={openSections.backup_transfer}
+            onToggle={() => toggleSection('backup_transfer')}
+            icon="📱"
+            title="Datensicherung & Gerätewechsel"
+            subtitle="Sichern, per WhatsApp teilen oder intelligent zusammenführen"
+            badge="Backup & Merge"
+            headerBg="bg-blue-50/50"
+            borderColor="border-blue-200/80"
+          >
+            <div className="space-y-3">
+              <p className="text-xs text-stone-600 leading-tight">
+                Exportiere all deine Tagebucheinträge, Brote, Rezepte und Körperdaten als sichere JSON-Datei oder führe Daten von einem Leihhandy nach einer Reparatur intelligent ohne Datenverlust zusammen.
+              </p>
 
               <div className="grid grid-cols-2 gap-2 pt-1">
                 <button
@@ -1195,106 +1829,98 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 </button>
               </div>
             </div>
-          </div>
+          </AccordionSection>
 
           {/* App-Eigenschaften & Version */}
-          <div className="p-4 bg-stone-50 rounded-2xl border border-stone-200/80 space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="p-1.5 bg-emerald-100 text-emerald-800 rounded-xl text-xs font-black">
-                  v{APP_VERSION}
-                </span>
-                <div>
-                  <h4 className="text-xs font-bold text-stone-800">App-Eigenschaften & Version</h4>
-                  <p className="text-[11px] text-stone-400">Build-Stand: {APP_BUILD_DATE}</p>
+          <AccordionSection
+            id="app_version"
+            isOpen={openSections.app_version}
+            onToggle={() => toggleSection('app_version')}
+            icon="⚙️"
+            title="App-Eigenschaften & Version"
+            subtitle={`v${APP_VERSION} • Build ${APP_BUILD_DATE}`}
+            badge={isStandalone ? 'Vollbild PWA' : 'Browser'}
+            headerBg="bg-stone-50"
+            borderColor="border-stone-200/80"
+          >
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <div className="p-2.5 bg-stone-50 rounded-xl border border-stone-200/70">
+                  <span className="text-[10px] font-semibold text-stone-400 uppercase block">App-Version</span>
+                  <span className="font-extrabold text-stone-800 text-xs">v{APP_VERSION}</span>
+                </div>
+                <div className="p-2.5 bg-stone-50 rounded-xl border border-stone-200/70">
+                  <span className="text-[10px] font-semibold text-stone-400 uppercase block">Build-Datum</span>
+                  <span className="font-extrabold text-stone-800 text-xs">{APP_BUILD_DATE}</span>
+                </div>
+                <div className="p-2.5 bg-stone-50 rounded-xl border border-stone-200/70">
+                  <span className="text-[10px] font-semibold text-stone-400 uppercase block">Lokale Datenbank</span>
+                  <span className="font-extrabold text-stone-800 text-xs">Dexie ({APP_DB_VERSION})</span>
+                </div>
+                <div className="p-2.5 bg-stone-50 rounded-xl border border-stone-200/70">
+                  <span className="text-[10px] font-semibold text-stone-400 uppercase block">Offline-Cache</span>
+                  <span className="font-extrabold text-stone-800 text-xs">SW ({APP_CACHE_VERSION})</span>
                 </div>
               </div>
-              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                isStandalone
-                  ? 'text-emerald-700 bg-emerald-50 border border-emerald-200'
-                  : 'text-amber-800 bg-amber-50 border border-amber-200'
-              }`}>
-                {isStandalone ? 'Vollbild PWA aktiv' : 'Im Browser geöffnet'}
-              </span>
-            </div>
 
-            {/* Detailed Properties Grid */}
-            <div className="grid grid-cols-2 gap-2 text-xs">
-              <div className="p-2.5 bg-white rounded-xl border border-stone-200/70">
-                <span className="text-[10px] font-semibold text-stone-400 uppercase block">App-Version</span>
-                <span className="font-extrabold text-stone-800 text-xs">v{APP_VERSION}</span>
-              </div>
-              <div className="p-2.5 bg-white rounded-xl border border-stone-200/70">
-                <span className="text-[10px] font-semibold text-stone-400 uppercase block">Build-Datum</span>
-                <span className="font-extrabold text-stone-800 text-xs">{APP_BUILD_DATE}</span>
-              </div>
-              <div className="p-2.5 bg-white rounded-xl border border-stone-200/70">
-                <span className="text-[10px] font-semibold text-stone-400 uppercase block">Lokale Datenbank</span>
-                <span className="font-extrabold text-stone-800 text-xs">Dexie ({APP_DB_VERSION})</span>
-              </div>
-              <div className="p-2.5 bg-white rounded-xl border border-stone-200/70">
-                <span className="text-[10px] font-semibold text-stone-400 uppercase block">Offline-Cache</span>
-                <span className="font-extrabold text-stone-800 text-xs">SW ({APP_CACHE_VERSION})</span>
-              </div>
-            </div>
-
-            {/* Instant 1-Click Fullscreen Button */}
-            <button
-              type="button"
-              onClick={handleToggleFullscreen}
-              className="w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 active:scale-[0.99] text-white text-xs font-bold transition-all flex items-center justify-center gap-2 shadow-xs"
-            >
-              {isFullscreen ? <Minimize className="w-4 h-4" /> : <Maximize className="w-4 h-4" />}
-              <span>{isFullscreen ? '⛶ Vollbildmodus beenden' : '⛶ Vollbildmodus jetzt aktivieren'}</span>
-            </button>
-
-            {!isStandalone && (
-              <div className="p-3 bg-amber-50/80 border border-amber-200/90 rounded-2xl text-xs space-y-1.5 text-amber-950">
-                <div className="font-bold flex items-center gap-1.5 text-amber-900">
-                  <span>📱</span> Dauerhaft als App ohne Browserleiste:
-                </div>
-                <p className="text-[11px] text-amber-800 leading-tight">
-                  Tippe entweder oben auf <strong>„⛶ Vollbildmodus jetzt aktivieren“</strong> oder installiere die App dauerhaft:
-                </p>
-                <ul className="text-[11px] list-disc list-inside space-y-1 text-amber-900 pl-0.5">
-                  <li><strong>In Chrome:</strong> Tippe auf die <strong>3 Punkte (⋮)</strong> &rarr; <strong>„App installieren“</strong>.</li>
-                  <li><strong>Tipp:</strong> Sollte dort <em>„Diese App wurde bereits installiert“</em> stehen, tippe auf den <strong>Pfeil nach rechts (➔)</strong> daneben!</li>
-                </ul>
-              </div>
-            )}
-
-            {updateMessage && (
-              <div className="p-2.5 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-800 flex items-center gap-1.5 animate-in fade-in">
-                <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
-                <span className="font-medium">{updateMessage}</span>
-              </div>
-            )}
-
-            {onOpenVersionUpdate && (
+              {/* Instant 1-Click Fullscreen Button */}
               <button
                 type="button"
-                onClick={onOpenVersionUpdate}
-                className="w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-emerald-50 via-teal-50 to-indigo-50 border border-emerald-200/90 hover:bg-emerald-100/70 text-emerald-950 text-xs font-bold transition-all flex items-center justify-center gap-2 shadow-2xs cursor-pointer"
+                onClick={handleToggleFullscreen}
+                className="w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 active:scale-[0.99] text-white text-xs font-bold transition-all flex items-center justify-center gap-2 shadow-xs"
               >
-                <span>✨</span>
-                <span>Update-Botschaft für Version {APP_VERSION} ansehen</span>
+                {isFullscreen ? <Minimize className="w-4 h-4" /> : <Maximize className="w-4 h-4" />}
+                <span>{isFullscreen ? '⛶ Vollbildmodus beenden' : '⛶ Vollbildmodus jetzt aktivieren'}</span>
               </button>
-            )}
 
-            <button
-              type="button"
-              onClick={handleCheckForUpdates}
-              disabled={isCheckingUpdate}
-              className="w-full py-2.5 px-3 rounded-xl bg-white border border-stone-200 hover:border-emerald-500 hover:bg-emerald-50/50 text-stone-700 hover:text-emerald-800 text-xs font-bold transition-all flex items-center justify-center gap-2 shadow-2xs"
-            >
-              <RefreshCw className={`w-3.5 h-3.5 ${isCheckingUpdate ? 'animate-spin text-emerald-600' : 'text-emerald-600'}`} />
-              <span>{isCheckingUpdate ? 'Aktualisiere...' : 'Auf Update prüfen & Cache leeren'}</span>
-            </button>
+              {!isStandalone && (
+                <div className="p-3 bg-amber-50/80 border border-amber-200/90 rounded-2xl text-xs space-y-1.5 text-amber-950">
+                  <div className="font-bold flex items-center gap-1.5 text-amber-900">
+                    <span>📱</span> Dauerhaft als App ohne Browserleiste:
+                  </div>
+                  <p className="text-[11px] text-amber-800 leading-tight">
+                    Tippe entweder oben auf <strong>„⛶ Vollbildmodus jetzt aktivieren“</strong> oder installiere die App dauerhaft:
+                  </p>
+                  <ul className="text-[11px] list-disc list-inside space-y-1 text-amber-900 pl-0.5">
+                    <li><strong>In Chrome:</strong> Tippe auf die <strong>3 Punkte (⋮)</strong> &rarr; <strong>„App installieren“</strong>.</li>
+                    <li><strong>Tipp:</strong> Sollte dort <em>„Diese App wurde bereits installiert“</em> stehen, tippe auf den <strong>Pfeil nach rechts (➔)</strong> daneben!</li>
+                  </ul>
+                </div>
+              )}
 
-            <p className="text-[10px] text-stone-400 leading-tight">
-              💡 Lädt die neueste App-Version von GitHub Pages und leert den Browser-App-Cache. Deine Tagebucheinträge, Brotrezepte und Einstellungen bleiben zu 100 % erhalten.
-            </p>
-          </div>
+              {updateMessage && (
+                <div className="p-2.5 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-800 flex items-center gap-1.5 animate-in fade-in">
+                  <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span className="font-medium">{updateMessage}</span>
+                </div>
+              )}
+
+              {onOpenVersionUpdate && (
+                <button
+                  type="button"
+                  onClick={onOpenVersionUpdate}
+                  className="w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-emerald-50 via-teal-50 to-indigo-50 border border-emerald-200/90 hover:bg-emerald-100/70 text-emerald-950 text-xs font-bold transition-all flex items-center justify-center gap-2 shadow-2xs cursor-pointer"
+                >
+                  <span>✨</span>
+                  <span>Update-Botschaft für Version {APP_VERSION} ansehen</span>
+                </button>
+              )}
+
+              <button
+                type="button"
+                onClick={handleCheckForUpdates}
+                disabled={isCheckingUpdate}
+                className="w-full py-2.5 px-3 rounded-xl bg-white border border-stone-200 hover:border-emerald-500 hover:bg-emerald-50/50 text-stone-700 hover:text-emerald-800 text-xs font-bold transition-all flex items-center justify-center gap-2 shadow-2xs"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${isCheckingUpdate ? 'animate-spin text-emerald-600' : 'text-emerald-600'}`} />
+                <span>{isCheckingUpdate ? 'Aktualisiere...' : 'Auf Update prüfen & Cache leeren'}</span>
+              </button>
+
+              <p className="text-[10px] text-stone-400 leading-tight">
+                💡 Lädt die neueste App-Version von GitHub Pages und leert den Browser-App-Cache. Deine Tagebucheinträge, Brotrezepte und Einstellungen bleiben zu 100 % erhalten.
+              </p>
+            </div>
+          </AccordionSection>
 
           {/* Kurzanleitung & Bedienungs-Tipps */}
           <div className="p-4 bg-gradient-to-br from-amber-50/60 via-stone-50/50 to-white rounded-2xl border border-amber-200/80 space-y-3">
@@ -1405,14 +2031,49 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             </div>
 
             <div className="space-y-2.5 pt-1">
-              {/* Version 1.8 */}
-              <div className="p-3 bg-white rounded-xl border border-emerald-300 shadow-2xs space-y-1.5">
+              {/* Version 2.1 */}
+              <div className="p-3 bg-white rounded-xl border border-emerald-400 ring-2 ring-emerald-200/50 shadow-2xs space-y-1.5">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-1.5">
                     <span className="px-2 py-0.5 rounded-md bg-emerald-600 text-white text-[11px] font-black">
-                      v1.8
+                      v2.1
                     </span>
                     <span className="text-xs font-bold text-stone-800">Aktuelle Version</span>
+                  </div>
+                  <span className="text-[10px] text-stone-400 font-medium">10.10.2026</span>
+                </div>
+                <ul className="text-xs text-stone-600 space-y-1 pl-1">
+                  <li className="flex items-start gap-1.5">
+                    <span className="text-emerald-600 shrink-0 font-bold">✓</span>
+                    <span><strong>📂 Schlankes Rezept-Dropdown:</strong> Kein horizontales Scrollen mehr – alle Rubriken, Favoriten und Community-Rezepte übersichtlich in einem Dropdown-Menü.</span>
+                  </li>
+                  <li className="flex items-start gap-1.5">
+                    <span className="text-emerald-600 shrink-0 font-bold">✓</span>
+                    <span><strong>✏️ Rezept-Kategorien frei verwalten:</strong> Eigene Rubriken anlegen (z. B. Airfryer, Suppen, Aufläufe), Emojis/Namen anpassen und löschen mit Live-Rezeptzähler.</span>
+                  </li>
+                  <li className="flex items-start gap-1.5">
+                    <span className="text-emerald-600 shrink-0 font-bold">✓</span>
+                    <span><strong>📑 Einklappbare Akkordeon-Eigenschaften:</strong> Die Einstellungen sind jetzt in 10 aufgeräumte, einklappbare Themenbereiche unterteilt – inklusive „Alle öffnen“ & „Alle schließen“.</span>
+                  </li>
+                  <li className="flex items-start gap-1.5">
+                    <span className="text-emerald-600 shrink-0 font-bold">✓</span>
+                    <span><strong>🥦 Deutsche Supermärkte & Barcode-Fix:</strong> Verifizierte TK- und Grundnahrungsmittel von Iglo, Edeka, Rewe, Lidl, Aldi & Frosta. Erkennt zubereitete Nährwerte (z. B. Iglo Prinzess-Bohnen 400g = 120 kcal) und berechnet Gesamtpackungen automatisch!</span>
+                  </li>
+                  <li className="flex items-start gap-1.5">
+                    <span className="text-emerald-600 shrink-0 font-bold">✓</span>
+                    <span><strong>🌐 Community-Rezepte mit Profilbild & Info:</strong> Persönliche Profilfotos zur klaren Zuordnung bei gleichen Vornamen und automatische Benachrichtigung mit NEU-Badge bei neuen Rezepten.</span>
+                  </li>
+                </ul>
+              </div>
+
+              {/* Version 1.8 */}
+              <div className="p-3 bg-white rounded-xl border border-stone-200 shadow-2xs space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5">
+                    <span className="px-2 py-0.5 rounded-md bg-stone-600 text-white text-[11px] font-black">
+                      v1.8
+                    </span>
+                    <span className="text-xs font-bold text-stone-700">Vorherige Version</span>
                   </div>
                   <span className="text-[10px] text-stone-400 font-medium">09.10.2026</span>
                 </div>

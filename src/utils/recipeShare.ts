@@ -1,5 +1,5 @@
 import LZString from 'lz-string';
-import { type CustomRecipe } from '../db/db';
+import { type CustomRecipe, type RecipeCategory } from '../db/db';
 import { compressDataUrl } from './imageCompress';
 
 interface MinifiedIngredient {
@@ -13,7 +13,7 @@ interface MinifiedIngredient {
 
 interface MinifiedRecipePayload {
   n: string; // name
-  c: 'bread' | 'breakfast' | 'meal' | 'salad' | 'drink' | 'snack';
+  c: RecipeCategory;
   rw: number; // totalRawWeight
   cw: number; // cookedWeight
   sn: string; // servingName

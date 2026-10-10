@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { db, type RecipeIngredient, type CustomRecipe, type RecipeCategory, type MealType, type DiaryEntry } from '../db/db';
+import { db, type RecipeIngredient, type CustomRecipe, type RecipeCategory, type MealType, type DiaryEntry, DEFAULT_RECIPE_CATEGORIES, type RecipeCategoryConfig } from '../db/db';
 import { ALL_LOCAL_FOODS, searchFoodProducts, normalizeGermanSearch, type FoodProduct } from '../services/foodApi';
 import { getPortionPresets } from '../utils/portionPresets';
 import { queryFoodWithGemini, parseRecipeWithGemini, generateRecipeWithAiChef, type AiChefRecipeResult } from '../services/geminiApi';
@@ -218,6 +218,13 @@ export const RecipeCreatorModal = ({
   const [recipePrepTime, setRecipePrepTime] = useState<string>('20');
   const [recipeInstructions, setRecipeInstructions] = useState<string>('');
   const photoInputRef = useRef<HTMLInputElement>(null);
+
+  const userProfile = useLiveQuery(() => db.userProfile.get('current'));
+  const availableCategories: RecipeCategoryConfig[] = useMemo(() => {
+    return userProfile?.recipeCategories && userProfile.recipeCategories.length > 0
+      ? userProfile.recipeCategories
+      : DEFAULT_RECIPE_CATEGORIES;
+  }, [userProfile?.recipeCategories]);
   
   // Edit mode state
   const [editingRecipeId, setEditingRecipeId] = useState<number | null>(null);
@@ -1300,14 +1307,7 @@ export const RecipeCreatorModal = ({
               </div>
 
               <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5">
-                {[
-                  { id: 'bread' as const, label: 'Brot & Backen', icon: '🍞' },
-                  { id: 'breakfast' as const, label: 'Frühstück', icon: '🥣' },
-                  { id: 'meal' as const, label: 'Hauptgericht', icon: '🍲' },
-                  { id: 'salad' as const, label: 'Salat', icon: '🥗' },
-                  { id: 'drink' as const, label: 'Getränk', icon: '🥤' },
-                  { id: 'snack' as const, label: 'Snack', icon: '🍫' },
-                ].map((cat) => {
+                {availableCategories.map((cat) => {
                   const isCur = category === cat.id;
                   return (
                     <button
@@ -1325,7 +1325,7 @@ export const RecipeCreatorModal = ({
                       }`}
                     >
                       <span className="text-base">{cat.icon}</span>
-                      <span className="text-[10px] leading-tight">{cat.label}</span>
+                      <span className="text-[10px] leading-tight truncate w-full px-1">{cat.name}</span>
                     </button>
                   );
                 })}
