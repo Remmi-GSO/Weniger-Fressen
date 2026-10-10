@@ -201,6 +201,7 @@ export function App() {
   const handleSharedAvatarCropComplete = async (croppedDataUrl: string) => {
     try {
       await db.userProfile.update('current', { avatarUrl: croppedDataUrl });
+      localStorage.setItem('weniger_fressen_avatar_backup', croppedDataUrl);
     } catch (e) {
       console.warn('Could not update avatarUrl from shared image', e);
     }
@@ -219,8 +220,48 @@ export function App() {
     handleOpenQuickAdd('lunch');
   };
 
+  // Request persistent storage from browser so IndexedDB is never evicted
+  useEffect(() => {
+    if (typeof navigator !== 'undefined' && navigator.storage && navigator.storage.persist) {
+      navigator.storage.persist().then((isPersisted) => {
+        if (isPersisted) {
+          console.log('[Storage] Persistent storage guaranteed by browser.');
+        }
+      }).catch((e) => console.warn('[Storage] Could not request persistence', e));
+    }
+  }, []);
+
   // Live queries for reactive data updates
-  const userProfile = useLiveQuery(() => db.userProfile.get('current'));
+  // Returns undefined while loading, null if not found, or UserProfile object
+  const userProfile = useLiveQuery(async () => {
+    const prof = await db.userProfile.get('current');
+    return prof ?? null;
+  });
+
+  // Synchronize and double-protect profile avatar with localStorage
+  useEffect(() => {
+    if (userProfile && userProfile !== null) {
+      if (userProfile.avatarUrl) {
+        // Backup avatar to localStorage
+        try {
+          localStorage.setItem('weniger_fressen_avatar_backup', userProfile.avatarUrl);
+        } catch (e) {
+          console.warn('Could not mirror avatar to localStorage', e);
+        }
+      } else {
+        // If avatar in DB is empty, check if we have a backup in localStorage
+        try {
+          const backupAvatar = localStorage.getItem('weniger_fressen_avatar_backup');
+          if (backupAvatar && backupAvatar.trim().length > 0) {
+            db.userProfile.update('current', { avatarUrl: backupAvatar });
+          }
+        } catch (e) {
+          console.warn('Could not restore avatar from backup', e);
+        }
+      }
+    }
+  }, [userProfile]);
+
   const diaryEntries = useLiveQuery(
     () => db.diaryEntries.where({ date: selectedDate }).sortBy('timestamp'),
     [selectedDate]
@@ -237,8 +278,11 @@ export function App() {
   const fastingSessions = useLiveQuery(() => db.fastingSessions.toArray()) || [];
   const activeFastingSession = fastingSessions.find((s) => s.isActive);
 
-  // Fallback while loading
-  const profile = userProfile || DEFAULT_USER_PROFILE;
+  // Fallback while loading (with instant avatar from localStorage so no flicker)
+  const cachedAvatar = typeof localStorage !== 'undefined' ? (localStorage.getItem('weniger_fressen_avatar_backup') || '') : '';
+  const profile = (userProfile && userProfile !== null)
+    ? { ...userProfile, avatarUrl: userProfile.avatarUrl || cachedAvatar }
+    : { ...DEFAULT_USER_PROFILE, avatarUrl: cachedAvatar };
 
   // Auto-open morning briefing on first start of the day between 04:00 and 14:00
   useEffect(() => {
@@ -879,9 +923,9 @@ export function App() {
       />
 
       {/* Onboarding Modal for First Time Users or Re-calculation */}
-      {(!userProfile?.isOnboarded || forceOnboarding) && (
+      {userProfile !== undefined && ((userProfile === null || !userProfile.isOnboarded) || forceOnboarding) && (
         <OnboardingModal
-          initialProfile={userProfile}
+          initialProfile={userProfile && userProfile !== null ? userProfile : undefined}
           onComplete={() => setForceOnboarding(false)}
         />
       )}

@@ -535,7 +535,17 @@ export async function executeFullOverwrite(backupData: any): Promise<void> {
       await db.customActivities.clear();
       await db.customSnacks.clear();
 
-      if (backupData.profile?.length) await db.userProfile.bulkPut(backupData.profile);
+      if (backupData.profile?.length) {
+        await db.userProfile.bulkPut(backupData.profile);
+        const p = backupData.profile.find((x: any) => x.id === 'current') || backupData.profile[0];
+        if (p?.avatarUrl && typeof localStorage !== 'undefined') {
+          try {
+            localStorage.setItem('weniger_fressen_avatar_backup', p.avatarUrl);
+          } catch {
+            // ignore
+          }
+        }
+      }
       if (backupData.diary?.length) await db.diaryEntries.bulkAdd(backupData.diary.map(({ id, ...rest }: any) => rest));
       if (backupData.water?.length) await db.waterLogs.bulkAdd(backupData.water.map(({ id, ...rest }: any) => rest));
       if (backupData.weights?.length) await db.weightLogs.bulkAdd(backupData.weights.map(({ id, ...rest }: any) => rest));

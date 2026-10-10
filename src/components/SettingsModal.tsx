@@ -375,7 +375,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [userName, setUserName] = useState(
     userProfile?.name && userProfile.name !== 'Du' ? userProfile.name : ''
   );
-  const [avatarUrl, setAvatarUrl] = useState<string>(userProfile?.avatarUrl || '');
+  const [avatarUrl, setAvatarUrl] = useState<string>(() => {
+    if (userProfile?.avatarUrl) return userProfile.avatarUrl;
+    if (typeof localStorage !== 'undefined') {
+      return localStorage.getItem('weniger_fressen_avatar_backup') || '';
+    }
+    return '';
+  });
   const [notificationsEnabled, setNotificationsEnabled] = useState<boolean>(() => isBrowserNotificationEnabled());
   const [apiKey, setApiKey] = useState(userProfile?.geminiApiKey || '');
   const [showMorningBriefing, setShowMorningBriefing] = useState<boolean>(
@@ -566,11 +572,20 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     }
   };
 
-  // Sync state when userProfile is loaded or modal opens
   useEffect(() => {
     if (isOpen && userProfile) {
-      if (userProfile.avatarUrl !== undefined) {
-        setAvatarUrl(userProfile.avatarUrl || '');
+      const cachedAvatar = typeof localStorage !== 'undefined' ? (localStorage.getItem('weniger_fressen_avatar_backup') || '') : '';
+      if (userProfile.avatarUrl) {
+        setAvatarUrl(userProfile.avatarUrl);
+        try {
+          localStorage.setItem('weniger_fressen_avatar_backup', userProfile.avatarUrl);
+        } catch {
+          // ignore
+        }
+      } else if (cachedAvatar) {
+        setAvatarUrl(cachedAvatar);
+      } else {
+        setAvatarUrl('');
       }
       if (userProfile.name && userProfile.name !== 'Du') {
         setUserName(userProfile.name);
@@ -720,10 +735,30 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     e.target.value = '';
   };
 
-  const handleCropComplete = (croppedDataUrl: string) => {
+  const handleCropComplete = async (croppedDataUrl: string) => {
     setAvatarUrl(croppedDataUrl);
     setIsCropModalOpen(false);
     setCropImageSrc(null);
+    try {
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem('weniger_fressen_avatar_backup', croppedDataUrl);
+      }
+      await db.userProfile.update('current', { avatarUrl: croppedDataUrl });
+    } catch (err) {
+      console.warn('Could not immediately persist avatar crop:', err);
+    }
+  };
+
+  const handleSelectAvatarPreset = async (svg: string) => {
+    setAvatarUrl(svg);
+    try {
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem('weniger_fressen_avatar_backup', svg);
+      }
+      await db.userProfile.update('current', { avatarUrl: svg });
+    } catch (err) {
+      console.warn('Could not immediately persist avatar preset:', err);
+    }
   };
 
   const handleResetHiddenCommunity = () => {
@@ -749,11 +784,20 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       const numWeight = Number(weight) || base.weight;
       const numTargetWeight = goalType === 'maintain_weight' ? numWeight : (Number(targetWeight) || base.targetWeight);
 
+      const finalAvatar = avatarUrl || (typeof localStorage !== 'undefined' ? localStorage.getItem('weniger_fressen_avatar_backup') || '' : '') || base.avatarUrl || '';
+      if (finalAvatar && typeof localStorage !== 'undefined') {
+        try {
+          localStorage.setItem('weniger_fressen_avatar_backup', finalAvatar);
+        } catch {
+          // ignore
+        }
+      }
+
       await db.userProfile.put({
         ...base,
         id: 'current',
         name: cleanName,
-        avatarUrl: avatarUrl || '',
+        avatarUrl: finalAvatar,
         gender,
         age: Number(age) || base.age,
         height: Number(height) || base.height,
@@ -953,7 +997,17 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 {avatarUrl && (
                   <button
                     type="button"
-                    onClick={() => setAvatarUrl('')}
+                    onClick={async () => {
+                      setAvatarUrl('');
+                      try {
+                        if (typeof localStorage !== 'undefined') {
+                          localStorage.removeItem('weniger_fressen_avatar_backup');
+                        }
+                        await db.userProfile.update('current', { avatarUrl: '' });
+                      } catch (e) {
+                        console.warn('Could not clear avatar:', e);
+                      }
+                    }}
                     className="text-[11px] text-rose-600 font-bold hover:underline cursor-pointer"
                   >
                     Foto entfernen
@@ -1033,7 +1087,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       <button
                         key={p.emoji}
                         type="button"
-                        onClick={() => setAvatarUrl(svg)}
+                        onClick={() => handleSelectAvatarPreset(svg)}
                         className={`w-8 h-8 rounded-xl text-base flex items-center justify-center shrink-0 transition-transform cursor-pointer ${
                           isSelected
                             ? 'ring-2 ring-emerald-500 scale-110 bg-emerald-50 shadow-2xs'

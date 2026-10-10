@@ -1,4 +1,4 @@
-import { useState, useMemo, type FormEvent } from 'react';
+import { useState, useEffect, useMemo, type FormEvent } from 'react';
 import { db, type UserProfile } from '../db/db';
 import { calculateNutritionTargets, type DailyStepLevel, type WorkoutIntensity } from '../utils/nutrition';
 import { Sparkles, ArrowRight, ShieldCheck, Dumbbell, Footprints, X, Upload, Camera, Crop } from 'lucide-react';
@@ -16,7 +16,24 @@ export const OnboardingModal = ({ onComplete, initialProfile }: OnboardingModalP
   const [name, setName] = useState(
     initialProfile?.name && initialProfile.name !== 'Du' ? initialProfile.name : ''
   );
-  const [avatarUrl, setAvatarUrl] = useState<string>(initialProfile?.avatarUrl || '');
+  const [avatarUrl, setAvatarUrl] = useState<string>(() => {
+    if (initialProfile?.avatarUrl) return initialProfile.avatarUrl;
+    if (typeof localStorage !== 'undefined') {
+      return localStorage.getItem('weniger_fressen_avatar_backup') || '';
+    }
+    return '';
+  });
+
+  useEffect(() => {
+    if (initialProfile?.avatarUrl) {
+      setAvatarUrl(initialProfile.avatarUrl);
+    } else if (typeof localStorage !== 'undefined') {
+      const backup = localStorage.getItem('weniger_fressen_avatar_backup');
+      if (backup) {
+        setAvatarUrl(backup);
+      }
+    }
+  }, [initialProfile]);
   const [age, setAge] = useState<number>(initialProfile?.age || 30);
   const [height, setHeight] = useState<number>(initialProfile?.height || 170);
   const [weight, setWeight] = useState<number>(initialProfile?.weight || 75);
@@ -55,10 +72,19 @@ export const OnboardingModal = ({ onComplete, initialProfile }: OnboardingModalP
 
   const handleSave = async (e: FormEvent) => {
     e.preventDefault();
+    const finalAvatar = avatarUrl || (typeof localStorage !== 'undefined' ? localStorage.getItem('weniger_fressen_avatar_backup') || '' : '') || initialProfile?.avatarUrl || '';
+    if (finalAvatar && typeof localStorage !== 'undefined') {
+      try {
+        localStorage.setItem('weniger_fressen_avatar_backup', finalAvatar);
+      } catch {
+        // ignore
+      }
+    }
+
     const profile: UserProfile = {
       id: 'current',
       name: name.trim(),
-      avatarUrl: avatarUrl || '',
+      avatarUrl: finalAvatar,
       gender,
       age: Number(age),
       height: Number(height),
@@ -116,6 +142,24 @@ export const OnboardingModal = ({ onComplete, initialProfile }: OnboardingModalP
     setAvatarUrl(croppedDataUrl);
     setIsCropModalOpen(false);
     setCropImageSrc(null);
+    try {
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem('weniger_fressen_avatar_backup', croppedDataUrl);
+      }
+    } catch {
+      // ignore
+    }
+  };
+
+  const handleSelectPreset = (svg: string) => {
+    setAvatarUrl(svg);
+    try {
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem('weniger_fressen_avatar_backup', svg);
+      }
+    } catch {
+      // ignore
+    }
   };
 
   return (
@@ -176,7 +220,16 @@ export const OnboardingModal = ({ onComplete, initialProfile }: OnboardingModalP
               {avatarUrl && (
                 <button
                   type="button"
-                  onClick={() => setAvatarUrl('')}
+                  onClick={() => {
+                    setAvatarUrl('');
+                    try {
+                      if (typeof localStorage !== 'undefined') {
+                        localStorage.removeItem('weniger_fressen_avatar_backup');
+                      }
+                    } catch {
+                      // ignore
+                    }
+                  }}
                   className="text-[11px] text-emerald-700 font-bold hover:underline cursor-pointer"
                 >
                   Zurücksetzen
@@ -244,7 +297,7 @@ export const OnboardingModal = ({ onComplete, initialProfile }: OnboardingModalP
                     <button
                       key={p.emoji}
                       type="button"
-                      onClick={() => setAvatarUrl(svg)}
+                      onClick={() => handleSelectPreset(svg)}
                       className={`w-8 h-8 rounded-xl text-base flex items-center justify-center shrink-0 transition-transform cursor-pointer ${
                         isSelected
                           ? 'ring-2 ring-emerald-500 scale-110 bg-emerald-100/80 shadow-2xs'

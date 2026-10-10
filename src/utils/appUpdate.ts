@@ -1,3 +1,5 @@
+import { db } from '../db/db';
+
 /**
  * Helper to update the PWA / web application:
  * Updates all service worker registrations, purges browser caches,
@@ -5,6 +7,16 @@
  */
 export async function triggerAppUpdate(): Promise<void> {
   try {
+    // 1. Double-protect profile & avatar in localStorage before any cache purge / reload
+    try {
+      const prof = await db.userProfile.get('current');
+      if (prof?.avatarUrl) {
+        localStorage.setItem('weniger_fressen_avatar_backup', prof.avatarUrl);
+      }
+    } catch (e) {
+      console.warn('Could not backup avatar before update reload:', e);
+    }
+
     if ('serviceWorker' in navigator) {
       const registrations = await navigator.serviceWorker.getRegistrations();
       for (const reg of registrations) {
