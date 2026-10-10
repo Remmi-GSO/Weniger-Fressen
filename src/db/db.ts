@@ -68,6 +68,9 @@ export interface UserProfile {
   lastMorningBriefingDate?: string; // Format: YYYY-MM-DD
   geminiApiKey?: string;
   hiddenSnackIds?: string[]; // IDs ausgeblendeter oder gelöschter Standard-Naschereien
+  hiddenCommunityRecipeIds?: string[]; // IDs ausgeblendeter Community-Rezepte
+  isAdminUser?: boolean; // Admin mit Zusatzrechten (Globale Löschung & JSON-Export)
+  adminPin?: string; // Geheimer Admin-PIN zum Freischalten von Admin-Rechten
   recipeCategories?: RecipeCategoryConfig[]; // Individuell anpassbare Rezept-Kategorien
   isOnboarded: boolean;
   createdAt: string;
@@ -288,6 +291,9 @@ export const DEFAULT_USER_PROFILE: UserProfile = {
   waterGoal: 2500,
   foodFocus: DEFAULT_FOOD_FOCUS,
   recipeCategories: DEFAULT_RECIPE_CATEGORIES,
+  hiddenSnackIds: [],
+  hiddenCommunityRecipeIds: [],
+  isAdminUser: false,
   showMorningBriefing: true,
   lastMorningBriefingDate: '',
   isOnboarded: false,

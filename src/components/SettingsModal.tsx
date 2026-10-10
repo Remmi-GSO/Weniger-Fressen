@@ -34,13 +34,20 @@ import {
   Camera,
   Edit2,
   Plus,
+  Crop,
 } from 'lucide-react';
 import { APP_VERSION, APP_BUILD_DATE, APP_DB_VERSION, APP_CACHE_VERSION } from '../config/version';
 import { calculateNutritionTargets, type DailyStepLevel, type WorkoutIntensity } from '../utils/nutrition';
 import { triggerAppUpdate } from '../utils/appUpdate';
 import { BackupManagerModal } from './BackupManagerModal';
-import { compressProfilePhoto, getAuthorAvatar, AVATAR_PRESETS, generateAvatarSvg } from '../utils/avatar';
-import { isBrowserNotificationEnabled, requestCommunityNotificationPermission } from '../utils/communityNotifier';
+import { AvatarCropModal } from './AvatarCropModal';
+import { getAuthorAvatar, AVATAR_PRESETS, generateAvatarSvg } from '../utils/avatar';
+import {
+  isBrowserNotificationEnabled,
+  requestCommunityNotificationPermission,
+  getHiddenCommunityRecipeIds,
+  resetHiddenCommunityRecipes,
+} from '../utils/communityNotifier';
 import { inferRecipeCategory } from './RecipeCreatorModal';
 
 interface SettingsModalProps {
@@ -193,6 +200,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [showBackupModal, setShowBackupModal] = useState(false);
   const [backupModalMode, setBackupModalMode] = useState<'export' | 'import'>('export');
   const [showQrCodeModal, setShowQrCodeModal] = useState(false);
+  const [isAdminUser, setIsAdminUser] = useState<boolean>(userProfile?.isAdminUser ?? false);
+  const [cropImageSrc, setCropImageSrc] = useState<string | null>(null);
+  const [isCropModalOpen, setIsCropModalOpen] = useState(false);
+  const [hiddenCommunityCount, setHiddenCommunityCount] = useState<number>(() => getHiddenCommunityRecipeIds().size);
 
   const effectiveDeficit = goalType === 'maintain_weight' ? 0 : (goalDeficit || 500);
 
@@ -309,6 +320,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       if (userProfile.recipeCategories) {
         setRecipeCategories(userProfile.recipeCategories);
       }
+      if (userProfile.isAdminUser !== undefined) {
+        setIsAdminUser(userProfile.isAdminUser);
+      }
+      setHiddenCommunityCount(getHiddenCommunityRecipeIds().size);
     }
   }, [userProfile, isOpen]);
 
@@ -384,15 +399,31 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     }
   };
 
-  const handleUploadAvatar = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleUploadAvatar = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    try {
-      const compressed = await compressProfilePhoto(file);
-      setAvatarUrl(compressed);
-    } catch (err) {
-      console.warn('Avatar compression failed', err);
-    }
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const src = ev.target?.result as string;
+      if (src) {
+        setCropImageSrc(src);
+        setIsCropModalOpen(true);
+      }
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
+
+  const handleCropComplete = (croppedDataUrl: string) => {
+    setAvatarUrl(croppedDataUrl);
+    setIsCropModalOpen(false);
+    setCropImageSrc(null);
+  };
+
+  const handleResetHiddenCommunity = () => {
+    resetHiddenCommunityRecipes();
+    setHiddenCommunityCount(0);
+    alert('Alle ausgeblendeten Community-Rezepte wurden wieder eingeblendet!');
   };
 
   const handleToggleNotifications = async () => {
@@ -441,6 +472,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         foodFocus,
         recipeCategories,
         showMorningBriefing,
+        isAdminUser: Boolean(isAdminUser),
         isOnboarded: true,
       });
 
@@ -647,22 +679,38 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   </label>
                 </div>
 
-                <div className="flex-1 relative">
-                  <input
-                    type="text"
-                    placeholder="Dein Vorname (z. B. Remmi)"
-                    value={userName}
-                    onChange={(e) => setUserName(e.target.value)}
-                    className="w-full py-2.5 pl-3.5 pr-10 rounded-xl border border-stone-200 focus:border-emerald-500 font-bold text-stone-800 text-sm bg-white"
-                  />
-                  <div className="absolute right-2 top-1/2 -translate-y-1/2">
-                    <VoiceInputButton
-                      onTranscript={(text) => setUserName(text)}
-                      currentValue={userName}
-                      size="xs"
-                      title="Namen per Sprache einsprechen"
+                <div className="flex-1 space-y-1.5 min-w-0">
+                  <div className="relative">
+                    <input
+                      type="text"
+                      placeholder="Dein Vorname (z. B. Remmi)"
+                      value={userName}
+                      onChange={(e) => setUserName(e.target.value)}
+                      className="w-full py-2.5 pl-3.5 pr-10 rounded-xl border border-stone-200 focus:border-emerald-500 font-bold text-stone-800 text-sm bg-white"
                     />
+                    <div className="absolute right-2 top-1/2 -translate-y-1/2">
+                      <VoiceInputButton
+                        onTranscript={(text) => setUserName(text)}
+                        currentValue={userName}
+                        size="xs"
+                        title="Namen per Sprache einsprechen"
+                      />
+                    </div>
                   </div>
+
+                  {avatarUrl && !avatarUrl.startsWith('data:image/svg') && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCropImageSrc(avatarUrl);
+                        setIsCropModalOpen(true);
+                      }}
+                      className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 hover:text-emerald-800 hover:underline cursor-pointer"
+                    >
+                      <Crop className="w-3 h-3" />
+                      <span>Ausschnitt anpassen & zoomen</span>
+                    </button>
+                  )}
                 </div>
               </div>
 
@@ -2031,14 +2079,45 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             </div>
 
             <div className="space-y-2.5 pt-1">
-              {/* Version 2.1 */}
+              {/* Version 2.2 */}
               <div className="p-3 bg-white rounded-xl border border-emerald-400 ring-2 ring-emerald-200/50 shadow-2xs space-y-1.5">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-1.5">
                     <span className="px-2 py-0.5 rounded-md bg-emerald-600 text-white text-[11px] font-black">
-                      v2.1
+                      v2.2
                     </span>
                     <span className="text-xs font-bold text-stone-800">Aktuelle Version</span>
+                  </div>
+                  <span className="text-[10px] text-stone-400 font-medium">10.10.2026</span>
+                </div>
+                <ul className="text-xs text-stone-600 space-y-1 pl-1">
+                  <li className="flex items-start gap-1.5">
+                    <span className="text-emerald-600 shrink-0 font-bold">✓</span>
+                    <span><strong>✂️ Profilbild zuschneiden & zoomen:</strong> Interaktiver runder Bildausschnitt mit Stufenlos-Zoom (+/-, Schieberegler, Mausrad, Pinch-to-Zoom), freiem Verschieben und 90°-Drehung.</span>
+                  </li>
+                  <li className="flex items-start gap-1.5">
+                    <span className="text-emerald-600 shrink-0 font-bold">✓</span>
+                    <span><strong>📲 Fotos direkt aus Handy-Galerie & Explorer teilen:</strong> Über das native Teilen-Menü von Android & Windows Bilder direkt an Weniger Fressen senden – mit Schnellwahl: Als Profilbild zuschneiden, Neues Rezept oder Mahlzeit buchen.</span>
+                  </li>
+                  <li className="flex items-start gap-1.5">
+                    <span className="text-emerald-600 shrink-0 font-bold">✓</span>
+                    <span><strong>🪗 Aufklappbares „Was ist neu?“-Fenster:</strong> Alle Update-Details lassen sich jetzt platzsparend als Akkordeon einzeln aufklappen oder mit 1 Klick gesammelt öffnen/schließen.</span>
+                  </li>
+                  <li className="flex items-start gap-1.5">
+                    <span className="text-emerald-600 shrink-0 font-bold">✓</span>
+                    <span><strong>🙈 Community-Rezepte individuell ausblenden:</strong> Unerwünschte Fremdrezepte einfach mit dem Auge-Symbol für dich verbergen und bei Bedarf in den Einstellungen mit 1 Klick wiederherstellen.</span>
+                  </li>
+                </ul>
+              </div>
+
+              {/* Version 2.1 */}
+              <div className="p-3 bg-white rounded-xl border border-stone-200 shadow-2xs space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5">
+                    <span className="px-2 py-0.5 rounded-md bg-stone-600 text-white text-[11px] font-black">
+                      v2.1
+                    </span>
+                    <span className="text-xs font-bold text-stone-700">Vorherige Version</span>
                   </div>
                   <span className="text-[10px] text-stone-400 font-medium">10.10.2026</span>
                 </div>
@@ -2442,6 +2521,36 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             </p>
           </div>
 
+          {/* Ausgeblendete Community-Rezepte (Privat) */}
+          <div className="p-4 bg-stone-50 border border-stone-200/90 rounded-2xl space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold uppercase tracking-wider text-stone-800 flex items-center gap-1.5">
+                <span className="text-base">🙈</span>
+                Ausgeblendete Community-Rezepte
+              </span>
+              <span className="text-[10px] bg-stone-200 text-stone-700 font-black px-2 py-0.5 rounded-full">
+                {hiddenCommunityCount} verborgen
+              </span>
+            </div>
+            <p className="text-[11px] text-stone-600 leading-relaxed">
+              Du kannst jedes Community-Rezept direkt in der Rezept-Übersicht mit dem Auge-Symbol für dich ausblenden. Hier kannst du alle ausgeblendeten Rezepte mit einem Klick wieder sichtbar machen.
+            </p>
+
+            {hiddenCommunityCount > 0 ? (
+              <button
+                type="button"
+                onClick={handleResetHiddenCommunity}
+                className="w-full py-2.5 px-3 rounded-xl bg-white border border-stone-300 hover:bg-stone-100 text-stone-800 font-bold text-xs cursor-pointer shadow-2xs transition-all flex items-center justify-center gap-1.5"
+              >
+                <span>Alle {hiddenCommunityCount} Rezepte wieder einblenden</span>
+              </button>
+            ) : (
+              <div className="text-[11px] text-stone-400 italic">
+                Aktuell sind keine Community-Rezepte ausgeblendet.
+              </div>
+            )}
+          </div>
+
           {/* Reset App */}
           <div className="pt-2 border-t border-stone-100 flex items-center justify-between">
             <span className="text-xs text-stone-400">Alle lokalen Daten zurücksetzen</span>
@@ -2477,6 +2586,18 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           isOpen={showBackupModal}
           onClose={() => setShowBackupModal(false)}
           initialMode={backupModalMode}
+        />
+      )}
+
+      {isCropModalOpen && cropImageSrc && (
+        <AvatarCropModal
+          isOpen={isCropModalOpen}
+          imageSrc={cropImageSrc}
+          onClose={() => {
+            setIsCropModalOpen(false);
+            setCropImageSrc(null);
+          }}
+          onCropComplete={handleCropComplete}
         />
       )}
     </div>

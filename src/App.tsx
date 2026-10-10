@@ -28,6 +28,7 @@ import { CommunityNotificationBanner } from './components/CommunityNotificationB
 import {
   fetchCommunityRecipes,
   getSeenCommunityRecipeIds,
+  getHiddenCommunityRecipeIds,
   markCommunityRecipeAsSeen,
   markAllCommunityRecipesAsSeen,
   sendCommunityRecipeNotification,
@@ -36,6 +37,9 @@ import {
 import { PAPRIKA_RECIPES } from './data/paprikaRecipes';
 import { Settings, Maximize, Minimize } from 'lucide-react';
 import { APP_VERSION, RECIPES_VERSION } from './config/version';
+import { AvatarCropModal } from './components/AvatarCropModal';
+import { SharedImageActionModal } from './components/SharedImageActionModal';
+import { checkAndRetrieveSharedImage } from './utils/sharedImageHandler';
 
 export function App() {
   const [selectedDate, setSelectedDate] = useState<string>(getTodayDateString());
@@ -95,12 +99,13 @@ export function App() {
         if (isCancelled || commRecipes.length === 0) return;
 
         const seenIds = getSeenCommunityRecipeIds();
+        const hiddenIds = getHiddenCommunityRecipeIds();
         const existingLocal = await db.recipes.toArray();
         const existingNames = new Set(existingLocal.map((r) => r.name.toLowerCase().trim()));
 
-        // Filter recipes that have not been seen and not yet imported
+        // Filter recipes that have not been seen, not yet imported, and not hidden
         const unseen = commRecipes.filter(
-          (cr) => !seenIds.has(cr.id) && !existingNames.has(cr.name.toLowerCase().trim())
+          (cr) => !seenIds.has(cr.id) && !existingNames.has(cr.name.toLowerCase().trim()) && !hiddenIds.has(cr.id)
         );
 
         if (!isCancelled) {
@@ -160,6 +165,59 @@ export function App() {
       }
     }
   }, []);
+
+  // Check for shared image received via Web Share Target (Gallery / System-Teilen)
+  const [sharedImageSrc, setSharedImageSrc] = useState<string | null>(null);
+  const [isSharedImageModalOpen, setIsSharedImageModalOpen] = useState(false);
+  const [isSharedAvatarCropOpen, setIsSharedCropAvatarOpen] = useState(false);
+
+  useEffect(() => {
+    const checkSharedImage = async () => {
+      const img = await checkAndRetrieveSharedImage();
+      if (img) {
+        setSharedImageSrc(img);
+        setIsSharedImageModalOpen(true);
+      }
+    };
+
+    checkSharedImage();
+
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        checkSharedImage();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
+  }, []);
+
+  const handleUseSharedImageAsAvatar = () => {
+    setIsSharedImageModalOpen(false);
+    setIsSharedCropAvatarOpen(true);
+  };
+
+  const handleSharedAvatarCropComplete = async (croppedDataUrl: string) => {
+    try {
+      await db.userProfile.update('current', { avatarUrl: croppedDataUrl });
+    } catch (e) {
+      console.warn('Could not update avatarUrl from shared image', e);
+    }
+    setIsSharedCropAvatarOpen(false);
+    setSharedImageSrc(null);
+  };
+
+  const handleCreateRecipeWithSharedImage = () => {
+    setIsSharedImageModalOpen(false);
+    handleSwitchAppMode('recipes');
+    setIsRecipeCreatorOpen(true);
+  };
+
+  const handleLogMealWithSharedImage = () => {
+    setIsSharedImageModalOpen(false);
+    handleOpenQuickAdd('lunch');
+  };
 
   // Live queries for reactive data updates
   const userProfile = useLiveQuery(() => db.userProfile.get('current'));
@@ -825,6 +883,34 @@ export function App() {
         <OnboardingModal
           initialProfile={userProfile}
           onComplete={() => setForceOnboarding(false)}
+        />
+      )}
+
+      {/* Web Share Target Incoming Image Action Modal */}
+      {isSharedImageModalOpen && sharedImageSrc && (
+        <SharedImageActionModal
+          isOpen={isSharedImageModalOpen}
+          imageSrc={sharedImageSrc}
+          onClose={() => {
+            setIsSharedImageModalOpen(false);
+            setSharedImageSrc(null);
+          }}
+          onUseAsAvatar={handleUseSharedImageAsAvatar}
+          onCreateRecipeWithImage={handleCreateRecipeWithSharedImage}
+          onLogMealWithImage={handleLogMealWithSharedImage}
+        />
+      )}
+
+      {/* Avatar Crop Modal for Shared Image */}
+      {isSharedAvatarCropOpen && sharedImageSrc && (
+        <AvatarCropModal
+          isOpen={isSharedAvatarCropOpen}
+          imageSrc={sharedImageSrc}
+          onClose={() => {
+            setIsSharedCropAvatarOpen(false);
+            setSharedImageSrc(null);
+          }}
+          onCropComplete={handleSharedAvatarCropComplete}
         />
       )}
     </div>

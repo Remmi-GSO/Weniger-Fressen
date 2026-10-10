@@ -27,10 +27,38 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
+  const url = new URL(event.request.url);
+
+  // Intercept Web Share Target POST request with shared image
+  if (event.request.method === 'POST' && url.searchParams.has('share-target')) {
+    event.respondWith(
+      (async () => {
+        try {
+          const formData = await event.request.formData();
+          const imageFile = formData.get('images');
+          if (imageFile) {
+            const cache = await caches.open('weniger-fressen-shared-v1');
+            await cache.put(
+              'shared-image',
+              new Response(imageFile, {
+                headers: {
+                  'content-type': imageFile.type || 'image/jpeg',
+                  'x-shared-time': Date.now().toString(),
+                },
+              })
+            );
+          }
+        } catch (err) {
+          console.warn('Share target error in SW:', err);
+        }
+        return Response.redirect('./?received-share=image', 303);
+      })()
+    );
+    return;
+  }
+
   // Only handle GET requests
   if (event.request.method !== 'GET') return;
-
-  const url = new URL(event.request.url);
 
   // Do not cache external API calls to openfoodfacts or gemini
   if (url.origin !== self.location.origin) {

@@ -1,9 +1,10 @@
 import { useState, useMemo, type FormEvent } from 'react';
 import { db, type UserProfile } from '../db/db';
 import { calculateNutritionTargets, type DailyStepLevel, type WorkoutIntensity } from '../utils/nutrition';
-import { Sparkles, ArrowRight, ShieldCheck, Dumbbell, Footprints, X, Upload, Camera } from 'lucide-react';
+import { Sparkles, ArrowRight, ShieldCheck, Dumbbell, Footprints, X, Upload, Camera, Crop } from 'lucide-react';
 import { BackupManagerModal } from './BackupManagerModal';
-import { compressProfilePhoto, getAuthorAvatar, AVATAR_PRESETS, generateAvatarSvg } from '../utils/avatar';
+import { AvatarCropModal } from './AvatarCropModal';
+import { getAuthorAvatar, AVATAR_PRESETS, generateAvatarSvg } from '../utils/avatar';
 
 interface OnboardingModalProps {
   onComplete: () => void;
@@ -34,6 +35,8 @@ export const OnboardingModal = ({ onComplete, initialProfile }: OnboardingModalP
 
   const effectiveDeficit = goalType === 'maintain_weight' ? 0 : (goalDeficit || 500);
   const [showBackupModal, setShowBackupModal] = useState(false);
+  const [cropImageSrc, setCropImageSrc] = useState<string | null>(null);
+  const [isCropModalOpen, setIsCropModalOpen] = useState(false);
 
   // Live calculation of targets using Mifflin-St. Jeor with fine-grained movement
   const calculation = useMemo(() => {
@@ -94,15 +97,25 @@ export const OnboardingModal = ({ onComplete, initialProfile }: OnboardingModalP
     onComplete();
   };
 
-  const handleUploadAvatar = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleUploadAvatar = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    try {
-      const compressed = await compressProfilePhoto(file);
-      setAvatarUrl(compressed);
-    } catch (err) {
-      console.warn('Avatar compression failed', err);
-    }
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const src = ev.target?.result as string;
+      if (src) {
+        setCropImageSrc(src);
+        setIsCropModalOpen(true);
+      }
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
+
+  const handleCropComplete = (croppedDataUrl: string) => {
+    setAvatarUrl(croppedDataUrl);
+    setIsCropModalOpen(false);
+    setCropImageSrc(null);
   };
 
   return (
@@ -194,13 +207,28 @@ export const OnboardingModal = ({ onComplete, initialProfile }: OnboardingModalP
                 </label>
               </div>
 
-              <input
-                type="text"
-                placeholder="Wie heißt du? (z. B. Remmi)"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                className="flex-1 px-4 py-3 rounded-xl border border-emerald-200/80 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 bg-white text-stone-800 font-semibold text-sm placeholder:text-stone-400 placeholder:font-normal"
-              />
+              <div className="flex-1 space-y-1 min-w-0">
+                <input
+                  type="text"
+                  placeholder="Wie heißt du? (z. B. Remmi)"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  className="w-full px-4 py-3 rounded-xl border border-emerald-200/80 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 bg-white text-stone-800 font-semibold text-sm placeholder:text-stone-400 placeholder:font-normal"
+                />
+                {avatarUrl && !avatarUrl.startsWith('data:image/svg') && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCropImageSrc(avatarUrl);
+                      setIsCropModalOpen(true);
+                    }}
+                    className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 hover:text-emerald-800 hover:underline cursor-pointer"
+                  >
+                    <Crop className="w-3 h-3" />
+                    <span>Ausschnitt anpassen & zoomen</span>
+                  </button>
+                )}
+              </div>
             </div>
 
             {/* Quick Avatar Emojis */}
@@ -663,6 +691,18 @@ export const OnboardingModal = ({ onComplete, initialProfile }: OnboardingModalP
             setShowBackupModal(false);
             onComplete();
           }}
+        />
+      )}
+
+      {isCropModalOpen && cropImageSrc && (
+        <AvatarCropModal
+          isOpen={isCropModalOpen}
+          imageSrc={cropImageSrc}
+          onClose={() => {
+            setIsCropModalOpen(false);
+            setCropImageSrc(null);
+          }}
+          onCropComplete={handleCropComplete}
         />
       )}
     </div>

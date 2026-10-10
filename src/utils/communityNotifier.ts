@@ -32,6 +32,7 @@ export interface CommunityRecipe {
 }
 
 const SEEN_RECIPES_KEY = 'weniger_fressen_seen_community_recipes_v2';
+const HIDDEN_COMMUNITY_RECIPES_KEY = 'weniger_fressen_hidden_community_recipes_v1';
 const NOTIFICATIONS_ENABLED_KEY = 'weniger_fressen_community_notifications_enabled';
 
 /**
@@ -71,6 +72,57 @@ export function markAllCommunityRecipesAsSeen(recipeIds: string[]): void {
     localStorage.setItem(SEEN_RECIPES_KEY, JSON.stringify(Array.from(seen)));
   } catch (err) {
     console.warn('Could not save seen community recipes', err);
+  }
+}
+
+/**
+ * Loads the set of community recipe IDs that this user/device has chosen to hide.
+ */
+export function getHiddenCommunityRecipeIds(): Set<string> {
+  try {
+    const raw = localStorage.getItem(HIDDEN_COMMUNITY_RECIPES_KEY);
+    if (!raw) return new Set();
+    const parsed: string[] = JSON.parse(raw);
+    return new Set(Array.isArray(parsed) ? parsed : []);
+  } catch {
+    return new Set();
+  }
+}
+
+/**
+ * Hides a community recipe for this user.
+ */
+export function hideCommunityRecipe(recipeId: string): void {
+  try {
+    const hidden = getHiddenCommunityRecipeIds();
+    hidden.add(recipeId);
+    localStorage.setItem(HIDDEN_COMMUNITY_RECIPES_KEY, JSON.stringify(Array.from(hidden)));
+  } catch (err) {
+    console.warn('Could not save hidden community recipe', err);
+  }
+}
+
+/**
+ * Restores / unhides a specific community recipe.
+ */
+export function unhideCommunityRecipe(recipeId: string): void {
+  try {
+    const hidden = getHiddenCommunityRecipeIds();
+    hidden.delete(recipeId);
+    localStorage.setItem(HIDDEN_COMMUNITY_RECIPES_KEY, JSON.stringify(Array.from(hidden)));
+  } catch (err) {
+    console.warn('Could not unhide community recipe', err);
+  }
+}
+
+/**
+ * Resets all hidden community recipes.
+ */
+export function resetHiddenCommunityRecipes(): void {
+  try {
+    localStorage.removeItem(HIDDEN_COMMUNITY_RECIPES_KEY);
+  } catch (err) {
+    console.warn('Could not reset hidden community recipes', err);
   }
 }
 
