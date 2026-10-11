@@ -4,8 +4,9 @@ import { db, type MealType, type EatingReason, type CustomRecipe } from '../db/d
 import { type FoodProduct } from '../services/foodApi';
 import { getPortionPresets, type PortionPreset } from '../utils/portionPresets';
 import { estimateFiber, estimateSugar } from '../utils/nutrientEstimator';
-import { X, Plus, Minus, Scale, Check } from 'lucide-react';
+import { X, Plus, Minus, Scale, Check, Maximize2 } from 'lucide-react';
 import confetti from 'canvas-confetti';
+import { ImageLightboxModal } from './ImageLightboxModal';
 
 interface PortionCalculatorModalProps {
   product: FoodProduct | null;
@@ -72,6 +73,7 @@ export const PortionCalculatorModal = ({
     product?.packageWeightGrams ? String(product.packageWeightGrams) : ''
   );
   const [overrideCalories100g, setOverrideCalories100g] = useState<number | undefined>(undefined);
+  const [isLightboxOpen, setIsLightboxOpen] = useState(false);
 
   const effectiveProduct = useMemo(() => {
     if (!product) return null;
@@ -391,11 +393,20 @@ export const PortionCalculatorModal = ({
           {/* Product Overview Card */}
           <div className="flex items-center gap-3.5 p-3.5 bg-stone-50/80 rounded-2xl border border-stone-100">
             {product.imageUrl || recipe?.imageUrl ? (
-              <img
-                src={product.imageUrl || recipe?.imageUrl}
-                alt={product.name}
-                className="w-14 h-14 object-cover rounded-xl bg-white border border-stone-200/60 shrink-0"
-              />
+              <div
+                className="relative group/thumb shrink-0 cursor-zoom-in"
+                onClick={() => setIsLightboxOpen(true)}
+                title="Foto in voller Größe ansehen"
+              >
+                <img
+                  src={product.imageUrl || recipe?.imageUrl}
+                  alt={product.name}
+                  className="w-14 h-14 object-cover rounded-xl bg-white border border-stone-200/60 shrink-0 group-hover/thumb:scale-105 transition-transform"
+                />
+                <div className="absolute inset-0 bg-stone-900/40 rounded-xl opacity-0 group-hover/thumb:opacity-100 flex items-center justify-center transition-opacity text-white">
+                  <Maximize2 className="w-3.5 h-3.5" />
+                </div>
+              </div>
             ) : (
               <div className={`w-14 h-14 rounded-xl flex items-center justify-center text-2xl shrink-0 ${
                 isDrink ? 'bg-blue-100 text-blue-800' : isBread ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100/60 text-emerald-800'
@@ -1167,6 +1178,15 @@ export const PortionCalculatorModal = ({
           </button>
         </form>
       </div>
+
+      {/* Fullscreen Photo Lightbox */}
+      <ImageLightboxModal
+        isOpen={isLightboxOpen}
+        imageSrc={product.imageUrl || recipe?.imageUrl || null}
+        title={product.name}
+        subtitle={product.brand ? `${product.brand} • ${product.calories100g} kcal / 100g` : `${product.calories100g} kcal / 100g`}
+        onClose={() => setIsLightboxOpen(false)}
+      />
     </div>
   );
 };

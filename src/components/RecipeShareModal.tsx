@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import { BrowserQRCodeSvgWriter } from '@zxing/browser';
 import { type CustomRecipe } from '../db/db';
 import { generateShareUrl, generateShareUrlSync } from '../utils/recipeShare';
-import { X, Copy, Check, Share2, MessageCircle } from 'lucide-react';
+import { X, Copy, Check, Share2, MessageCircle, Maximize2 } from 'lucide-react';
+import { ImageLightboxModal } from './ImageLightboxModal';
 
 interface RecipeShareModalProps {
   isOpen: boolean;
@@ -19,6 +20,7 @@ export const RecipeShareModal = ({
   const [copied, setCopied] = useState(false);
   const [shareUrl, setShareUrl] = useState<string>('');
   const [qrImageOmitted, setQrImageOmitted] = useState(false);
+  const [isLightboxOpen, setIsLightboxOpen] = useState(false);
 
   useEffect(() => {
     if (!isOpen || !recipe) return;
@@ -179,14 +181,19 @@ export const RecipeShareModal = ({
           {/* Recipe Card Preview */}
           <div className="bg-amber-50/70 p-3 rounded-2xl border border-amber-200/70 text-left flex gap-3 items-center">
             {recipe.imageUrl ? (
-              <div className="relative shrink-0 w-14 h-14 rounded-xl overflow-hidden border border-amber-200/80 shadow-xs bg-amber-100/50">
+              <div
+                className="relative shrink-0 w-14 h-14 rounded-xl overflow-hidden border border-amber-200/80 shadow-xs bg-amber-100/50 cursor-zoom-in group/thumb"
+                onClick={() => setIsLightboxOpen(true)}
+                title="Rezeptfoto vergrößern"
+              >
                 <img
                   src={recipe.imageUrl}
                   alt={recipe.name}
-                  className="w-full h-full object-cover"
+                  className="w-full h-full object-cover group-hover/thumb:scale-105 transition-transform"
                 />
-                <span className="absolute bottom-0 inset-x-0 bg-stone-900/65 text-white text-[8px] font-bold py-0.5 text-center backdrop-blur-xs">
-                  Foto 📸
+                <span className="absolute bottom-0 inset-x-0 bg-stone-900/65 text-white text-[8px] font-bold py-0.5 text-center backdrop-blur-xs flex items-center justify-center gap-0.5">
+                  <Maximize2 className="w-2.5 h-2.5 text-amber-300" />
+                  <span>Foto</span>
                 </span>
               </div>
             ) : (
@@ -266,6 +273,15 @@ export const RecipeShareModal = ({
           </div>
         </div>
       </div>
+
+      {/* Fullscreen Photo Lightbox */}
+      <ImageLightboxModal
+        isOpen={isLightboxOpen}
+        imageSrc={recipe.imageUrl || null}
+        title={recipe.name}
+        subtitle="Geteiltes Rezeptfoto"
+        onClose={() => setIsLightboxOpen(false)}
+      />
     </div>
   );
 };

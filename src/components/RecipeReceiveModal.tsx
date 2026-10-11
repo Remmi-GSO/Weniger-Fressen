@@ -1,6 +1,8 @@
+import { useState } from 'react';
 import { type CustomRecipe, db } from '../db/db';
-import { X, Check, Sparkles } from 'lucide-react';
+import { X, Check, Sparkles, Maximize2 } from 'lucide-react';
 import confetti from 'canvas-confetti';
+import { ImageLightboxModal } from './ImageLightboxModal';
 
 interface RecipeReceiveModalProps {
   isOpen: boolean;
@@ -15,6 +17,8 @@ export const RecipeReceiveModal = ({
   receivedRecipe,
   onSaved,
 }: RecipeReceiveModalProps) => {
+  const [isLightboxOpen, setIsLightboxOpen] = useState(false);
+
   if (!isOpen || !receivedRecipe) return null;
 
   const isBread = receivedRecipe.category === 'bread' || receivedRecipe.name.toLowerCase().includes('brot');
@@ -71,15 +75,25 @@ export const RecipeReceiveModal = ({
           
           <div className="text-center py-1">
             {receivedRecipe.imageUrl ? (
-              <div className="relative w-full h-44 rounded-2xl overflow-hidden border border-stone-200/80 shadow-xs mb-2.5 bg-stone-100">
+              <div
+                className="group relative w-full h-56 sm:h-64 rounded-2xl overflow-hidden border border-stone-200/80 shadow-xs mb-2.5 bg-stone-100 cursor-zoom-in"
+                onClick={() => setIsLightboxOpen(true)}
+                title="Tippen für appetitliche Vollbild-Ansicht"
+              >
                 <img
                   src={receivedRecipe.imageUrl}
                   alt={receivedRecipe.name}
-                  className="w-full h-full object-cover"
+                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                 />
-                <span className="absolute top-2.5 right-2.5 bg-stone-900/70 backdrop-blur-xs text-white text-[10px] font-bold px-2.5 py-0.5 rounded-full shadow-xs flex items-center gap-1">
-                  <span>📸</span>
-                  <span>Mit Rezeptfoto</span>
+                <div className="absolute inset-0 bg-stone-900/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white pointer-events-none">
+                  <span className="p-2 rounded-full bg-stone-900/75 backdrop-blur-xs flex items-center gap-1.5 text-xs font-bold border border-white/20 shadow-md">
+                    <Maximize2 className="w-3.5 h-3.5 text-amber-400" />
+                    <span>Groß ansehen</span>
+                  </span>
+                </div>
+                <span className="absolute top-2.5 right-2.5 bg-stone-900/75 backdrop-blur-xs text-white text-[10px] font-bold px-2.5 py-1 rounded-xl shadow-xs flex items-center gap-1.5 border border-white/10">
+                  <Maximize2 className="w-3 h-3 text-amber-400" />
+                  <span>Groß</span>
                 </span>
               </div>
             ) : (
@@ -191,6 +205,15 @@ export const RecipeReceiveModal = ({
           </div>
         </div>
       </div>
+
+      {/* Fullscreen Photo Lightbox */}
+      <ImageLightboxModal
+        isOpen={isLightboxOpen}
+        imageSrc={receivedRecipe.imageUrl || null}
+        title={receivedRecipe.name}
+        subtitle="Empfangenes Rezeptfoto"
+        onClose={() => setIsLightboxOpen(false)}
+      />
     </div>
   );
 };

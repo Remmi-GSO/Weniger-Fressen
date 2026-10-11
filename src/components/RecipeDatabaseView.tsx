@@ -31,8 +31,10 @@ import {
   Globe,
   Settings,
   RotateCcw,
+  Maximize2,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
+import { ImageLightboxModal } from './ImageLightboxModal';
 
 interface RecipeDatabaseViewProps {
   onOpenRecipeCreator: () => void;
@@ -65,6 +67,7 @@ export const RecipeDatabaseView: React.FC<RecipeDatabaseViewProps> = ({
   const [shareModalRecipe, setShareModalRecipe] = useState<CustomRecipe | null>(null);
   const [isSubmitModalOpen, setIsSubmitModalOpen] = useState(false);
   const [communitySubmitRecipe, setCommunitySubmitRecipe] = useState<CustomRecipe | null>(null);
+  const [lightboxImage, setLightboxImage] = useState<{ url: string; title: string; subtitle?: string } | null>(null);
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -662,12 +665,29 @@ export const RecipeDatabaseView: React.FC<RecipeDatabaseViewProps> = ({
                   >
                     <div className="space-y-2">
                       {cr.imageUrl ? (
-                        <div className="relative h-32 w-full rounded-xl overflow-hidden bg-stone-100 border border-stone-100">
+                        <div
+                          className="relative h-40 sm:h-44 w-full rounded-2xl overflow-hidden bg-stone-100 border border-stone-100 cursor-zoom-in group/img"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setLightboxImage({
+                              url: cr.imageUrl!,
+                              title: cr.name,
+                              subtitle: `Community-Rezept von ${cr.author}`,
+                            });
+                          }}
+                          title="Foto in voller Größe ansehen"
+                        >
                           <img
                             src={cr.imageUrl}
                             alt={cr.name}
-                            className="w-full h-full object-cover"
+                            className="w-full h-full object-cover group-hover/img:scale-105 transition-transform duration-300"
                           />
+                          <div className="absolute inset-0 bg-stone-900/30 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center text-white pointer-events-none">
+                            <span className="p-2 rounded-full bg-stone-900/75 backdrop-blur-xs flex items-center gap-1.5 text-xs font-bold border border-white/20 shadow-md">
+                              <Maximize2 className="w-3.5 h-3.5 text-amber-400" />
+                              <span>Groß ansehen</span>
+                            </span>
+                          </div>
                           <span className="absolute top-2 left-2 px-2 py-0.5 rounded-full bg-stone-900/75 backdrop-blur-xs text-[10px] font-bold text-white flex items-center gap-1.5 shadow-xs">
                             <img
                               src={authorAvatar}
@@ -675,6 +695,9 @@ export const RecipeDatabaseView: React.FC<RecipeDatabaseViewProps> = ({
                               className="w-4 h-4 rounded-full object-cover border border-white/70"
                             />
                             <span>{cr.author}</span>
+                          </span>
+                          <span className="absolute bottom-2 right-2 p-1.5 rounded-xl bg-stone-900/75 text-white backdrop-blur-xs shadow-xs sm:hidden border border-white/10">
+                            <Maximize2 className="w-3 h-3 text-amber-400" />
                           </span>
                           {isNew && (
                             <span className="absolute top-2 right-2 px-2 py-0.5 rounded-full bg-rose-500 text-[9px] font-black text-white shadow-xs animate-pulse">
@@ -834,11 +857,27 @@ export const RecipeDatabaseView: React.FC<RecipeDatabaseViewProps> = ({
                   <div className="p-3.5 sm:p-4 flex gap-3 sm:gap-4 items-start">
                     {/* Photo thumbnail */}
                     {r.imageUrl ? (
-                      <img
-                        src={r.imageUrl}
-                        alt={r.name}
-                        className="w-20 h-20 sm:w-24 sm:h-24 object-cover rounded-2xl bg-stone-100 border border-stone-200/80 shrink-0"
-                      />
+                      <div
+                        className="relative group/thumb shrink-0 cursor-zoom-in"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setLightboxImage({
+                            url: r.imageUrl!,
+                            title: r.name,
+                            subtitle: r.prepTimeMinutes ? `${r.prepTimeMinutes} Min. Zubereitung` : undefined,
+                          });
+                        }}
+                        title="Foto in voller Größe ansehen"
+                      >
+                        <img
+                          src={r.imageUrl}
+                          alt={r.name}
+                          className="w-20 h-20 sm:w-24 sm:h-24 object-cover rounded-2xl bg-stone-100 border border-stone-200/80 shrink-0 group-hover/thumb:scale-105 transition-transform"
+                        />
+                        <div className="absolute inset-0 bg-stone-900/40 rounded-2xl opacity-0 group-hover/thumb:opacity-100 flex items-center justify-center transition-opacity text-white">
+                          <Maximize2 className="w-4 h-4 text-white" />
+                        </div>
+                      </div>
                     ) : (
                       <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl bg-amber-50 border border-amber-200 flex items-center justify-center text-3xl shrink-0">
                         {r.category === 'bread' ? '🍞' : r.category === 'drink' ? '🥤' : '🥘'}
@@ -1027,11 +1066,31 @@ export const RecipeDatabaseView: React.FC<RecipeDatabaseViewProps> = ({
             {/* Modal Body */}
             <div className="p-4 overflow-y-auto space-y-3.5 flex-1 text-xs text-stone-700">
               {selectedCommunityRecipe.imageUrl && (
-                <img
-                  src={selectedCommunityRecipe.imageUrl}
-                  alt={selectedCommunityRecipe.name}
-                  className="w-full h-44 object-cover rounded-2xl border border-stone-100 shadow-2xs"
-                />
+                <div
+                  className="group relative rounded-2xl sm:rounded-3xl overflow-hidden h-56 sm:h-64 w-full bg-stone-100 border border-stone-100 shadow-2xs cursor-zoom-in"
+                  onClick={() => setLightboxImage({
+                    url: selectedCommunityRecipe.imageUrl!,
+                    title: selectedCommunityRecipe.name,
+                    subtitle: `Community-Rezept von ${selectedCommunityRecipe.author}`,
+                  })}
+                  title="Tippen für appetitliche Vollbild-Ansicht"
+                >
+                  <img
+                    src={selectedCommunityRecipe.imageUrl}
+                    alt={selectedCommunityRecipe.name}
+                    className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-stone-950/70 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end justify-between p-3.5 pointer-events-none">
+                    <span className="text-white text-xs font-bold flex items-center gap-1.5 bg-stone-900/80 px-3 py-1.5 rounded-xl backdrop-blur-xs border border-white/20 shadow-md">
+                      <Maximize2 className="w-3.5 h-3.5 text-amber-400" />
+                      <span>Foto groß ansehen</span>
+                    </span>
+                  </div>
+                  <span className="absolute top-2.5 right-2.5 bg-stone-900/75 backdrop-blur-xs text-white text-[11px] font-bold px-2.5 py-1 rounded-xl flex items-center gap-1.5 shadow-sm border border-white/10 sm:hidden">
+                    <Maximize2 className="w-3 h-3 text-amber-400" />
+                    <span>Groß</span>
+                  </span>
+                </div>
               )}
 
               {/* Nutrition summary */}
@@ -1175,6 +1234,15 @@ export const RecipeDatabaseView: React.FC<RecipeDatabaseViewProps> = ({
           }}
         />
       )}
+
+      {/* Image Lightbox Modal for Fullscreen Photo Viewing */}
+      <ImageLightboxModal
+        isOpen={Boolean(lightboxImage)}
+        imageSrc={lightboxImage?.url || null}
+        title={lightboxImage?.title}
+        subtitle={lightboxImage?.subtitle}
+        onClose={() => setLightboxImage(null)}
+      />
     </div>
   );
 };

@@ -30,8 +30,10 @@ import {
   Clock,
   CheckSquare,
   Square,
+  Maximize2,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
+import { ImageLightboxModal } from './ImageLightboxModal';
 
 interface RecipeCreatorModalProps {
   isOpen: boolean;
@@ -217,6 +219,7 @@ export const RecipeCreatorModal = ({
   const [recipeImageUrl, setRecipeImageUrl] = useState<string | null>(null);
   const [recipePrepTime, setRecipePrepTime] = useState<string>('20');
   const [recipeInstructions, setRecipeInstructions] = useState<string>('');
+  const [lightboxImage, setLightboxImage] = useState<{ url: string; title: string; subtitle?: string } | null>(null);
   const photoInputRef = useRef<HTMLInputElement>(null);
 
   const userProfile = useLiveQuery(() => db.userProfile.get('current'));
@@ -353,7 +356,7 @@ export const RecipeCreatorModal = ({
     const file = e.target.files?.[0];
     if (!file) return;
     try {
-      const compressed = await compressImage(file, 800, 0.75);
+      const compressed = await compressImage(file, 960, 0.80);
       setRecipeImageUrl(compressed.previewUrl);
     } catch (err) {
       console.error('Photo compress failed:', err);
@@ -1193,25 +1196,35 @@ export const RecipeCreatorModal = ({
                 className="hidden"
               />
               {recipeImageUrl ? (
-                <div className="relative rounded-2xl overflow-hidden border border-stone-200 group h-40 bg-stone-100 shadow-2xs">
+                <div className="relative rounded-2xl overflow-hidden border border-stone-200 group h-48 sm:h-56 bg-stone-100 shadow-2xs">
                   <img
                     src={recipeImageUrl}
                     alt="Rezeptfoto"
-                    className="w-full h-full object-cover"
+                    className="w-full h-full object-cover cursor-zoom-in transition-transform duration-300 group-hover:scale-105"
+                    onClick={() => setLightboxImage({ url: recipeImageUrl, title: name || 'Rezeptfoto Vorschau' })}
+                    title="Tippen für Vollbild-Vorschau"
                   />
-                  <div className="absolute inset-0 bg-stone-900/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                  <div className="absolute inset-0 bg-stone-900/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 pointer-events-none">
                     <button
                       type="button"
                       onClick={() => photoInputRef.current?.click()}
-                      className="py-1.5 px-3 rounded-xl bg-white/90 text-stone-800 font-bold text-xs hover:bg-white transition-all shadow-sm flex items-center gap-1 cursor-pointer"
+                      className="py-1.5 px-3 rounded-xl bg-white/90 text-stone-800 font-bold text-xs hover:bg-white transition-all shadow-sm flex items-center gap-1 cursor-pointer pointer-events-auto"
                     >
                       <Camera className="w-3.5 h-3.5" />
                       <span>Foto ändern</span>
                     </button>
                     <button
                       type="button"
+                      onClick={() => setLightboxImage({ url: recipeImageUrl, title: name || 'Rezeptfoto Vorschau' })}
+                      className="py-1.5 px-3 rounded-xl bg-stone-900/80 text-white font-bold text-xs hover:bg-stone-900 transition-all shadow-sm flex items-center gap-1 cursor-pointer pointer-events-auto"
+                    >
+                      <Maximize2 className="w-3.5 h-3.5 text-amber-400" />
+                      <span>Vergrößern</span>
+                    </button>
+                    <button
+                      type="button"
                       onClick={() => setRecipeImageUrl(null)}
-                      className="py-1.5 px-3 rounded-xl bg-rose-600/90 text-white font-bold text-xs hover:bg-rose-600 transition-all shadow-sm flex items-center gap-1 cursor-pointer"
+                      className="py-1.5 px-3 rounded-xl bg-rose-600/90 text-white font-bold text-xs hover:bg-rose-600 transition-all shadow-sm flex items-center gap-1 cursor-pointer pointer-events-auto"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                       <span>Entfernen</span>
@@ -1220,8 +1233,16 @@ export const RecipeCreatorModal = ({
                   <div className="absolute top-2 right-2 sm:hidden flex gap-1">
                     <button
                       type="button"
+                      onClick={() => setLightboxImage({ url: recipeImageUrl, title: name || 'Rezeptfoto Vorschau' })}
+                      className="p-1.5 rounded-xl bg-stone-900/70 text-white hover:bg-stone-900 backdrop-blur-xs"
+                      title="Vergrößern"
+                    >
+                      <Maximize2 className="w-3.5 h-3.5 text-amber-400" />
+                    </button>
+                    <button
+                      type="button"
                       onClick={() => setRecipeImageUrl(null)}
-                      className="p-1 rounded-lg bg-stone-900/60 text-white hover:bg-rose-600"
+                      className="p-1.5 rounded-xl bg-stone-900/70 text-white hover:bg-rose-600 backdrop-blur-xs"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
@@ -2261,11 +2282,27 @@ export const RecipeCreatorModal = ({
                                 >
                                   <div className="flex items-center gap-3 min-w-0">
                                     {r.imageUrl ? (
-                                      <img
-                                        src={r.imageUrl}
-                                        alt={r.name}
-                                        className="w-12 h-12 rounded-xl object-cover border border-stone-200 shrink-0 shadow-2xs"
-                                      />
+                                      <div
+                                        className="relative group/thumb shrink-0 cursor-zoom-in"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setLightboxImage({
+                                            url: r.imageUrl!,
+                                            title: r.name,
+                                            subtitle: r.prepTimeMinutes ? `${r.prepTimeMinutes} Min. Zubereitung` : undefined,
+                                          });
+                                        }}
+                                        title="Foto in voller Größe ansehen"
+                                      >
+                                        <img
+                                          src={r.imageUrl}
+                                          alt={r.name}
+                                          className="w-12 h-12 rounded-xl object-cover border border-stone-200 shrink-0 shadow-2xs group-hover/thumb:scale-105 transition-transform"
+                                        />
+                                        <div className="absolute inset-0 bg-stone-900/40 rounded-xl opacity-0 group-hover/thumb:opacity-100 flex items-center justify-center transition-opacity text-white">
+                                          <Maximize2 className="w-3.5 h-3.5 text-white" />
+                                        </div>
+                                      </div>
                                     ) : (
                                       <div
                                         className={`w-11 h-11 rounded-xl border flex items-center justify-center text-xl shrink-0 ${
@@ -2342,18 +2379,38 @@ export const RecipeCreatorModal = ({
                                 key={r.id}
                                 className="p-4 bg-white border-2 border-emerald-500/80 rounded-3xl transition-all shadow-md space-y-3.5 animate-in fade-in"
                               >
-                                {/* Hero Photo (if available) */}
+                                {/* Hero Photo (if available) - Klickbar für appetitliche Vollbild-Ansicht */}
                                 {r.imageUrl && (
-                                  <div className="relative rounded-2xl overflow-hidden h-44 w-full bg-stone-100 border border-stone-100 shadow-2xs">
+                                  <div
+                                    onClick={() => setLightboxImage({
+                                      url: r.imageUrl!,
+                                      title: r.name,
+                                      subtitle: r.prepTimeMinutes ? `${r.prepTimeMinutes} Min. Zubereitung • ${previewKcal} kcal / Portion` : undefined,
+                                    })}
+                                    className="group relative rounded-2xl sm:rounded-3xl overflow-hidden h-56 sm:h-72 w-full bg-stone-100 border border-stone-200/80 shadow-xs cursor-zoom-in transition-all"
+                                    title="Tippen für appetitliche Vollbild-Ansicht"
+                                  >
                                     <img
                                       src={r.imageUrl}
                                       alt={r.name}
-                                      className="w-full h-full object-cover"
+                                      className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
                                     />
+                                    {/* Desktop Hover Overlay */}
+                                    <div className="absolute inset-0 bg-gradient-to-t from-stone-950/70 via-stone-950/15 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end justify-between p-3.5 pointer-events-none">
+                                      <span className="text-white text-xs font-bold flex items-center gap-1.5 bg-stone-900/80 px-3 py-1.5 rounded-xl backdrop-blur-xs border border-white/20 shadow-md">
+                                        <Maximize2 className="w-3.5 h-3.5 text-amber-400" />
+                                        <span>Foto groß ansehen</span>
+                                      </span>
+                                    </div>
+                                    {/* Mobile Zoom-Pill */}
+                                    <span className="absolute top-2.5 right-2.5 bg-stone-900/75 backdrop-blur-xs text-white text-[11px] font-bold px-2.5 py-1 rounded-xl flex items-center gap-1.5 shadow-sm border border-white/10 sm:hidden">
+                                      <Maximize2 className="w-3 h-3 text-amber-400" />
+                                      <span>Groß</span>
+                                    </span>
                                     {r.prepTimeMinutes && (
-                                      <span className="absolute bottom-2.5 left-2.5 bg-stone-900/75 backdrop-blur-xs text-white text-xs font-bold px-2.5 py-1 rounded-xl flex items-center gap-1 shadow-sm">
+                                      <span className="absolute bottom-2.5 left-2.5 bg-stone-900/80 backdrop-blur-xs text-white text-xs font-bold px-3 py-1.5 rounded-xl flex items-center gap-1.5 shadow-sm border border-white/10">
                                         <Clock className="w-3.5 h-3.5 text-amber-400" />
-                                        {r.prepTimeMinutes} Min. Zubereitungszeit
+                                        <span>{r.prepTimeMinutes} Min. Zubereitungszeit</span>
                                       </span>
                                     )}
                                   </div>
@@ -3246,11 +3303,23 @@ export const RecipeCreatorModal = ({
               <div className="p-5 space-y-4">
                 <div className="flex items-center gap-3 p-3 bg-stone-50 rounded-2xl border border-stone-100">
                   {diaryLogModalRecipe.imageUrl ? (
-                    <img
-                      src={diaryLogModalRecipe.imageUrl}
-                      alt={diaryLogModalRecipe.name}
-                      className="w-12 h-12 rounded-xl object-cover border border-stone-200 shrink-0"
-                    />
+                    <div
+                      className="relative group/thumb shrink-0 cursor-zoom-in"
+                      onClick={() => setLightboxImage({
+                        url: diaryLogModalRecipe.imageUrl!,
+                        title: diaryLogModalRecipe.name,
+                      })}
+                      title="Foto in voller Größe ansehen"
+                    >
+                      <img
+                        src={diaryLogModalRecipe.imageUrl}
+                        alt={diaryLogModalRecipe.name}
+                        className="w-12 h-12 rounded-xl object-cover border border-stone-200 shrink-0 group-hover/thumb:scale-105 transition-transform"
+                      />
+                      <div className="absolute inset-0 bg-stone-900/40 rounded-xl opacity-0 group-hover/thumb:opacity-100 flex items-center justify-center transition-opacity text-white">
+                        <Maximize2 className="w-3.5 h-3.5" />
+                      </div>
+                    </div>
                   ) : (
                     <div className="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center text-xl shrink-0">
                       {diaryLogModalRecipe.category === 'bread' ? '🍞' : diaryLogModalRecipe.category === 'drink' ? '🥤' : diaryLogModalRecipe.category === 'salad' ? '🥗' : '🍲'}
@@ -3546,6 +3615,15 @@ export const RecipeCreatorModal = ({
             </div>
           </div>
         )}
+
+        {/* Image Lightbox Modal for Fullscreen Photo Viewing */}
+        <ImageLightboxModal
+          isOpen={Boolean(lightboxImage)}
+          imageSrc={lightboxImage?.url || null}
+          title={lightboxImage?.title}
+          subtitle={lightboxImage?.subtitle}
+          onClose={() => setLightboxImage(null)}
+        />
       </div>
     </div>
   );
