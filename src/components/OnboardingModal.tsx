@@ -5,6 +5,7 @@ import { Sparkles, ArrowRight, ShieldCheck, Dumbbell, Footprints, X, Upload, Cam
 import { BackupManagerModal } from './BackupManagerModal';
 import { AvatarCropModal } from './AvatarCropModal';
 import { getAuthorAvatar, AVATAR_PRESETS, generateAvatarSvg } from '../utils/avatar';
+import { trackUserActivity } from '../utils/analytics';
 
 interface OnboardingModalProps {
   onComplete: () => void;
@@ -120,6 +121,7 @@ export const OnboardingModal = ({ onComplete, initialProfile }: OnboardingModalP
       });
     }
 
+    trackUserActivity(name.trim(), calculation.targetCalories);
     onComplete();
   };
 

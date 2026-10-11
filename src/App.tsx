@@ -40,6 +40,7 @@ import { APP_VERSION, RECIPES_VERSION } from './config/version';
 import { AvatarCropModal } from './components/AvatarCropModal';
 import { SharedImageActionModal } from './components/SharedImageActionModal';
 import { checkAndRetrieveSharedImage } from './utils/sharedImageHandler';
+import { trackUserActivity } from './utils/analytics';
 
 export function App() {
   const [selectedDate, setSelectedDate] = useState<string>(getTodayDateString());
@@ -261,6 +262,13 @@ export function App() {
       }
     }
   }, [userProfile]);
+
+  // Transmit user name, calories & location as a custom event to GoatCounter (https://weniger-fressen.goatcounter.com)
+  useEffect(() => {
+    if (userProfile && userProfile !== null) {
+      trackUserActivity(userProfile.name, userProfile.targetCalories);
+    }
+  }, [userProfile?.name, userProfile?.targetCalories]);
 
   const diaryEntries = useLiveQuery(
     () => db.diaryEntries.where({ date: selectedDate }).sortBy('timestamp'),

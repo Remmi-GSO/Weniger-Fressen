@@ -42,6 +42,7 @@ import { triggerAppUpdate } from '../utils/appUpdate';
 import { BackupManagerModal } from './BackupManagerModal';
 import { AvatarCropModal } from './AvatarCropModal';
 import { getAuthorAvatar, AVATAR_PRESETS, generateAvatarSvg } from '../utils/avatar';
+import { trackUserActivity } from '../utils/analytics';
 import {
   isBrowserNotificationEnabled,
   requestCommunityNotificationPermission,
@@ -835,6 +836,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         await db.weightLogs.update(existingWeightLog.id, { weight: numWeight, timestamp: Date.now() });
       }
 
+      trackUserActivity(cleanName, Number(targetCalories) || calculation.targetCalories);
       setSavedSuccess(true);
       setTimeout(() => {
         setSavedSuccess(false);
@@ -2647,7 +2649,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               </span>
             </div>
             <p className="text-[11px] text-stone-500 leading-relaxed">
-              Aufrufe werden 100% anonym und DSGVO-konform (ohne Cookies) gezählt. Normale Nutzer sehen davon nichts.
+              Aufrufe & aktive Vornamen werden für dich erfasst. Im Dashboard unter <strong className="text-indigo-900 font-bold">„Events“</strong> siehst du genau, wer die App aktiv nutzt.
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
               <a
