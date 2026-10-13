@@ -104,26 +104,76 @@ export interface ParsedRecipeResult {
 
 /**
  * Budget-friendly & free-tier optimized Gemini models.
- * Google recommends gemini-3.8-flash and gemini-3.5-flash-lite for ultra-low latency,
- * zero/minimal cost and generous free tier quotas.
+ * Google uses the dynamic alias "gemini-flash-latest" as well as specific versioned flash models.
  */
 export const CANDIDATE_MODELS = [
+  'gemini-flash-latest',
   'gemini-3.8-flash',
-  'gemini-3.5-flash-lite',
+  'gemini-3.7-flash',
+  'gemini-3.5-flash',
+  'gemini-3.1-flash-lite',
   'gemini-2.5-flash',
   'gemini-2.0-flash',
   'gemini-1.5-flash',
 ];
 
-let cachedWorkingModel: string | null = null;
+const STORAGE_WORKING_MODEL_KEY = 'weniger_fressen_working_gemini_model';
+
+let cachedWorkingModel: string | null = (() => {
+  try {
+    return localStorage.getItem(STORAGE_WORKING_MODEL_KEY);
+  } catch {
+    return null;
+  }
+})();
 
 export function getActiveGeminiModel(): string {
   return cachedWorkingModel || CANDIDATE_MODELS[0];
 }
 
 /**
- * Executes a Gemini request with automatic graceful fallback across models.
- * Prevents 404 deprecation errors for new/unprovisioned models and protects user budget.
+ * Dynamically queries Google ModelService (https://generativelanguage.googleapis.com/v1beta/models)
+ * to discover the exact models supported and active for this user's API key.
+ */
+async function fetchAvailableModelsFromGoogle(cleanKey: string): Promise<string[]> {
+  try {
+    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${cleanKey}`);
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data?.models)) {
+        const models: string[] = data.models
+          .filter((m: any) =>
+            Array.isArray(m?.supportedGenerationMethods) &&
+            m.supportedGenerationMethods.includes('generateContent') &&
+            typeof m.name === 'string' &&
+            !m.name.includes('embedding') &&
+            !m.name.includes('aqa') &&
+            !m.name.includes('imagen')
+          )
+          .map((m: any) => m.name.replace(/^models\//, ''));
+
+        // Sort so flash / fast models come first, then alphabetical descending
+        models.sort((a: string, b: string) => {
+          const aFlash = a.includes('flash') ? 1 : 0;
+          const bFlash = b.includes('flash') ? 1 : 0;
+          if (aFlash !== bFlash) return bFlash - aFlash;
+          return b.localeCompare(a);
+        });
+
+        if (models.length > 0) {
+          return models;
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('[Gemini] Dynamische Modellabfrage fehlgeschlagen:', err);
+  }
+  return [];
+}
+
+/**
+ * Executes a Gemini request with automatic graceful fallback across models and dynamic discovery.
+ * Prevents 404 deprecation errors and protects user budget.
  */
 async function callGeminiApi({
   apiKey,
@@ -139,74 +189,109 @@ async function callGeminiApi({
     throw new Error('Kein Gemini API-Key hinterlegt. Bitte trage deinen kostenlosen Key in den Einstellungen ein.');
   }
 
-  const modelsToTry = cachedWorkingModel
+  let modelsToTry = cachedWorkingModel
     ? [cachedWorkingModel, ...CANDIDATE_MODELS.filter((m) => m !== cachedWorkingModel)]
-    : CANDIDATE_MODELS;
+    : [...CANDIDATE_MODELS];
 
   let lastError: Error | null = null;
+  let triedDynamicDiscovery = false;
 
-  for (const model of modelsToTry) {
-    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${cleanKey}`;
-    try {
-      const res = await fetch(endpoint, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          contents: [{ parts }],
-          generationConfig: {
-            responseMimeType: 'application/json',
-            temperature,
+  const tryModelEndpoint = async (model: string): Promise<{ rawText: string; model: string } | null> => {
+    // Try v1beta first, fallback to v1 if 404
+    for (const apiVersion of ['v1beta', 'v1']) {
+      const endpoint = `https://generativelanguage.googleapis.com/${apiVersion}/models/${model}:generateContent?key=${cleanKey}`;
+      try {
+        const res = await fetch(endpoint, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
           },
-        }),
-      });
+          body: JSON.stringify({
+            contents: [{ parts }],
+            generationConfig: {
+              responseMimeType: 'application/json',
+              temperature,
+            },
+          }),
+        });
 
-      if (res.ok) {
-        cachedWorkingModel = model;
-        const data = await res.json();
-        const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-        if (!rawText) {
-          throw new Error('Keine Antwort von Gemini erhalten.');
+        if (res.ok) {
+          cachedWorkingModel = model;
+          try {
+            localStorage.setItem(STORAGE_WORKING_MODEL_KEY, model);
+          } catch {
+            // ignore
+          }
+          const data = await res.json();
+          const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+          if (!rawText) {
+            throw new Error('Keine Antwort von Gemini erhalten.');
+          }
+          return { rawText, model };
         }
-        return { rawText, model };
-      }
 
-      const errJson = await res.json().catch(() => ({}));
-      const msg = errJson?.error?.message || res.statusText;
+        const errJson = await res.json().catch(() => ({}));
+        const msg = errJson?.error?.message || res.statusText;
 
-      // Check if model is deprecated or not available for this project/user (404)
-      const isModelUnavailable =
-        res.status === 404 ||
-        msg.includes('is no longer available') ||
-        msg.includes('not found') ||
-        msg.includes('not supported') ||
-        msg.includes('deprecated');
+        // Check if model is deprecated or not available for this project/user (404)
+        const isModelUnavailable =
+          res.status === 404 ||
+          msg.includes('is no longer available') ||
+          msg.includes('not found') ||
+          msg.includes('not supported') ||
+          msg.includes('deprecated');
 
-      if (isModelUnavailable) {
-        console.warn(`Gemini-Modell ${model} nicht verfügbar (${msg}), versuche nächstes Modell...`);
-        lastError = new Error(`Gemini API Fehler (${res.status}): ${msg}`);
-        continue;
-      }
+        if (isModelUnavailable) {
+          if (cachedWorkingModel === model) {
+            cachedWorkingModel = null;
+            try {
+              localStorage.removeItem(STORAGE_WORKING_MODEL_KEY);
+            } catch {
+              // ignore
+            }
+          }
+          lastError = new Error(`Gemini API Fehler (${res.status}): ${msg}`);
+          continue; // Try next apiVersion or return null
+        }
 
-      // If budget / quota (429) or invalid key (400 / 403), throw immediately with helpful German guidance
-      if (res.status === 429) {
-        throw new Error('Gemini API-Limit erreicht (429). Bitte warte einen kurzen Moment und versuche es erneut (im kostenlosen Kontingent von Google).');
-      }
-      if (res.status === 400 || res.status === 403) {
-        throw new Error(`Gemini API-Key ungültig oder Berechtigung verweigert (${res.status}): ${msg}`);
-      }
+        // If budget / quota (429) or invalid key (400 / 403), throw immediately with helpful German guidance
+        if (res.status === 429) {
+          throw new Error('Gemini API-Limit erreicht (429). Bitte warte einen kurzen Moment und versuche es erneut (im kostenlosen Kontingent von Google).');
+        }
+        if (res.status === 400 || res.status === 403) {
+          throw new Error(`Gemini API-Key ungültig oder Berechtigung verweigert (${res.status}): ${msg}`);
+        }
 
-      throw new Error(`Gemini API Fehler (${res.status}): ${msg}`);
-    } catch (err: any) {
-      if (err.message?.includes('Gemini API-Limit') || err.message?.includes('Gemini API-Key')) {
-        throw err;
+        throw new Error(`Gemini API Fehler (${res.status}): ${msg}`);
+      } catch (err: any) {
+        if (err.message?.includes('Gemini API-Limit') || err.message?.includes('Gemini API-Key')) {
+          throw err;
+        }
+        lastError = err;
       }
-      lastError = err;
+    }
+    return null;
+  };
+
+  for (let i = 0; i < modelsToTry.length; i++) {
+    const model = modelsToTry[i];
+    const success = await tryModelEndpoint(model);
+    if (success) {
+      return success;
+    }
+
+    // If reaching end of initial list and not yet dynamically discovered from Google ModelService:
+    if (i === modelsToTry.length - 1 && !triedDynamicDiscovery) {
+      triedDynamicDiscovery = true;
+      const discovered = await fetchAvailableModelsFromGoogle(cleanKey);
+      const newModels = discovered.filter((m) => !modelsToTry.includes(m));
+      if (newModels.length > 0) {
+        modelsToTry.push(...newModels);
+      }
     }
   }
 
-  throw lastError || new Error('Kein kompatibles Gemini-Modell gefunden.');
+  throw lastError || new Error('Kein kompatibles Gemini-Modell für deinen API-Key gefunden. Bitte prüfe deinen API-Key in den Einstellungen.');
 }
 
 /**
